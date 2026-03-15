@@ -9,6 +9,7 @@ import type {
   RecordingResult,
 } from './types'
 import { loadDefinition } from './validation'
+import { timestamp } from './utils'
 import { createZoomState } from './zoom'
 
 export async function record(
@@ -102,7 +103,7 @@ export async function record(
 
     if (step.action === 'screenshot') {
       const name =
-        'name' in step && step.name ? step.name : `step-${Date.now()}`
+        'name' in step && step.name ? step.name : `step-${timestamp()}`
       screenshots.push(path.join(outputDir, `${name}.png`))
     }
 
@@ -112,19 +113,30 @@ export async function record(
   }
 
   // Final screenshot
-  const finalPath = path.join(outputDir, 'final.png')
+  const finalPath = path.join(outputDir, `final-${timestamp()}.png`)
   await page.screenshot({ path: finalPath })
   screenshots.push(finalPath)
 
+  // Save video: close the context first (finalizes the video file),
+  // then call saveAs on the video handle.
+  const video = page.video()
+  const baseName = typeof input === 'string'
+    ? path.basename(input, path.extname(input))
+    : 'recording'
+  let videoPath: string | undefined
+
   await context.close()
+
+  if (video) {
+    videoPath = path.join(outputDir, `${baseName}-${timestamp()}.webm`)
+    await video.saveAs(videoPath)
+    await video.delete()
+  }
+
   await browser.close()
 
-  // Find video file
-  const files = fs.readdirSync(outputDir)
-  const videoFile = files.find((f: string) => f.endsWith('.webm'))
-
   return {
-    video: videoFile ? path.join(outputDir, videoFile) : undefined,
+    video: videoPath,
     screenshots,
   }
 }

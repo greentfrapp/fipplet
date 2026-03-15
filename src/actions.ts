@@ -16,6 +16,7 @@ import type {
   WaitStep,
   ZoomStep,
 } from './types'
+import { timestamp } from './utils'
 import { restoreZoom, suspendZoom } from './zoom'
 
 type ActionHandler<S extends Step = Step> = (
@@ -121,7 +122,7 @@ async function handleScreenshot(
   step: ScreenshotStep,
   ctx: ActionContext,
 ): Promise<void> {
-  const name = step.name ?? `step-${Date.now()}`
+  const name = step.name ?? `step-${timestamp()}`
   const filepath = path.join(ctx.outputDir, `${name}.png`)
   await page.screenshot({ path: filepath, fullPage: step.fullPage ?? false })
 }

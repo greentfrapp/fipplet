@@ -54,7 +54,7 @@ try {
   const def = loadDefinition(defPath)
   console.log(`fipplet: ${def.steps.length} steps → ${def.url}\n`)
 
-  const result = await record(def, { outputDir, headless })
+  const result = await record(defPath, { outputDir, headless })
 
   console.log('\nDone!')
   if (result.video) {
