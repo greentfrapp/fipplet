@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { chromium } from 'playwright'
+import { chromium } from 'playwright-core'
 import { ACTIONS } from './actions'
 import type {
   ActionContext,
@@ -33,6 +33,7 @@ export async function record(
     storageState = JSON.parse(fs.readFileSync(statePath, 'utf-8'))
   }
 
+  process.stderr.write('  launching browser...\n')
   const browser = await chromium.launch({ headless })
 
   const contextOptions: Record<string, unknown> = {
@@ -71,13 +72,13 @@ export async function record(
       }
     }, def.localStorage)
     await page
-      .reload({ waitUntil: 'networkidle', timeout: 15000 })
-      .catch((err) => process.stderr.write(`  warning: reload did not reach networkidle: ${err.message}\n`))
+      .reload({ waitUntil: 'load', timeout: 15000 })
+      .catch((err) => process.stderr.write(`  warning: reload did not reach load: ${err.message}\n`))
   } else {
     try {
-      await page.goto(def.url, { waitUntil: 'networkidle', timeout: 15000 })
+      await page.goto(def.url, { waitUntil: 'load', timeout: 15000 })
     } catch {
-      // Page didn't reach networkidle, continue anyway
+      // Page didn't reach load, continue anyway
     }
   }
 

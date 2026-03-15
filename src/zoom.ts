@@ -1,4 +1,4 @@
-import type { Page } from 'playwright'
+import type { Page } from 'playwright-core'
 import type { ZoomState } from './types'
 
 export function createZoomState(): ZoomState {

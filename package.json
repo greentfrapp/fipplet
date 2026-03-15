@@ -14,7 +14,7 @@
     }
   },
   "bin": {
-    "fipplet": "./dist/cli.js"
+    "fipplet": "./dist/cli.cjs"
   },
   "files": [
     "dist"
@@ -38,12 +38,12 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "playwright": ">=1.49.0"
+    "playwright-core": ">=1.49.0"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/node": "^25.5.0",
-    "playwright": "^1.49.0",
+    "playwright-core": "^1.58.2",
     "prettier": "^3.8.1",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",

@@ -48,11 +48,11 @@ if (!defPath) {
   process.exit(1)
 }
 
-try {
-  const def = loadDefinition(defPath)
+async function main() {
+  const def = loadDefinition(defPath!)
   console.log(`fipplet: ${def.steps.length} steps → ${def.url}\n`)
 
-  const result = await record(defPath, { outputDir, headless })
+  const result = await record(defPath!, { outputDir, headless })
 
   console.log('\nDone!')
   if (result.video) {
@@ -61,8 +61,10 @@ try {
   if (result.screenshots.length > 0) {
     console.log(`  Screenshots: ${result.screenshots.length} file(s)`)
   }
-} catch (err) {
+}
+
+main().catch((err) => {
   const msg = err instanceof Error ? err.message : String(err)
   console.error(`Error: ${msg}`)
   process.exit(1)
-}
+})
