@@ -1,0 +1,46 @@
+{
+  "name": "fipplet",
+  "version": "0.1.0",
+  "description": "Programmatic video infrastructure for web apps",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "bin": {
+    "fipplet": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "tsup"
+  },
+  "keywords": [
+    "video",
+    "recording",
+    "browser",
+    "playwright",
+    "demo",
+    "screenshot",
+    "automation",
+    "pr-demo"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "playwright": ">=1.49.0"
+  },
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@types/node": "^25.5.0",
+    "playwright": "^1.49.0",
+    "prettier": "^3.8.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0"
+  }
+}
