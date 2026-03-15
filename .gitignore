@@ -3,3 +3,4 @@ dist/
 *.tgz
 fipplet-output/
 .env
+.DS_Store
