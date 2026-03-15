@@ -64,7 +64,7 @@ export async function record(
   if (def.localStorage && Object.keys(def.localStorage).length > 0) {
     await page
       .goto(def.url, { waitUntil: 'commit', timeout: 15000 })
-      .catch(() => {})
+      .catch((err) => process.stderr.write(`  warning: initial navigation failed: ${err.message}\n`))
     await page.evaluate((entries: Record<string, string>) => {
       for (const [key, value] of Object.entries(entries)) {
         localStorage.setItem(key, value)
@@ -72,7 +72,7 @@ export async function record(
     }, def.localStorage)
     await page
       .reload({ waitUntil: 'networkidle', timeout: 15000 })
-      .catch(() => {})
+      .catch((err) => process.stderr.write(`  warning: reload did not reach networkidle: ${err.message}\n`))
   } else {
     try {
       await page.goto(def.url, { waitUntil: 'networkidle', timeout: 15000 })
@@ -84,7 +84,7 @@ export async function record(
   if (def.waitForSelector) {
     await page
       .waitForSelector(def.waitForSelector, { timeout: 10000 })
-      .catch(() => {})
+      .catch((err) => process.stderr.write(`  warning: waitForSelector '${def.waitForSelector}' failed: ${err.message}\n`))
   }
 
   // Execute steps
@@ -95,16 +95,13 @@ export async function record(
     process.stderr.write(`  [${i + 1}/${def.steps.length}] ${label}\n`)
 
     try {
-      await ACTIONS[step.action](page, step, ctx)
+      const result = await ACTIONS[step.action](page, step, ctx)
+      if (step.action === 'screenshot' && typeof result === 'string') {
+        screenshots.push(result)
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       process.stderr.write(`  step ${i + 1} failed: ${msg}\n`)
-    }
-
-    if (step.action === 'screenshot') {
-      const name =
-        'name' in step && step.name ? step.name : `step-${timestamp()}`
-      screenshots.push(path.join(outputDir, `${name}.png`))
     }
 
     if (step.action !== 'wait') {

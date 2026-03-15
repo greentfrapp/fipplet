@@ -16,14 +16,18 @@ import type {
   WaitStep,
   ZoomStep,
 } from './types'
-import { timestamp } from './utils'
+import { sanitizeFilename, timestamp } from './utils'
 import { restoreZoom, suspendZoom } from './zoom'
 
-type ActionHandler<S extends Step = Step> = (
+type ActionHandler = (
   page: Page,
-  step: S,
+  step: Step,
   ctx: ActionContext,
-) => Promise<void>
+) => Promise<void | string>
+
+function action<S extends Step>(handler: (page: Page, step: S, ctx: ActionContext) => Promise<void | string>): ActionHandler {
+  return handler as ActionHandler
+}
 
 async function handleWait(page: Page, step: WaitStep): Promise<void> {
   await page.waitForTimeout(step.ms ?? 1000)
@@ -83,7 +87,7 @@ async function handleSelect(
   await restoreZoom(page, ctx.zoomState)
 }
 
-async function handleScroll(page: Page, step: ScrollStep): Promise<void> {
+async function handleScroll(page: Page, step: ScrollStep, _ctx: ActionContext): Promise<void> {
   await page.evaluate(({ x, y }) => window.scrollBy(x ?? 0, y ?? 0), {
     x: step.x,
     y: step.y,
@@ -100,7 +104,7 @@ async function handleHover(
   await restoreZoom(page, ctx.zoomState)
 }
 
-async function handleKeyboard(page: Page, step: KeyboardStep): Promise<void> {
+async function handleKeyboard(page: Page, step: KeyboardStep, _ctx: ActionContext): Promise<void> {
   await page.keyboard.press(step.key)
 }
 
@@ -114,17 +118,18 @@ async function handleNavigate(
   ctx.zoomState.ty = 0
   await page
     .goto(step.url, { waitUntil: 'networkidle', timeout: 10000 })
-    .catch(() => {})
+    .catch((err) => process.stderr.write(`  warning: navigate to '${step.url}' did not reach networkidle: ${err.message}\n`))
 }
 
 async function handleScreenshot(
   page: Page,
   step: ScreenshotStep,
   ctx: ActionContext,
-): Promise<void> {
-  const name = step.name ?? `step-${timestamp()}`
+): Promise<string> {
+  const name = sanitizeFilename(step.name ?? `step-${timestamp()}`)
   const filepath = path.join(ctx.outputDir, `${name}.png`)
   await page.screenshot({ path: filepath, fullPage: step.fullPage ?? false })
+  return filepath
 }
 
 async function handleZoom(
@@ -164,7 +169,9 @@ async function handleZoom(
     targetY = step.y ?? 360
   }
 
-  const { width: vw, height: vh } = page.viewportSize()!
+  const vp = page.viewportSize()
+  if (!vp) throw new Error('viewport size not set — cannot compute zoom translation')
+  const { width: vw, height: vh } = vp
 
   const tx = vw / 2 / scale - targetX
   const ty = vh / 2 / scale - targetY
@@ -200,16 +207,16 @@ async function handleZoom(
 }
 
 export const ACTIONS: Record<string, ActionHandler> = {
-  wait: handleWait as ActionHandler,
-  click: handleClick as ActionHandler,
-  type: handleType as ActionHandler,
-  clear: handleClear as ActionHandler,
-  fill: handleFill as ActionHandler,
-  select: handleSelect as ActionHandler,
-  scroll: handleScroll as ActionHandler,
-  hover: handleHover as ActionHandler,
-  keyboard: handleKeyboard as ActionHandler,
-  navigate: handleNavigate as ActionHandler,
-  screenshot: handleScreenshot as ActionHandler,
-  zoom: handleZoom as ActionHandler,
+  wait: action<WaitStep>(handleWait),
+  click: action<ClickStep>(handleClick),
+  type: action<TypeStep>(handleType),
+  clear: action<ClearStep>(handleClear),
+  fill: action<FillStep>(handleFill),
+  select: action<SelectStep>(handleSelect),
+  scroll: action<ScrollStep>(handleScroll),
+  hover: action<HoverStep>(handleHover),
+  keyboard: action<KeyboardStep>(handleKeyboard),
+  navigate: action<NavigateStep>(handleNavigate),
+  screenshot: action<ScreenshotStep>(handleScreenshot),
+  zoom: action<ZoomStep>(handleZoom),
 }

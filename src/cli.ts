@@ -23,10 +23,8 @@ Examples:
 }
 
 if (args.includes('--version') || args.includes('-v')) {
-  const { createRequire } = await import('module')
-  const require = createRequire(import.meta.url)
-  const pkg = require('../package.json')
-  console.log(pkg.version)
+  declare const __FIPPLET_VERSION__: string
+  console.log(__FIPPLET_VERSION__)
   process.exit(0)
 }
 

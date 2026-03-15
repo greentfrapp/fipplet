@@ -1,4 +1,5 @@
 import { defineConfig } from "tsup";
+import pkg from "./package.json";
 
 export default defineConfig([
   {
@@ -13,5 +14,8 @@ export default defineConfig([
     format: ["esm"],
     banner: { js: "#!/usr/bin/env node" },
     splitting: false,
+    define: {
+      __FIPPLET_VERSION__: JSON.stringify(pkg.version),
+    },
   },
 ]);

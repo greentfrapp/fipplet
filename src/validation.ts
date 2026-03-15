@@ -6,8 +6,19 @@ export function loadDefinition(input: string | object): RecordingDefinition {
   let def: RecordingDefinition
 
   if (typeof input === 'string') {
-    const raw = fs.readFileSync(input, 'utf-8')
-    def = JSON.parse(raw)
+    let raw: string
+    try {
+      raw = fs.readFileSync(input, 'utf-8')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Failed to read recording definition '${input}': ${msg}`)
+    }
+    try {
+      def = JSON.parse(raw)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Failed to parse recording definition '${input}' as JSON: ${msg}`)
+    }
   } else {
     def = input as RecordingDefinition
   }
@@ -22,12 +33,27 @@ export function loadDefinition(input: string | object): RecordingDefinition {
     )
   }
 
+  const selectorRequired = new Set(['click', 'type', 'clear', 'fill', 'select', 'hover'])
+  const textRequired = new Set(['type', 'fill'])
+
   for (const [i, step] of def.steps.entries()) {
     if (!step.action) {
       throw new Error(`Step ${i} missing 'action' field`)
     }
     if (!ACTIONS[step.action]) {
       throw new Error(`Step ${i}: unknown action '${step.action}'`)
+    }
+    if (selectorRequired.has(step.action) && !('selector' in step && step.selector)) {
+      throw new Error(`Step ${i} ('${step.action}'): missing required 'selector' field`)
+    }
+    if (textRequired.has(step.action) && !('text' in step && step.text !== undefined)) {
+      throw new Error(`Step ${i} ('${step.action}'): missing required 'text' field`)
+    }
+    if (step.action === 'keyboard' && !('key' in step && step.key)) {
+      throw new Error(`Step ${i} ('keyboard'): missing required 'key' field`)
+    }
+    if (step.action === 'navigate' && !('url' in step && step.url)) {
+      throw new Error(`Step ${i} ('navigate'): missing required 'url' field`)
     }
   }
 
