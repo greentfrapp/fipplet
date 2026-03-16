@@ -1,9 +1,10 @@
 export { record } from './recorder.js'
-export { loadDefinition } from './validation.js'
+export { loadDefinition, loadSetup } from './validation.js'
 export type {
   RecordingDefinition,
   RecordOptions,
   RecordingResult,
+  SetupBlock,
   Step,
   ActionName,
   Viewport,

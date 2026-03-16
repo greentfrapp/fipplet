@@ -1,6 +1,6 @@
 import fs from 'fs'
 import { ACTIONS } from './actions'
-import type { RecordingDefinition } from './types'
+import type { RecordingDefinition, SetupBlock, Step } from './types'
 
 const ENV_VAR_PATTERN = /\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g
 
@@ -65,29 +65,72 @@ export function loadDefinition(input: string | object): RecordingDefinition {
     )
   }
 
-  const selectorRequired = new Set(['click', 'type', 'clear', 'fill', 'select', 'hover'])
-  const textRequired = new Set(['type', 'fill'])
+  validateSteps(def.steps, 'Step')
 
-  for (const [i, step] of def.steps.entries()) {
-    if (!step.action) {
-      throw new Error(`Step ${i} missing 'action' field`)
+  if (def.setup) {
+    if (!Array.isArray(def.setup.steps) || def.setup.steps.length === 0) {
+      throw new Error("Setup block must include a non-empty 'steps' array")
     }
-    if (!ACTIONS[step.action]) {
-      throw new Error(`Step ${i}: unknown action '${step.action}'`)
-    }
-    if (selectorRequired.has(step.action) && !('selector' in step && step.selector)) {
-      throw new Error(`Step ${i} ('${step.action}'): missing required 'selector' field`)
-    }
-    if (textRequired.has(step.action) && !('text' in step && step.text !== undefined)) {
-      throw new Error(`Step ${i} ('${step.action}'): missing required 'text' field`)
-    }
-    if (step.action === 'keyboard' && !('key' in step && step.key)) {
-      throw new Error(`Step ${i} ('keyboard'): missing required 'key' field`)
-    }
-    if (step.action === 'navigate' && !('url' in step && step.url)) {
-      throw new Error(`Step ${i} ('navigate'): missing required 'url' field`)
-    }
+    validateSteps(def.setup.steps, 'Setup step')
   }
 
   return def
+}
+
+function validateSteps(steps: Step[], prefix: string): void {
+  const selectorRequired = new Set(['click', 'type', 'clear', 'fill', 'select', 'hover'])
+  const textRequired = new Set(['type', 'fill'])
+
+  for (const [i, step] of steps.entries()) {
+    if (!step.action) {
+      throw new Error(`${prefix} ${i} missing 'action' field`)
+    }
+    if (!ACTIONS[step.action]) {
+      throw new Error(`${prefix} ${i}: unknown action '${step.action}'`)
+    }
+    if (selectorRequired.has(step.action) && !('selector' in step && step.selector)) {
+      throw new Error(`${prefix} ${i} ('${step.action}'): missing required 'selector' field`)
+    }
+    if (textRequired.has(step.action) && !('text' in step && step.text !== undefined)) {
+      throw new Error(`${prefix} ${i} ('${step.action}'): missing required 'text' field`)
+    }
+    if (step.action === 'keyboard' && !('key' in step && step.key)) {
+      throw new Error(`${prefix} ${i} ('keyboard'): missing required 'key' field`)
+    }
+    if (step.action === 'navigate' && !('url' in step && step.url)) {
+      throw new Error(`${prefix} ${i} ('navigate'): missing required 'url' field`)
+    }
+  }
+}
+
+export function loadSetup(input: string | object): SetupBlock {
+  let setup: SetupBlock
+
+  if (typeof input === 'string') {
+    let raw: string
+    try {
+      raw = fs.readFileSync(input, 'utf-8')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Failed to read setup file '${input}': ${msg}`)
+    }
+    try {
+      setup = JSON.parse(raw)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Failed to parse setup file '${input}' as JSON: ${msg}`)
+    }
+  } else {
+    setup = input as SetupBlock
+  }
+
+  setup = substituteDeep(setup)
+
+  if (!Array.isArray(setup.steps) || setup.steps.length === 0) {
+    throw new Error("Setup file must include a non-empty 'steps' array")
+  }
+
+  validateSteps(setup.steps, 'Setup step')
+
+  return setup
 }

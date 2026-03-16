@@ -107,6 +107,11 @@ export type Step =
 
 export type ActionName = Step['action']
 
+export interface SetupBlock {
+  url?: string
+  steps: Step[]
+}
+
 export interface RecordingDefinition {
   url: string
   viewport?: Viewport
@@ -116,12 +121,14 @@ export interface RecordingDefinition {
   cookies?: Cookie[]
   localStorage?: Record<string, string>
   headers?: Record<string, string>
+  setup?: SetupBlock
   steps: Step[]
 }
 
 export interface RecordOptions {
   outputDir?: string
   headless?: boolean
+  setup?: SetupBlock
 }
 
 export interface RecordingResult {
