@@ -31,12 +31,19 @@ Create a recording definition (`recording.json`):
 ```
 Usage:
   fipplet <recording.json> [options]
+  fipplet login <url> --save-state <file>
 
-Options:
-  --output <dir>    Output directory (default: ./fipplet-output)
-  --headed          Run browser in headed mode (visible window)
-  --help, -h        Show help message
-  --version, -v     Show version
+Recording options:
+  --output <dir>       Output directory (default: ./fipplet-output)
+  --setup <file>       Setup file (login steps, etc.) — runs before recording
+  --headed             Run browser in headed mode (visible window)
+  --help, -h           Show help message
+  --version, -v        Show version
+
+Login options:
+  --save-state <file>  Path to save the exported session state (required)
+  --channel <name>     Browser channel (e.g. "chrome") — for OAuth providers that block Chromium
+  --cdp <url>          Connect to an existing browser via CDP
 ```
 
 ```bash
@@ -48,6 +55,9 @@ npx fipplet recording.json --output ./demo-output
 
 # Watch the recording happen in a visible browser window (useful for debugging)
 npx fipplet recording.json --headed
+
+# Use setup steps from a separate file
+npx fipplet recording.json --setup login.json
 ```
 
 ### API
@@ -134,6 +144,32 @@ Fipplet navigates to the URL, injects the entries, then reloads to let the app p
       "path": "/"
     }
   ],
+  "steps": [...]
+}
+```
+
+### Interactive login (`fipplet login`)
+
+For OAuth flows or other logins that are hard to automate, use the `login` subcommand. It opens a real browser, lets you log in manually, and exports the session state to a JSON file.
+
+```bash
+# Open a browser, log in, then close the window to save
+npx fipplet login https://app.example.com --save-state ./state.json
+
+# Use Chrome instead of Chromium (needed for Google OAuth and other providers
+# that block automation-controlled browsers)
+npx fipplet login https://app.example.com --save-state ./state.json --channel chrome
+
+# Connect to an already-running browser via CDP (avoids automation detection entirely)
+npx fipplet login https://app.example.com --save-state ./state.json --cdp http://localhost:9222
+```
+
+Then reference the saved state in your recording definition:
+
+```json
+{
+  "url": "https://app.example.com",
+  "storageState": "./state.json",
   "steps": [...]
 }
 ```
