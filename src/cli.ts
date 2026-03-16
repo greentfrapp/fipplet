@@ -24,6 +24,7 @@ Recording options:
 
 Login options:
   --save-state <file>  Path to save the exported session state (required)
+  --channel <name>     Browser channel (e.g. "chrome") — use for OAuth providers that block Chromium
 
 Examples:
   fipplet recording.json
@@ -44,10 +45,13 @@ if (args.includes('--version') || args.includes('-v')) {
 if (args[0] === 'login') {
   let loginUrl: string | null = null
   let saveStatePath: string | null = null
+  let channel: string | undefined
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === '--save-state') {
       saveStatePath = args[++i]
+    } else if (args[i] === '--channel') {
+      channel = args[++i]
     } else if (!args[i].startsWith('-')) {
       loginUrl = args[i]
     }
@@ -65,7 +69,7 @@ if (args[0] === 'login') {
     process.exit(1)
   }
 
-  login({ url: loginUrl, saveState: saveStatePath }).catch((err) => {
+  login({ url: loginUrl, saveState: saveStatePath, channel }).catch((err) => {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: ${msg}`)
     process.exit(1)

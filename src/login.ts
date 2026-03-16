@@ -7,15 +7,16 @@ export interface LoginOptions {
   url: string
   saveState: string
   viewport?: Viewport
+  channel?: string
 }
 
 export async function login(options: LoginOptions): Promise<void> {
-  const { url, saveState, viewport = { width: 1280, height: 720 } } = options
+  const { url, saveState, viewport = { width: 1280, height: 720 }, channel } = options
   const outputPath = path.resolve(saveState)
 
   console.log('Opening browser — log in manually, then close the browser window.\n')
 
-  const browser = await chromium.launch({ headless: false })
+  const browser = await chromium.launch({ headless: false, channel })
   const context = await browser.newContext({ viewport })
   const page = await context.newPage()
 
