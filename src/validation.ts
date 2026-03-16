@@ -2,6 +2,36 @@ import fs from 'fs'
 import { ACTIONS } from './actions'
 import type { RecordingDefinition } from './types'
 
+const ENV_VAR_PATTERN = /\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g
+
+function substituteEnvVars(value: string): string {
+  return value.replace(ENV_VAR_PATTERN, (match, braced, bare) => {
+    const name = braced ?? bare
+    const resolved = process.env[name]
+    if (resolved === undefined) {
+      throw new Error(`Environment variable '${name}' is not set (referenced as '${match}')`)
+    }
+    return resolved
+  })
+}
+
+function substituteDeep<T>(obj: T): T {
+  if (typeof obj === 'string') {
+    return substituteEnvVars(obj) as T
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(substituteDeep) as T
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = substituteDeep(value)
+    }
+    return result as T
+  }
+  return obj
+}
+
 export function loadDefinition(input: string | object): RecordingDefinition {
   let def: RecordingDefinition
 
@@ -22,6 +52,8 @@ export function loadDefinition(input: string | object): RecordingDefinition {
   } else {
     def = input as RecordingDefinition
   }
+
+  def = substituteDeep(def)
 
   if (!def.url) {
     throw new Error("Recording definition must include a 'url' field")
