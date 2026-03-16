@@ -1,4 +1,5 @@
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import { chromium } from 'playwright-core'
 import type { Viewport } from './types'
@@ -15,13 +16,13 @@ export async function login(options: LoginOptions): Promise<void> {
   const { url, saveState, viewport = { width: 1280, height: 720 }, channel, cdpUrl } = options
   const outputPath = path.resolve(saveState)
 
-  let browser
   let context
   let page
+  let tempProfileDir: string | undefined
 
   if (cdpUrl) {
     console.log(`Connecting to browser at ${cdpUrl} …\n`)
-    browser = await chromium.connectOverCDP(cdpUrl)
+    const browser = await chromium.connectOverCDP(cdpUrl)
     context = browser.contexts()[0] ?? await browser.newContext({ viewport })
     page = context.pages()[0] ?? await context.newPage()
     await page.goto(url, { waitUntil: 'load', timeout: 30000 }).catch(() => {})
@@ -30,9 +31,17 @@ export async function login(options: LoginOptions): Promise<void> {
     await waitForEnter()
   } else {
     console.log('Opening browser — log in manually, then close the browser window.\n')
-    browser = await chromium.launch({ headless: false, channel })
-    context = await browser.newContext({ viewport })
-    page = await context.newPage()
+
+    // Use a persistent context with --disable-blink-features=AutomationControlled
+    // to remove the navigator.webdriver flag that OAuth providers (e.g. Google) check.
+    tempProfileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-login-'))
+    context = await chromium.launchPersistentContext(tempProfileDir, {
+      headless: false,
+      channel,
+      viewport,
+      args: ['--disable-blink-features=AutomationControlled'],
+    })
+    page = context.pages()[0] ?? await context.newPage()
     await page.goto(url, { waitUntil: 'load', timeout: 30000 }).catch(() => {})
 
     await page.waitForEvent('close', { timeout: 0 })
@@ -42,11 +51,10 @@ export async function login(options: LoginOptions): Promise<void> {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   fs.writeFileSync(outputPath, JSON.stringify(state, null, 2))
 
-  if (!cdpUrl) {
-    await context.close()
-    await browser.close()
-  } else {
-    await browser.close()
+  await context.close()
+
+  if (tempProfileDir) {
+    fs.rmSync(tempProfileDir, { recursive: true, force: true })
   }
 
   console.log(`\nSession saved to ${outputPath}`)
