@@ -1,4 +1,5 @@
 export { record } from './recorder.js'
+export { login } from './login.js'
 export { loadDefinition, loadSetup } from './validation.js'
 export type {
   RecordingDefinition,
@@ -22,3 +23,4 @@ export type {
   ScreenshotStep,
   ZoomStep,
 } from './types.js'
+export type { LoginOptions } from './login.js'
