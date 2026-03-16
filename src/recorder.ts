@@ -39,6 +39,7 @@ export async function record(
   const browser = await chromium.launch({ headless })
 
   // --- Setup phase (no video) ---
+  let setupScroll: { x: number; y: number } | undefined
   if (setup) {
     process.stderr.write('  running setup...\n')
 
@@ -101,6 +102,12 @@ export async function record(
       }
     }
 
+    // Capture scroll position before closing setup
+    setupScroll = await setupPage.evaluate(() => ({
+      x: window.scrollX,
+      y: window.scrollY,
+    }))
+
     // Export session state and close setup context
     storageState = await setupContext.storageState()
     await setupContext.close()
@@ -136,6 +143,33 @@ export async function record(
   }
 
   const page = await context.newPage()
+  const needsScrollRestore = setupScroll && (setupScroll.x !== 0 || setupScroll.y !== 0)
+
+  // Hide page before navigation so the pre-scroll frame isn't visible in the video.
+  // Intercept the HTML response and inject a <style> tag that hides everything.
+  // This is more reliable than addInitScript because the CSS is parsed before any
+  // rendering — the compositor never paints a frame at scroll position 0.
+  if (needsScrollRestore) {
+    await page.route('**/*', async (route, request) => {
+      const response = await route.fetch()
+      const contentType = response.headers()['content-type'] ?? ''
+      if (request.resourceType() === 'document' && contentType.includes('text/html')) {
+        let body = await response.text()
+        const hideStyle = '<style id="__fipplet-hide">html{visibility:hidden!important}</style>'
+        // Inject right after <head> if present, otherwise prepend
+        if (body.includes('<head>')) {
+          body = body.replace('<head>', '<head>' + hideStyle)
+        } else if (body.includes('<head ')) {
+          body = body.replace(/<head\s[^>]*>/, (match) => match + hideStyle)
+        } else {
+          body = hideStyle + body
+        }
+        await route.fulfill({ response, body })
+      } else {
+        await route.fulfill({ response })
+      }
+    })
+  }
 
   // Handle localStorage auth (requires navigating first) — skip if setup handled it
   if (!setup && def.localStorage && Object.keys(def.localStorage).length > 0) {
@@ -156,6 +190,16 @@ export async function record(
     } catch {
       // Page didn't reach load, continue anyway
     }
+  }
+
+  // Restore scroll position from setup, then reveal the page
+  if (needsScrollRestore) {
+    await page.unrouteAll({ behavior: 'wait' })
+    await page.evaluate(({ x, y }) => {
+      window.scrollTo(x, y)
+      const hideStyle = document.getElementById('__fipplet-hide')
+      if (hideStyle) hideStyle.remove()
+    }, setupScroll!)
   }
 
   if (def.waitForSelector) {
