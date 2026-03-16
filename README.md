@@ -74,7 +74,97 @@ console.log(result.screenshots) // array of .png paths
 | `cookies` | `Cookie[]` | — | Cookies to set before navigation |
 | `localStorage` | `Record<string, string>` | — | localStorage entries to set |
 | `headers` | `Record<string, string>` | — | Extra HTTP headers |
+| `setup` | `{ url?, steps }` | — | Steps to run before recording (e.g. login) |
 | `steps` | `Step[]` | *required* | Array of actions to execute |
+
+## Login & authentication
+
+Most web apps require authentication. Fipplet supports several approaches so your recordings start in a logged-in state without capturing the login flow on video.
+
+### Setup block (recommended)
+
+The `setup` block runs steps **before** video recording starts. Session state (cookies, localStorage, etc.) is automatically carried over into the recorded session.
+
+```json
+{
+  "url": "https://app.example.com/dashboard",
+  "setup": {
+    "url": "https://app.example.com/login",
+    "steps": [
+      { "action": "fill", "selector": "#email", "text": "user@example.com" },
+      { "action": "fill", "selector": "#password", "text": "s3cret" },
+      { "action": "click", "selector": "button[type=submit]" },
+      { "action": "wait", "ms": 2000 }
+    ]
+  },
+  "steps": [
+    { "action": "screenshot", "name": "dashboard" }
+  ]
+}
+```
+
+The setup block accepts an optional `url` (defaults to the main `url`) and an array of `steps` using the same actions as the recording.
+
+### localStorage injection
+
+For apps that store auth tokens in localStorage (e.g. Supabase, Firebase):
+
+```json
+{
+  "url": "https://app.example.com",
+  "localStorage": {
+    "sb-auth-token": "{\"access_token\":\"eyJ...\",\"refresh_token\":\"abc\"}"
+  },
+  "steps": [...]
+}
+```
+
+Fipplet navigates to the URL, injects the entries, then reloads to let the app pick up the session.
+
+### Cookies
+
+```json
+{
+  "url": "https://app.example.com",
+  "cookies": [
+    {
+      "name": "session",
+      "value": "abc123",
+      "domain": "app.example.com",
+      "path": "/"
+    }
+  ],
+  "steps": [...]
+}
+```
+
+### Playwright storage state
+
+If you have an existing Playwright `storageState` JSON file (from `context.storageState()`), point to it directly:
+
+```json
+{
+  "url": "https://app.example.com",
+  "storageState": "./auth-state.json",
+  "steps": [...]
+}
+```
+
+### Extra headers
+
+For APIs or apps that accept auth headers (e.g. Bearer tokens):
+
+```json
+{
+  "url": "https://app.example.com",
+  "headers": {
+    "Authorization": "Bearer eyJ..."
+  },
+  "steps": [...]
+}
+```
+
+These methods can be combined — for example, using `localStorage` for auth tokens alongside a `setup` block that navigates past an onboarding screen.
 
 ## Actions
 
