@@ -30,6 +30,10 @@ const bundlePlaywright: Partial<Options> = {
   ],
 };
 
+const svgLoader: Partial<Options> = {
+  loader: { ".svg": "text" },
+};
+
 export default defineConfig([
   {
     entry: ["src/index.ts"],
@@ -38,6 +42,7 @@ export default defineConfig([
     clean: true,
     splitting: false,
     ...bundlePlaywright,
+    ...svgLoader,
   },
   {
     entry: ["src/cli.ts"],
@@ -45,6 +50,7 @@ export default defineConfig([
     banner: { js: "#!/usr/bin/env node" },
     splitting: false,
     ...bundlePlaywright,
+    ...svgLoader,
     define: {
       __FIPPLET_VERSION__: JSON.stringify(pkg.version),
     },

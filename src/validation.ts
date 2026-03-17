@@ -83,6 +83,10 @@ export function loadDefinition(input: string | object): RecordingDefinition {
     }
   }
 
+  if (def.cursor !== undefined && typeof def.cursor !== 'boolean' && typeof def.cursor !== 'object') {
+    throw new Error("'cursor' must be a boolean or an object")
+  }
+
   if (def.setup) {
     if (!Array.isArray(def.setup.steps) || def.setup.steps.length === 0) {
       throw new Error("Setup block must include a non-empty 'steps' array")

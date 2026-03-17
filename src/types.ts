@@ -112,6 +112,15 @@ export interface SetupBlock {
   steps: Step[]
 }
 
+export interface CursorOptions {
+  enabled?: boolean
+  size?: number
+  color?: string
+  rippleColor?: string
+  rippleSize?: number
+  transitionMs?: number
+}
+
 export interface RecordingDefinition {
   url: string
   viewport?: Viewport
@@ -122,6 +131,7 @@ export interface RecordingDefinition {
   localStorage?: Record<string, string>
   headers?: Record<string, string>
   auth?: AuthProvider
+  cursor?: boolean | CursorOptions
   setup?: SetupBlock
   steps: Step[]
 }
@@ -163,4 +173,6 @@ export interface ZoomState {
 export interface ActionContext {
   outputDir: string
   zoomState: ZoomState
+  cursorEnabled: boolean
+  cursorOptions?: CursorOptions
 }

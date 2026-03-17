@@ -4,10 +4,12 @@ import { chromium } from 'playwright-core'
 import { ACTIONS } from './actions'
 import type {
   ActionContext,
+  CursorOptions,
   RecordOptions,
   RecordingDefinition,
   RecordingResult,
 } from './types'
+import { injectCursor } from './cursor'
 import { resolveAuth } from './providers'
 import { loadDefinition } from './validation'
 import { timestamp } from './utils'
@@ -104,7 +106,7 @@ export async function record(
     }
 
     // Execute setup steps
-    const setupCtx: ActionContext = { outputDir, zoomState: createZoomState() }
+    const setupCtx: ActionContext = { outputDir, zoomState: createZoomState(), cursorEnabled: false }
     for (const [i, step] of setup.steps.entries()) {
       const label = step.action + ('selector' in step ? ` ${step.selector}` : '')
       process.stderr.write(`  [setup ${i + 1}/${setup.steps.length}] ${label}\n`)
@@ -227,8 +229,19 @@ export async function record(
       .catch((err) => process.stderr.write(`  warning: waitForSelector '${def.waitForSelector}' failed: ${err.message}\n`))
   }
 
+  // Normalize cursor options — enabled by default
+  const cursorConfig = def.cursor
+  const cursorEnabled = cursorConfig === undefined || cursorConfig === true || (typeof cursorConfig === 'object' && cursorConfig.enabled !== false)
+  const cursorOptions: CursorOptions | undefined = cursorEnabled
+    ? (typeof cursorConfig === 'object' ? cursorConfig : {})
+    : undefined
+
+  if (cursorEnabled) {
+    await injectCursor(page, cursorOptions)
+  }
+
   // Execute steps
-  const ctx: ActionContext = { outputDir, zoomState }
+  const ctx: ActionContext = { outputDir, zoomState, cursorEnabled, cursorOptions }
 
   for (const [i, step] of def.steps.entries()) {
     const label = step.action + ('selector' in step ? ` ${step.selector}` : '')
