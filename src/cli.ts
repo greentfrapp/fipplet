@@ -26,6 +26,8 @@ Login options:
   --save-state <file>  Path to save the exported session state (required)
   --channel <name>     Browser channel (e.g. "chrome") — use for OAuth providers that block Chromium
   --cdp <url>          Connect to an existing browser via CDP (avoids automation detection entirely)
+  --remote             Launch headless browser with web-based viewer (for SSH/headless environments)
+  --port <number>      Viewer port for --remote mode (default: 9222)
 
 Examples:
   fipplet recording.json
@@ -48,6 +50,8 @@ if (args[0] === 'login') {
   let saveStatePath: string | null = null
   let channel: string | undefined
   let cdpUrl: string | undefined
+  let remote = false
+  let port: number | undefined
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === '--save-state') {
@@ -56,6 +60,14 @@ if (args[0] === 'login') {
       channel = args[++i]
     } else if (args[i] === '--cdp') {
       cdpUrl = args[++i]
+    } else if (args[i] === '--remote') {
+      remote = true
+    } else if (args[i] === '--port') {
+      port = parseInt(args[++i], 10)
+      if (isNaN(port)) {
+        console.error('Error: --port must be a number')
+        process.exit(1)
+      }
     } else if (!args[i].startsWith('-')) {
       loginUrl = args[i]
     }
@@ -73,7 +85,12 @@ if (args[0] === 'login') {
     process.exit(1)
   }
 
-  login({ url: loginUrl, saveState: saveStatePath, channel, cdpUrl }).catch((err) => {
+  if (remote && cdpUrl) {
+    console.error('Error: --remote and --cdp are mutually exclusive')
+    process.exit(1)
+  }
+
+  login({ url: loginUrl, saveState: saveStatePath, channel, cdpUrl, remote, port }).catch((err) => {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: ${msg}`)
     process.exit(1)

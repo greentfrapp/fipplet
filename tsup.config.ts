@@ -6,7 +6,7 @@ const nodeBuiltins = module.builtinModules.flatMap((m) => [m, `node:${m}`]);
 
 const bundlePlaywright: Partial<Options> = {
   noExternal: ["playwright-core"],
-  external: ["chromium-bidi", ...nodeBuiltins],
+  external: ["chromium-bidi", "ws", ...nodeBuiltins],
   platform: "node",
   esbuildPlugins: [
     {
