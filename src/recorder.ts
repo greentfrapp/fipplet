@@ -8,6 +8,7 @@ import type {
   RecordingDefinition,
   RecordingResult,
 } from './types'
+import { resolveAuth } from './providers'
 import { loadDefinition } from './validation'
 import { timestamp } from './utils'
 import { createZoomState } from './zoom'
@@ -17,6 +18,24 @@ export async function record(
   options: RecordOptions = {},
 ): Promise<RecordingResult> {
   const def = typeof input === 'string' ? loadDefinition(input) : input
+
+  // Resolve auth provider → merge into definition
+  if (def.auth) {
+    process.stderr.write('  resolving auth...\n')
+    const authResult = await resolveAuth(def.auth)
+
+    if (authResult.localStorage) {
+      def.localStorage = { ...def.localStorage, ...authResult.localStorage }
+    }
+    if (authResult.cookies) {
+      def.cookies = [...(def.cookies ?? []), ...authResult.cookies]
+    }
+    if (authResult.headers) {
+      def.headers = { ...def.headers, ...authResult.headers }
+    }
+    process.stderr.write('  auth resolved.\n')
+  }
+
   const outputDir = options.outputDir ?? './fipplet-output'
   const headless = options.headless ?? true
   // CLI --setup takes precedence over inline setup block

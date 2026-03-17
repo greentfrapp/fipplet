@@ -121,6 +121,7 @@ export interface RecordingDefinition {
   cookies?: Cookie[]
   localStorage?: Record<string, string>
   headers?: Record<string, string>
+  auth?: AuthProvider
   setup?: SetupBlock
   steps: Step[]
 }
@@ -134,6 +135,23 @@ export interface RecordOptions {
 export interface RecordingResult {
   video?: string
   screenshots: string[]
+}
+
+// --- Auth providers (discriminated union on `provider`) ---
+
+export interface SupabaseAuthProvider {
+  provider: 'supabase'
+  url: string
+  serviceRoleKey: string
+  email: string
+}
+
+export type AuthProvider = SupabaseAuthProvider
+
+export interface AuthResult {
+  localStorage?: Record<string, string>
+  cookies?: Cookie[]
+  headers?: Record<string, string>
 }
 
 export interface ZoomState {

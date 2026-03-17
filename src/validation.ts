@@ -67,6 +67,22 @@ export function loadDefinition(input: string | object): RecordingDefinition {
 
   validateSteps(def.steps, 'Step')
 
+  if (def.auth) {
+    if (!def.auth.provider) {
+      throw new Error("Auth block must include a 'provider' field")
+    }
+    if (def.auth.provider === 'supabase') {
+      if (!def.auth.url)
+        throw new Error("Supabase auth: missing 'url' field")
+      if (!def.auth.serviceRoleKey)
+        throw new Error("Supabase auth: missing 'serviceRoleKey' field")
+      if (!def.auth.email)
+        throw new Error("Supabase auth: missing 'email' field")
+    } else {
+      throw new Error(`Unknown auth provider: '${def.auth.provider}'`)
+    }
+  }
+
   if (def.setup) {
     if (!Array.isArray(def.setup.steps) || def.setup.steps.length === 0) {
       throw new Error("Setup block must include a non-empty 'steps' array")

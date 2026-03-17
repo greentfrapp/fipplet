@@ -259,6 +259,92 @@ describe('loadDefinition', () => {
     })
   })
 
+  describe('auth block validation', () => {
+    const savedAuthEnv: Record<string, string | undefined> = {}
+
+    beforeEach(() => {
+      for (const key of ['TEST_URL', 'TEST_KEY']) {
+        savedAuthEnv[key] = process.env[key]
+      }
+    })
+
+    afterEach(() => {
+      for (const [key, value] of Object.entries(savedAuthEnv)) {
+        if (value === undefined) {
+          delete process.env[key]
+        } else {
+          process.env[key] = value
+        }
+      }
+    })
+
+    it('accepts a definition with a valid supabase auth block', () => {
+      const def = loadDefinition(minimalDef({
+        auth: {
+          provider: 'supabase',
+          url: 'https://abc123.supabase.co',
+          serviceRoleKey: 'key-123',
+          email: 'demo@example.com',
+        },
+      }))
+      expect(def.auth).toBeDefined()
+      expect(def.auth!.provider).toBe('supabase')
+    })
+
+    it('throws when auth block is missing provider', () => {
+      expect(() =>
+        loadDefinition(minimalDef({ auth: { url: 'https://x.supabase.co' } })),
+      ).toThrow("Auth block must include a 'provider' field")
+    })
+
+    it('throws for unknown auth provider', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          auth: { provider: 'firebase', url: 'x', key: 'y', email: 'z' },
+        })),
+      ).toThrow("Unknown auth provider: 'firebase'")
+    })
+
+    it('throws when supabase auth is missing url', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          auth: { provider: 'supabase', serviceRoleKey: 'k', email: 'e' },
+        })),
+      ).toThrow("Supabase auth: missing 'url' field")
+    })
+
+    it('throws when supabase auth is missing serviceRoleKey', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          auth: { provider: 'supabase', url: 'https://x.supabase.co', email: 'e' },
+        })),
+      ).toThrow("Supabase auth: missing 'serviceRoleKey' field")
+    })
+
+    it('throws when supabase auth is missing email', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          auth: { provider: 'supabase', url: 'https://x.supabase.co', serviceRoleKey: 'k' },
+        })),
+      ).toThrow("Supabase auth: missing 'email' field")
+    })
+
+    it('substitutes env vars in auth block fields', () => {
+      process.env.TEST_URL = 'https://abc123.supabase.co'
+      process.env.TEST_KEY = 'service-key-123'
+      const def = loadDefinition(minimalDef({
+        auth: {
+          provider: 'supabase',
+          url: '$TEST_URL',
+          serviceRoleKey: '${TEST_KEY}',
+          email: 'demo@example.com',
+        },
+      }))
+      expect(def.auth!.url).toBe('https://abc123.supabase.co')
+      expect((def.auth as any).serviceRoleKey).toBe('service-key-123')
+    })
+  })
+
   describe('existing validation', () => {
     it('throws when url is missing', () => {
       expect(() =>

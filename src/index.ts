@@ -1,6 +1,7 @@
 export { record } from './recorder.js'
 export { login } from './login.js'
 export { loadDefinition, loadSetup } from './validation.js'
+export { resolveAuth } from './providers/index.js'
 export type {
   RecordingDefinition,
   RecordOptions,
@@ -10,6 +11,9 @@ export type {
   ActionName,
   Viewport,
   Cookie,
+  AuthProvider,
+  SupabaseAuthProvider,
+  AuthResult,
   WaitStep,
   ClickStep,
   TypeStep,
