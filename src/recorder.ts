@@ -11,6 +11,7 @@ import type {
 } from './types'
 import { initCursorTracker, getCursorEvents } from './cursor'
 import { applyCursorOverlay } from './post-process'
+import { applyFrameOverlay } from './window-frame'
 import { resolveAuth } from './providers'
 import { loadDefinition } from './validation'
 import { timestamp } from './utils'
@@ -311,6 +312,45 @@ export async function record(
         process.stderr.write(`  warning: cursor overlay failed: ${msg}\n`)
         // Video is still available without cursor overlay
       }
+    }
+  }
+
+  // Apply window chrome, rounded corners, and background
+  const chromeConfig = def.chrome
+  const bgConfig = def.background
+  const hasChrome = chromeConfig === true || (typeof chromeConfig === 'object' && chromeConfig.enabled !== false)
+  const hasBackground = bgConfig === true || (typeof bgConfig === 'object' && bgConfig.enabled !== false)
+
+  if ((hasChrome || hasBackground) && videoPath) {
+    process.stderr.write('  applying window chrome/background...\n')
+    try {
+      let chromeOpts = hasChrome
+        ? (typeof chromeConfig === 'object' ? { ...chromeConfig } : {})
+        : undefined
+      const bgOpts = hasBackground
+        ? (typeof bgConfig === 'object' ? bgConfig : {})
+        : undefined
+
+      // Resolve chrome.url: true → use recording URL, string → use as-is
+      if (chromeOpts && chromeOpts.url === true) {
+        chromeOpts = { ...chromeOpts, url: def.url }
+      }
+
+      const framedPath = await applyFrameOverlay(videoPath, {
+        chrome: chromeOpts,
+        background: bgOpts,
+        videoWidth: viewport.width,
+        videoHeight: viewport.height,
+      })
+
+      if (framedPath !== videoPath) {
+        fs.unlinkSync(videoPath)
+        fs.renameSync(framedPath, videoPath)
+      }
+      process.stderr.write('  window chrome/background applied.\n')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      process.stderr.write(`  warning: frame overlay failed: ${msg}\n`)
     }
   }
 

@@ -125,6 +125,30 @@ export interface CursorOptions {
   transitionMs?: number
 }
 
+export interface WindowChromeOptions {
+  enabled?: boolean
+  /** Title bar height in pixels. Default: 38. */
+  titleBarHeight?: number
+  /** Title bar color as hex string. Default: '#e8e8e8'. */
+  titleBarColor?: string
+  /** Show traffic light buttons. Default: true. */
+  trafficLights?: boolean
+  /** Display a URL in the title bar. Set to true to use the recording URL, or pass a custom string. */
+  url?: boolean | string
+}
+
+export interface BackgroundOptions {
+  enabled?: boolean
+  /** Solid background color as hex string. Default: '#6366f1'. */
+  color?: string
+  /** Two-color diagonal gradient (overrides color). */
+  gradient?: { from: string; to: string }
+  /** Padding around the window in pixels. Default: 60. */
+  padding?: number
+  /** Corner radius in pixels. Default: 12. */
+  borderRadius?: number
+}
+
 export interface RecordingDefinition {
   url: string
   viewport?: Viewport
@@ -136,6 +160,10 @@ export interface RecordingDefinition {
   headers?: Record<string, string>
   auth?: AuthProvider
   cursor?: boolean | CursorOptions
+  /** macOS-style window chrome (title bar with traffic light buttons). */
+  chrome?: boolean | WindowChromeOptions
+  /** Background, padding, and rounded corners around the recording. */
+  background?: boolean | BackgroundOptions
   setup?: SetupBlock
   steps: Step[]
 }

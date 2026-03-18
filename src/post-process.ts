@@ -19,7 +19,7 @@ function getFFmpegPath(): string {
   }
 }
 
-function runFFmpeg(args: string[]): Promise<void> {
+export function runFFmpeg(args: string[]): Promise<void> {
   const ffmpeg = getFFmpegPath()
   return new Promise((resolve, reject) => {
     execFile(ffmpeg, args, { maxBuffer: 50 * 1024 * 1024 }, (err, _stdout, stderr) => {
@@ -80,12 +80,6 @@ export function buildVisibilityExpr(events: CursorEvent[]): string {
   const visEvents = events.filter((e) => e.type === 'hide' || e.type === 'show')
   if (visEvents.length === 0) return '1'
 
-  // Build nested if-else: before first event → visible (1),
-  // between event[i] and event[i+1] → value set by event[i],
-  // after last event → value set by last event.
-  //
-  // Structure: if(t<t0, 1, if(t<t1, val0, if(t<t2, val1, val2)))
-  // Build from the innermost (last event) outward.
   const lastVal = visEvents[visEvents.length - 1].type === 'hide' ? '0' : '1'
   let result = lastVal
 
@@ -94,7 +88,6 @@ export function buildVisibilityExpr(events: CursorEvent[]): string {
     result = `if(lt(t,${visEvents[i + 1].time.toFixed(4)}),${val},${result})`
   }
 
-  // Wrap with the default "visible before first event"
   result = `if(lt(t,${visEvents[0].time.toFixed(4)}),1,${result})`
 
   return result
@@ -119,13 +112,10 @@ async function generateRippleClip(
   const fps = 30
   const frames = Math.ceil((durationMs / 1000) * fps)
 
-  // Generate a ripple animation: expanding circle that fades out
-  // Using drawbox with animated size and opacity via the geq filter
   await runFFmpeg([
     '-f', 'lavfi',
     '-i', `color=c=black@0:s=${size * 2}x${size * 2}:d=${(durationMs / 1000).toFixed(2)}:r=${fps},format=rgba`,
     '-vf', [
-      // Draw expanding circle using the geq filter
       `geq=` +
       `r='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${r},0)'` +
       `:g='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${g},0)'` +
