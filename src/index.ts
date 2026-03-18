@@ -27,5 +27,6 @@ export type {
   ScreenshotStep,
   ZoomStep,
   CursorOptions,
+  CursorStyle,
 } from './types.js'
 export type { LoginOptions } from './login.js'

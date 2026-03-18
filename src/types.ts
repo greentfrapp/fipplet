@@ -112,8 +112,12 @@ export interface SetupBlock {
   steps: Step[]
 }
 
+export type CursorStyle = 'default' | 'pointer' | 'crosshair'
+
 export interface CursorOptions {
   enabled?: boolean
+  /** Cursor image style. Default: 'default'. */
+  style?: CursorStyle
   size?: number
   color?: string
   rippleColor?: string
@@ -145,6 +149,7 @@ export interface RecordOptions {
 export interface RecordingResult {
   video?: string
   screenshots: string[]
+  cursorEvents?: string
 }
 
 // --- Auth providers (discriminated union on `provider`) ---
@@ -168,6 +173,16 @@ export interface ZoomState {
   scale: number
   tx: number
   ty: number
+}
+
+export interface CursorEvent {
+  time: number          // seconds from recording start
+  type: 'move' | 'ripple' | 'hide' | 'show'
+  x: number
+  y: number
+  transitionMs?: number // for 'move' events
+  rippleSize?: number   // for 'ripple' events
+  rippleColor?: string  // for 'ripple' events
 }
 
 export interface ActionContext {

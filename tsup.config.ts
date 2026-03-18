@@ -1,14 +1,38 @@
 import { defineConfig, type Options } from "tsup";
 import pkg from "./package.json";
 import module from "node:module";
+import nodePath from "node:path";
+import nodeFs from "node:fs";
 
 const nodeBuiltins = module.builtinModules.flatMap((m) => [m, `node:${m}`]);
+
+/**
+ * esbuild plugin that copies .png imports to the output directory
+ * and replaces the import with `path.join(__dirname, "<filename>")`.
+ */
+const resolvePngAssets: import("esbuild").Plugin = {
+  name: "resolve-png-assets",
+  setup(build) {
+    build.onLoad({ filter: /\.png$/ }, (args) => {
+      const basename = nodePath.basename(args.path);
+      const outdir = build.initialOptions.outDir ?? "dist";
+      const dest = nodePath.resolve(outdir, basename);
+      nodeFs.mkdirSync(nodePath.dirname(dest), { recursive: true });
+      nodeFs.copyFileSync(args.path, dest);
+      return {
+        contents: `module.exports = require("path").join(__dirname, ${JSON.stringify(basename)});`,
+        loader: "js",
+      };
+    });
+  },
+};
 
 const bundlePlaywright: Partial<Options> = {
   noExternal: ["playwright-core"],
   external: ["chromium-bidi", "ws", ...nodeBuiltins],
   platform: "node",
   esbuildPlugins: [
+    resolvePngAssets,
     {
       name: "patch-playwright-coredir",
       setup(build) {
@@ -30,7 +54,7 @@ const bundlePlaywright: Partial<Options> = {
   ],
 };
 
-const svgLoader: Partial<Options> = {
+const assetLoaders: Partial<Options> = {
   loader: { ".svg": "text" },
 };
 
@@ -42,7 +66,7 @@ export default defineConfig([
     clean: true,
     splitting: false,
     ...bundlePlaywright,
-    ...svgLoader,
+    ...assetLoaders,
   },
   {
     entry: ["src/cli.ts"],
@@ -50,7 +74,7 @@ export default defineConfig([
     banner: { js: "#!/usr/bin/env node" },
     splitting: false,
     ...bundlePlaywright,
-    ...svgLoader,
+    ...assetLoaders,
     define: {
       __FIPPLET_VERSION__: JSON.stringify(pkg.version),
     },

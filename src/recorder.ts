@@ -9,7 +9,8 @@ import type {
   RecordingDefinition,
   RecordingResult,
 } from './types'
-import { injectCursor } from './cursor'
+import { initCursorTracker, getCursorEvents } from './cursor'
+import { applyCursorOverlay } from './post-process'
 import { resolveAuth } from './providers'
 import { loadDefinition } from './validation'
 import { timestamp } from './utils'
@@ -237,7 +238,7 @@ export async function record(
     : undefined
 
   if (cursorEnabled) {
-    await injectCursor(page, cursorOptions)
+    initCursorTracker(page, cursorOptions)
   }
 
   // Execute steps
@@ -274,6 +275,7 @@ export async function record(
     ? path.basename(input, path.extname(input))
     : 'recording'
   let videoPath: string | undefined
+  let cursorEventsPath: string | undefined
 
   await context.close()
 
@@ -285,8 +287,36 @@ export async function record(
 
   await browser.close()
 
+  // Write cursor events and apply post-processing overlay
+  if (cursorEnabled && videoPath) {
+    const cursorEvents = getCursorEvents()
+    cursorEventsPath = path.join(outputDir, `${baseName}-cursor.json`)
+    fs.writeFileSync(cursorEventsPath, JSON.stringify(cursorEvents, null, 2))
+    process.stderr.write(`  cursor events: ${cursorEvents.length} events → ${cursorEventsPath}\n`)
+
+    if (cursorEvents.length > 0) {
+      process.stderr.write('  applying cursor overlay...\n')
+
+      try {
+        const processedPath = await applyCursorOverlay(videoPath, cursorEvents, {
+          cursorStyle: cursorOptions?.style ?? 'default',
+          cursorSize: cursorOptions?.size ?? 24,
+        })
+        // Replace original with processed version
+        fs.unlinkSync(videoPath)
+        fs.renameSync(processedPath, videoPath)
+        process.stderr.write('  cursor overlay applied.\n')
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        process.stderr.write(`  warning: cursor overlay failed: ${msg}\n`)
+        // Video is still available without cursor overlay
+      }
+    }
+  }
+
   return {
     video: videoPath,
     screenshots,
+    cursorEvents: cursorEventsPath,
   }
 }

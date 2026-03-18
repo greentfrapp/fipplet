@@ -1,107 +1,39 @@
 import type { Page } from 'playwright-core'
-import type { CursorOptions, ZoomState } from './types'
+import type { CursorEvent, CursorOptions, ZoomState } from './types'
 import { suspendZoom, restoreZoom } from './zoom'
-// @ts-expect-error -- .svg imported as text via esbuild loader
-import CURSOR_SVG from './cursor.svg'
 
-const CURSOR_ID = '__fipplet-cursor'
-const RIPPLE_CLASS = '__fipplet-ripple'
+/** Collected cursor events during the recording. */
+let events: CursorEvent[] = []
 
-interface InjectArgs {
-  svg: string
-  id: string
-  rippleClass: string
-  size: number
-  transitionMs: number
-  /** If set, cursor starts at this position (no transition). */
-  restoreX?: number
-  restoreY?: number
+/** Recording start time (epoch ms). */
+let startTime = 0
+
+/** Reference to the active page (for coordinate queries). */
+let activePage: Page | undefined
+
+/** Current cursor position (for ripple placement). */
+let cursorPos = { x: 0, y: 0 }
+
+function elapsed(): number {
+  return (Date.now() - startTime) / 1000
 }
 
 /**
- * Browser-side injector. Idempotent — safe to call repeatedly.
- * If restoreX/restoreY are provided AND the cursor is freshly created,
- * it starts at that position with no transition.
+ * Initialize cursor event tracking. Call once at the start of recording.
+ * No DOM injection — just records events for post-processing.
  */
-function browserInject({ svg, id, rippleClass, size, transitionMs, restoreX, restoreY }: InjectArgs) {
-  if (document.getElementById(id)) return
-  const cursor = document.createElement('div')
-  cursor.id = id
-  cursor.innerHTML = svg
-
-  const hasRestore = restoreX !== undefined && restoreY !== undefined
-  const initialTransform = hasRestore
-    ? `translate(${restoreX}px, ${restoreY}px)`
-    : 'translate(-100px, -100px)'
-
-  cursor.style.cssText = [
-    'position: fixed',
-    'top: 0',
-    'left: 0',
-    `width: ${size}px`,
-    `height: ${size}px`,
-    'pointer-events: none',
-    'z-index: 2147483647',
-    `transform: ${initialTransform}`,
-    `transition: transform ${transitionMs}ms cubic-bezier(0.22, 1, 0.36, 1)`,
-    'will-change: transform',
-  ].join(';')
-  document.documentElement.appendChild(cursor)
-
-  const style = document.createElement('style')
-  style.textContent = `
-    @keyframes __fipplet-ripple-anim {
-      0% { transform: translate(-50%, -50%) scale(0); opacity: 0.5; }
-      100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
-    }
-    .${rippleClass} {
-      position: fixed;
-      pointer-events: none;
-      z-index: 2147483646;
-      border-radius: 50%;
-      animation: __fipplet-ripple-anim 500ms ease-out forwards;
-    }
-  `
-  ;(document.head ?? document.documentElement).appendChild(style)
+export function initCursorTracker(page: Page, _options: CursorOptions = {}): void {
+  activePage = page
+  startTime = Date.now()
+  events = []
+  cursorPos = { x: 0, y: 0 }
 }
 
-/** Cached inject args — set once by injectCursor. */
-let cachedArgs: InjectArgs | undefined
-
-/** Last known cursor position — preserved across page navigations. */
-let lastPos: { x: number; y: number } | undefined
-
-export async function injectCursor(page: Page, options: CursorOptions = {}): Promise<void> {
-  cachedArgs = {
-    svg: CURSOR_SVG,
-    id: CURSOR_ID,
-    rippleClass: RIPPLE_CLASS,
-    size: options.size ?? 24,
-    transitionMs: options.transitionMs ?? 350,
-  }
-  lastPos = undefined
-  await page.evaluate(browserInject, cachedArgs)
-
-  // Re-inject cursor eagerly after any navigation (link clicks, redirects, etc.)
-  // so the cursor is present as soon as the new page renders.
-  page.on('domcontentloaded', async () => {
-    if (!cachedArgs) return
-    const args = lastPos
-      ? { ...cachedArgs, restoreX: lastPos.x, restoreY: lastPos.y }
-      : cachedArgs
-    await page.evaluate(browserInject, args).catch(() => {})
-  })
-}
-
-/** Safety net — re-inject cursor if the domcontentloaded listener missed it. */
-async function ensureCursor(page: Page): Promise<void> {
-  if (!cachedArgs) return
-  const args = lastPos
-    ? { ...cachedArgs, restoreX: lastPos.x, restoreY: lastPos.y }
-    : cachedArgs
-  await page.evaluate(browserInject, args)
-}
-
+/**
+ * Log a cursor move to the center of the given selector.
+ * Suspends zoom to get accurate coordinates, then restores it.
+ * Waits transitionMs to maintain timing parity with the old DOM approach.
+ */
 export async function moveCursorTo(
   page: Page,
   selector: string,
@@ -110,7 +42,6 @@ export async function moveCursorTo(
 ): Promise<void> {
   const transitionMs = options.transitionMs ?? 350
 
-  await ensureCursor(page)
   await suspendZoom(page, zoomState)
 
   const center = await page.evaluate((sel: string) => {
@@ -120,25 +51,27 @@ export async function moveCursorTo(
     return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
   }, selector)
 
-  if (!center) {
-    await restoreZoom(page, zoomState)
-    return
-  }
-
-  lastPos = { x: center.x, y: center.y }
-
-  await page.evaluate(
-    ({ id, x, y }) => {
-      const cursor = document.getElementById(id)
-      if (cursor) cursor.style.transform = `translate(${x}px, ${y}px)`
-    },
-    { id: CURSOR_ID, x: center.x, y: center.y },
-  )
-
   await restoreZoom(page, zoomState)
+
+  if (!center) return
+
+  cursorPos = { x: center.x, y: center.y }
+
+  events.push({
+    time: elapsed(),
+    type: 'move',
+    x: center.x,
+    y: center.y,
+    transitionMs,
+  })
+
+  // Wait for the transition duration to maintain visual pacing
   await page.waitForTimeout(transitionMs + 50)
 }
 
+/**
+ * Log a cursor move to an absolute point (no selector lookup).
+ */
 export async function moveCursorToPoint(
   page: Page,
   x: number,
@@ -147,64 +80,60 @@ export async function moveCursorToPoint(
 ): Promise<void> {
   const transitionMs = options.transitionMs ?? 350
 
-  await ensureCursor(page)
+  cursorPos = { x, y }
 
-  lastPos = { x, y }
-
-  await page.evaluate(
-    ({ id, x, y }) => {
-      const cursor = document.getElementById(id)
-      if (cursor) cursor.style.transform = `translate(${x}px, ${y}px)`
-    },
-    { id: CURSOR_ID, x, y },
-  )
+  events.push({
+    time: elapsed(),
+    type: 'move',
+    x,
+    y,
+    transitionMs,
+  })
 
   await page.waitForTimeout(transitionMs + 50)
 }
 
-export async function triggerRipple(page: Page, options: CursorOptions = {}): Promise<void> {
-  const rippleSize = options.rippleSize ?? 40
-  const rippleColor = options.rippleColor ?? 'rgba(59, 130, 246, 0.4)'
-
-  await page.evaluate(
-    ({ id, rippleClass, size, color }) => {
-      const cursor = document.getElementById(id)
-      if (!cursor) return
-
-      const style = cursor.style.transform
-      const match = style.match(/translate\(([^,]+)px,\s*([^)]+)px\)/)
-      if (!match) return
-
-      const x = parseFloat(match[1])
-      const y = parseFloat(match[2])
-
-      const ripple = document.createElement('div')
-      ripple.className = rippleClass
-      ripple.style.cssText = [
-        `left: ${x}px`,
-        `top: ${y}px`,
-        `width: ${size}px`,
-        `height: ${size}px`,
-        `background: ${color}`,
-      ].join(';')
-      document.documentElement.appendChild(ripple)
-
-      ripple.addEventListener('animationend', () => ripple.remove())
-    },
-    { id: CURSOR_ID, rippleClass: RIPPLE_CLASS, size: rippleSize, color: rippleColor },
-  )
+/**
+ * Log a ripple event at the current cursor position.
+ */
+export async function triggerRipple(_page: Page, options: CursorOptions = {}): Promise<void> {
+  events.push({
+    time: elapsed(),
+    type: 'ripple',
+    x: cursorPos.x,
+    y: cursorPos.y,
+    rippleSize: options.rippleSize ?? 40,
+    rippleColor: options.rippleColor ?? 'rgba(59, 130, 246, 0.4)',
+  })
 }
 
-export async function hideCursor(page: Page): Promise<void> {
-  await page.evaluate((id: string) => {
-    const cursor = document.getElementById(id)
-    if (cursor) cursor.style.display = 'none'
-  }, CURSOR_ID)
+/**
+ * Log a hide event.
+ */
+export async function hideCursor(_page: Page): Promise<void> {
+  events.push({
+    time: elapsed(),
+    type: 'hide',
+    x: cursorPos.x,
+    y: cursorPos.y,
+  })
 }
 
-export async function showCursor(page: Page): Promise<void> {
-  await page.evaluate((id: string) => {
-    const cursor = document.getElementById(id)
-    if (cursor) cursor.style.display = ''
-  }, CURSOR_ID)
+/**
+ * Log a show event.
+ */
+export async function showCursor(_page: Page): Promise<void> {
+  events.push({
+    time: elapsed(),
+    type: 'show',
+    x: cursorPos.x,
+    y: cursorPos.y,
+  })
+}
+
+/**
+ * Return all collected cursor events.
+ */
+export function getCursorEvents(): CursorEvent[] {
+  return events
 }

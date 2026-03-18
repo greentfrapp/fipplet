@@ -18,7 +18,7 @@ import type {
 } from './types'
 import { sanitizeFilename, timestamp } from './utils'
 import { restoreZoom, suspendZoom } from './zoom'
-import { moveCursorTo, triggerRipple, hideCursor } from './cursor'
+import { moveCursorTo, triggerRipple } from './cursor'
 
 type ActionHandler = (
   page: Page,
@@ -135,7 +135,6 @@ async function handleNavigate(
   step: NavigateStep,
   ctx: ActionContext,
 ): Promise<void> {
-  if (ctx.cursorEnabled) await hideCursor(page)
   ctx.zoomState.scale = 1
   ctx.zoomState.tx = 0
   ctx.zoomState.ty = 0
