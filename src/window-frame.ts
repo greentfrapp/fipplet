@@ -1,95 +1,11 @@
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import type { BackgroundOptions, WindowChromeOptions } from './types'
-import { encodePng, hexToFFmpeg, parseHexColor } from './drawing'
-import { generateWindowFramePng } from './title-bar'
+import { chromium } from 'playwright-core'
+import type { WindowChromeOptions, BackgroundOptions } from './types'
+import { hexToFFmpeg } from './drawing'
+import { renderWindowFrame, renderBackground, compositeScreenshot } from './chrome-renderer'
 import { runFFmpeg } from './post-process'
-
-// ---------------------------------------------------------------------------
-// Background PNG generator (with optional drop shadow)
-// ---------------------------------------------------------------------------
-
-type BgSpec =
-  | { type: 'solid'; color: string }
-  | { type: 'gradient'; from: string; to: string }
-
-interface ShadowConfig {
-  windowW: number
-  windowH: number
-  padding: number
-  borderRadius: number
-}
-
-/** Generate a background PNG with optional pre-rendered window shadow. */
-function generateBackgroundPng(
-  width: number,
-  height: number,
-  spec: BgSpec,
-  shadow?: ShadowConfig,
-): string {
-  const rgbaData = Buffer.alloc(width * height * 4)
-
-  // Fill background
-  if (spec.type === 'solid') {
-    const c = parseHexColor(spec.color)
-    for (let i = 0; i < width * height; i++) {
-      rgbaData[i * 4] = c.r
-      rgbaData[i * 4 + 1] = c.g
-      rgbaData[i * 4 + 2] = c.b
-      rgbaData[i * 4 + 3] = 255
-    }
-  } else {
-    const c1 = parseHexColor(spec.from)
-    const c2 = parseHexColor(spec.to)
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const t = (x / width + y / height) / 2
-        const i = (y * width + x) * 4
-        rgbaData[i] = Math.round(c1.r + (c2.r - c1.r) * t)
-        rgbaData[i + 1] = Math.round(c1.g + (c2.g - c1.g) * t)
-        rgbaData[i + 2] = Math.round(c1.b + (c2.b - c1.b) * t)
-        rgbaData[i + 3] = 255
-      }
-    }
-  }
-
-  // Render drop shadow
-  if (shadow) {
-    const { windowW, windowH, padding, borderRadius } = shadow
-    const sigma = 10
-    const maxAlpha = 0.35
-    const spread = sigma * 3
-    const winLeft = padding
-    const winTop = padding
-    const halfW = windowW / 2
-    const halfH = windowH / 2
-    const winCx = winLeft + halfW
-    const winCy = winTop + halfH
-    const R = borderRadius
-
-    for (let y = Math.max(0, winTop - spread); y < Math.min(height, winTop + windowH + spread); y++) {
-      for (let x = Math.max(0, winLeft - spread); x < Math.min(width, winLeft + windowW + spread); x++) {
-        const dx = Math.max(0, Math.abs(x - winCx) - (halfW - R))
-        const dy = Math.max(0, Math.abs(y - winCy) - (halfH - R))
-        const dist = Math.sqrt(dx * dx + dy * dy) - R
-
-        if (dist > 0 && dist < spread) {
-          const shadowAlpha = maxAlpha * Math.exp(-(dist * dist) / (2 * sigma * sigma))
-          const i = (y * width + x) * 4
-          rgbaData[i] = Math.round(rgbaData[i] * (1 - shadowAlpha))
-          rgbaData[i + 1] = Math.round(rgbaData[i + 1] * (1 - shadowAlpha))
-          rgbaData[i + 2] = Math.round(rgbaData[i + 2] * (1 - shadowAlpha))
-        }
-      }
-    }
-  }
-
-  const pngBuf = encodePng(width, height, rgbaData)
-  const pngPath = path.join(os.tmpdir(), `fipplet-bg-${Date.now()}.png`)
-  fs.writeFileSync(pngPath, pngBuf)
-  return pngPath
-}
 
 // ---------------------------------------------------------------------------
 // Frame overlay orchestration
@@ -101,13 +17,14 @@ export interface FrameOverlayOptions {
   videoWidth: number
   videoHeight: number
   outputPath?: string
+  screenshots?: string[]
 }
 
 /**
  * Apply window chrome, rounded corners, and background to a video.
  *
- * Generates two static PNGs (window frame overlay + background with shadow),
- * then builds an FFmpeg filter graph that:
+ * Renders two static PNGs via Playwright (window frame overlay + background
+ * with shadow), then builds an FFmpeg filter graph that:
  * 1. Pads the video for the title bar
  * 2. Overlays the window frame (title bar, traffic lights, border)
  * 3. Rounds corners via alpha masking
@@ -117,7 +34,7 @@ export async function applyFrameOverlay(
   videoPath: string,
   options: FrameOverlayOptions,
 ): Promise<string> {
-  const { chrome, background, videoWidth, videoHeight } = options
+  const { chrome, background, videoWidth, videoHeight, screenshots } = options
   const hasChrome = !!chrome
   const hasBackground = !!background
 
@@ -148,81 +65,88 @@ export async function applyFrameOverlay(
   const finalW = hasBackground ? framedW + padding * 2 : framedW
   const finalH = hasBackground ? framedH + padding * 2 : framedH
 
-  const inputArgs: string[] = ['-i', videoPath]
-  const filters: string[] = []
-  let currentLabel = '0:v'
-  let inputCount = 1
-
-  // --- Step 1: Title bar + frame overlay ---
-  if (hasChrome) {
-    filters.push(
-      `[${currentLabel}]pad=iw:ih+${titleBarHeight}:0:${titleBarHeight}:${hexToFFmpeg(titleBarColor)}[padded]`,
-    )
-    currentLabel = 'padded'
-
-    const urlText = typeof chrome?.url === 'string' ? chrome.url : undefined
-    const framePng = generateWindowFramePng({
-      width: framedW,
-      height: framedH,
-      titleBarHeight,
-      titleBarColor,
-      trafficLights,
-      borderRadius: hasBackground ? borderRadius : 0,
-      urlText,
-    })
-    tempFiles.push(framePng)
-    inputArgs.push('-i', framePng)
-    const frameInputIdx = inputCount++
-
-    filters.push(
-      `[${currentLabel}][${frameInputIdx}:v]overlay=0:0:format=auto[chromed]`,
-    )
-    currentLabel = 'chromed'
-  }
-
-  // --- Step 2: Rounded corners + background ---
-  if (hasBackground) {
-    const bgPng = generateBackgroundPng(
-      finalW, finalH,
-      bgGradient
-        ? { type: 'gradient', from: bgGradient.from, to: bgGradient.to }
-        : { type: 'solid', color: bgColor },
-      { windowW: framedW, windowH: framedH, padding, borderRadius },
-    )
-    tempFiles.push(bgPng)
-    inputArgs.push('-loop', '1', '-i', bgPng)
-    const bgInputIdx = inputCount++
-
-    if (borderRadius > 0) {
-      const R = borderRadius
-      const alphaExpr =
-        `if(lte(hypot(max(0\\,abs(X-W/2)-(W/2-${R}))\\,max(0\\,abs(Y-H/2)-(H/2-${R})))\\,${R})\\,255\\,0)`
-      filters.push(
-        `[${currentLabel}]format=yuva420p,geq=lum='lum(X\\,Y)':cb='cb(X\\,Y)':cr='cr(X\\,Y)':a='${alphaExpr}'[rounded]`,
-      )
-      currentLabel = 'rounded'
-    }
-
-    filters.push(
-      `[${bgInputIdx}:v][${currentLabel}]overlay=${padding}:${padding}:shortest=1:format=auto[final_out]`,
-    )
-    currentLabel = 'final_out'
-  } else {
-    const lastFilter = filters[filters.length - 1]
-    filters[filters.length - 1] = lastFilter.replace(
-      /\[[^\]]+\]$/,
-      '[final_out]',
-    )
-    currentLabel = 'final_out'
-  }
-
-  // Write filter graph to a script file
-  const filterGraph = filters.join(';\n')
-  const filterScriptPath = path.join(os.tmpdir(), `fipplet-fg-${Date.now()}.txt`)
-  fs.writeFileSync(filterScriptPath, filterGraph)
-  tempFiles.push(filterScriptPath)
+  // Launch a browser for rendering chrome PNGs
+  const browser = await chromium.launch({ headless: true })
 
   try {
+    const inputArgs: string[] = ['-i', videoPath]
+    const filters: string[] = []
+    let currentLabel = '0:v'
+    let inputCount = 1
+
+    // --- Step 1: Title bar + frame overlay ---
+    if (hasChrome) {
+      filters.push(
+        `[${currentLabel}]pad=iw:ih+${titleBarHeight}:0:${titleBarHeight}:${hexToFFmpeg(titleBarColor)}[padded]`,
+      )
+      currentLabel = 'padded'
+
+      const urlText = typeof chrome?.url === 'string' ? chrome.url : undefined
+      const framePng = await renderWindowFrame({
+        width: framedW,
+        height: framedH,
+        titleBarHeight,
+        titleBarColor,
+        trafficLights,
+        borderRadius: hasBackground ? borderRadius : 0,
+        urlText,
+      }, browser)
+      tempFiles.push(framePng)
+      inputArgs.push('-i', framePng)
+      const frameInputIdx = inputCount++
+
+      filters.push(
+        `[${currentLabel}][${frameInputIdx}:v]overlay=0:0:format=auto[chromed]`,
+      )
+      currentLabel = 'chromed'
+    }
+
+    // --- Step 2: Rounded corners + background ---
+    if (hasBackground) {
+      const bgPng = await renderBackground({
+        totalWidth: finalW,
+        totalHeight: finalH,
+        windowWidth: framedW,
+        windowHeight: framedH,
+        padding,
+        borderRadius,
+        background: bgGradient
+          ? { type: 'gradient', from: bgGradient.from, to: bgGradient.to }
+          : { type: 'solid', color: bgColor },
+      }, browser)
+      tempFiles.push(bgPng)
+      inputArgs.push('-loop', '1', '-i', bgPng)
+      const bgInputIdx = inputCount++
+
+      if (borderRadius > 0) {
+        const R = borderRadius
+        const alphaExpr =
+          `if(lte(hypot(max(0\\,abs(X-W/2)-(W/2-${R}))\\,max(0\\,abs(Y-H/2)-(H/2-${R})))\\,${R})\\,255\\,0)`
+        filters.push(
+          `[${currentLabel}]format=yuva420p,geq=lum='lum(X\\,Y)':cb='cb(X\\,Y)':cr='cr(X\\,Y)':a='${alphaExpr}'[rounded]`,
+        )
+        currentLabel = 'rounded'
+      }
+
+      filters.push(
+        `[${bgInputIdx}:v][${currentLabel}]overlay=${padding}:${padding}:shortest=1:format=auto[final_out]`,
+      )
+      currentLabel = 'final_out'
+    } else {
+      const lastFilter = filters[filters.length - 1]
+      filters[filters.length - 1] = lastFilter.replace(
+        /\[[^\]]+\]$/,
+        '[final_out]',
+      )
+      currentLabel = 'final_out'
+    }
+
+    // Write filter graph to a script file
+    const filterGraph = filters.join(';\n')
+    const filterScriptPath = path.join(os.tmpdir(), `fipplet-fg-${Date.now()}.txt`)
+    fs.writeFileSync(filterScriptPath, filterGraph)
+    tempFiles.push(filterScriptPath)
+
     await runFFmpeg([
       ...inputArgs,
       '-filter_complex_script', filterScriptPath,
@@ -232,7 +156,62 @@ export async function applyFrameOverlay(
       '-c:a', 'copy',
       '-y', outputPath,
     ])
+
+    // --- Composite screenshots with the same frame + background ---
+    if (screenshots && screenshots.length > 0) {
+      // We need the frame and background PNGs. They were already rendered
+      // above for the video, but we need references to them. Re-render if
+      // only one of chrome/background was active, since not all paths set both.
+      let framePng: string | undefined
+      let bgPng: string | undefined
+
+      if (hasChrome) {
+        const urlText = typeof chrome?.url === 'string' ? chrome.url : undefined
+        framePng = await renderWindowFrame({
+          width: framedW,
+          height: framedH,
+          titleBarHeight,
+          titleBarColor,
+          trafficLights,
+          borderRadius: hasBackground ? borderRadius : 0,
+          urlText,
+        }, browser)
+        tempFiles.push(framePng)
+      }
+
+      if (hasBackground) {
+        bgPng = await renderBackground({
+          totalWidth: finalW,
+          totalHeight: finalH,
+          windowWidth: framedW,
+          windowHeight: framedH,
+          padding,
+          borderRadius,
+          background: bgGradient
+            ? { type: 'gradient', from: bgGradient.from, to: bgGradient.to }
+            : { type: 'solid', color: bgColor },
+        }, browser)
+        tempFiles.push(bgPng)
+      }
+
+      if (framePng && bgPng) {
+        for (const ssPath of screenshots) {
+          if (!fs.existsSync(ssPath)) continue
+          await compositeScreenshot({
+            screenshotPath: ssPath,
+            framePngPath: framePng,
+            bgPngPath: bgPng,
+            totalWidth: finalW,
+            totalHeight: finalH,
+            padding,
+            titleBarHeight,
+            borderRadius,
+          }, browser)
+        }
+      }
+    }
   } finally {
+    await browser.close()
     for (const f of tempFiles) {
       try { fs.unlinkSync(f) } catch {}
     }

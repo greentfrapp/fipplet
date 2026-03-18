@@ -341,6 +341,7 @@ export async function record(
         background: bgOpts,
         videoWidth: viewport.width,
         videoHeight: viewport.height,
+        screenshots,
       })
 
       if (framedPath !== videoPath) {

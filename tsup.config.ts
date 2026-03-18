@@ -55,7 +55,7 @@ const bundlePlaywright: Partial<Options> = {
 };
 
 const assetLoaders: Partial<Options> = {
-  loader: { ".svg": "text" },
+  loader: { ".svg": "text", ".html": "text" },
 };
 
 export default defineConfig([

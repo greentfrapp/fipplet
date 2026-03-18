@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html><head><style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: {{TOTAL_WIDTH}}px;
+    height: {{TOTAL_HEIGHT}}px;
+    background: {{BG_CSS}};
+  }
+  .shadow-clip {
+    position: absolute;
+    left: 0;
+    top: {{PADDING}}px;
+    width: {{TOTAL_WIDTH}}px;
+    height: calc({{TOTAL_HEIGHT}}px - {{PADDING}}px);
+    overflow: hidden;
+  }
+  .window-shadow {
+    position: absolute;
+    left: {{PADDING}}px;
+    top: 0;
+    width: {{WINDOW_WIDTH}}px;
+    height: {{WINDOW_HEIGHT}}px;
+    border-radius: {{BORDER_RADIUS}}px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.15);
+  }
+</style></head><body>
+  <div class="shadow-clip"><div class="window-shadow"></div></div>
+</body></html>
