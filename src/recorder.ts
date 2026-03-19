@@ -12,8 +12,8 @@ import type {
   StepTiming,
 } from './types'
 import { initCursorTracker, getCursorEvents } from './cursor'
-import { applyCursorOverlay, applySpeedAdjustment, convertToGif, convertToMp4 } from './post-process'
-import { applyFrameOverlay } from './window-frame'
+import { convertToGif, convertToMp4 } from './post-process'
+import { runPostProcessPipeline } from './pipeline'
 import { resolveAuth } from './providers'
 import { loadDefinition } from './validation'
 import { timestamp } from './utils'
@@ -303,85 +303,60 @@ export async function record(
 
   await browser.close()
 
-  // Write cursor events and apply post-processing overlay
+  // Write cursor events for debugging/reference
+  let cursorEventsForPipeline: import('./types').CursorEvent[] | undefined
   if (cursorEnabled && videoPath) {
     const cursorEvents = getCursorEvents()
     cursorEventsPath = path.join(outputDir, `${baseName}-cursor.json`)
     fs.writeFileSync(cursorEventsPath, JSON.stringify(cursorEvents, null, 2))
     process.stderr.write(`  cursor events: ${cursorEvents.length} events → ${cursorEventsPath}\n`)
-
     if (cursorEvents.length > 0) {
-      process.stderr.write('  applying cursor overlay...\n')
-
-      try {
-        const processedPath = await applyCursorOverlay(videoPath, cursorEvents, {
-          cursorStyle: cursorOptions?.style ?? 'default',
-          cursorSize: cursorOptions?.size ?? 24,
-        })
-        // Replace original with processed version
-        fs.unlinkSync(videoPath)
-        fs.renameSync(processedPath, videoPath)
-        process.stderr.write('  cursor overlay applied.\n')
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        process.stderr.write(`  warning: cursor overlay failed: ${msg}\n`)
-        // Video is still available without cursor overlay
-      }
+      cursorEventsForPipeline = cursorEvents
     }
   }
 
-  // Apply window chrome, rounded corners, and background
+  // Resolve chrome/background config
   const chromeConfig = def.chrome
   const bgConfig = def.background
   const hasChrome = chromeConfig === true || (typeof chromeConfig === 'object' && chromeConfig.enabled !== false)
   const hasBackground = bgConfig === true || (typeof bgConfig === 'object' && bgConfig.enabled !== false)
 
-  if ((hasChrome || hasBackground) && videoPath) {
-    process.stderr.write('  applying window chrome/background...\n')
-    try {
-      let chromeOpts = hasChrome
-        ? (typeof chromeConfig === 'object' ? { ...chromeConfig } : {})
-        : undefined
-      const bgOpts = hasBackground
-        ? (typeof bgConfig === 'object' ? bgConfig : {})
-        : undefined
-
-      // Resolve chrome.url: true → use recording URL, string → use as-is
-      if (chromeOpts && chromeOpts.url === true) {
-        chromeOpts = { ...chromeOpts, url: def.url }
-      }
-
-      const framedPath = await applyFrameOverlay(videoPath, {
-        chrome: chromeOpts,
-        background: bgOpts,
-        videoWidth: viewport.width,
-        videoHeight: viewport.height,
-        screenshots,
-      })
-
-      if (framedPath !== videoPath) {
-        fs.unlinkSync(videoPath)
-        fs.renameSync(framedPath, videoPath)
-      }
-      process.stderr.write('  window chrome/background applied.\n')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      process.stderr.write(`  warning: frame overlay failed: ${msg}\n`)
-    }
+  let chromeOpts = hasChrome
+    ? (typeof chromeConfig === 'object' ? { ...chromeConfig } : {})
+    : undefined
+  const bgOpts = hasBackground
+    ? (typeof bgConfig === 'object' ? bgConfig : {})
+    : undefined
+  if (chromeOpts && chromeOpts.url === true) {
+    chromeOpts = { ...chromeOpts, url: def.url }
   }
 
-  // Apply speed adjustment if any speed != 1.0
   const needsSpeed = globalSpeed !== 1.0 || stepTimings.some((t) => t.speed !== 1.0)
-  if (needsSpeed && videoPath) {
-    process.stderr.write(`  applying speed adjustment (global: ${globalSpeed}x)...\n`)
+  const needsPipeline = cursorEventsForPipeline || hasChrome || hasBackground || needsSpeed
+
+  if (needsPipeline && videoPath) {
+    process.stderr.write('  post-processing...\n')
     try {
-      const speedPath = await applySpeedAdjustment(videoPath, stepTimings, globalSpeed)
-      fs.unlinkSync(videoPath)
-      fs.renameSync(speedPath, videoPath)
-      process.stderr.write('  speed adjustment applied.\n')
+      const processedPath = await runPostProcessPipeline({
+        videoPath,
+        cursor: cursorEventsForPipeline
+          ? { events: cursorEventsForPipeline, style: cursorOptions?.style ?? 'default', size: cursorOptions?.size ?? 24 }
+          : undefined,
+        frame: (hasChrome || hasBackground)
+          ? { chrome: chromeOpts, background: bgOpts, videoWidth: viewport.width, videoHeight: viewport.height, screenshots }
+          : undefined,
+        speed: needsSpeed
+          ? { stepTimings, globalSpeed }
+          : undefined,
+      })
+      if (processedPath !== videoPath) {
+        fs.unlinkSync(videoPath)
+        fs.renameSync(processedPath, videoPath)
+      }
+      process.stderr.write('  post-processing complete.\n')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      process.stderr.write(`  warning: speed adjustment failed: ${msg}\n`)
+      process.stderr.write(`  warning: post-processing failed: ${msg}\n`)
     }
   }
 

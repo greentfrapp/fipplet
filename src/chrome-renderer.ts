@@ -123,6 +123,38 @@ export async function renderBackground(
   return pngPath
 }
 
+export interface RoundedMaskConfig {
+  width: number
+  height: number
+  borderRadius: number
+}
+
+/**
+ * Render a rounded-rectangle mask as a grayscale PNG via Playwright.
+ * White = visible, black = masked. Used for alpha-masking rounded corners
+ * in FFmpeg instead of the expensive per-pixel `geq` filter.
+ */
+export async function renderRoundedMask(
+  config: RoundedMaskConfig,
+  browser: Browser,
+): Promise<string> {
+  const { width, height, borderRadius } = config
+
+  const html = `<!DOCTYPE html>
+<html><head><style>
+  * { margin: 0; padding: 0; }
+  body { width: ${width}px; height: ${height}px; background: black; overflow: hidden; }
+  .mask { width: ${width}px; height: ${height}px; border-radius: ${borderRadius}px; background: white; }
+</style></head><body><div class="mask"></div></body></html>`
+
+  const page = await browser.newPage({ viewport: { width, height } })
+  await page.setContent(html, { waitUntil: 'load' })
+  const pngPath = path.join(os.tmpdir(), `fipplet-mask-${Date.now()}.png`)
+  await page.screenshot({ path: pngPath })
+  await page.close()
+  return pngPath
+}
+
 export interface CompositeScreenshotConfig {
   screenshotPath: string
   framePngPath: string

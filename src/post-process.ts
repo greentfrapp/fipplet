@@ -5,6 +5,15 @@ import path from 'path'
 import type { CursorEvent, CursorStyle, StepTiming } from './types'
 import { getCursorPng } from './cursors'
 
+/** Shared VP9 encoding flags optimized for speed with screen content. */
+export const VP9_FAST_FLAGS = [
+  '-crf', '24', '-b:v', '0',
+  '-deadline', 'realtime',
+  '-cpu-used', '8',
+  '-row-mt', '1',
+  '-threads', '0',
+] as const
+
 /**
  * Resolve the path to the ffmpeg binary.
  * Uses @ffmpeg-installer/ffmpeg if available, falls back to system ffmpeg.
@@ -96,7 +105,7 @@ export function buildVisibilityExpr(events: CursorEvent[]): string {
 /**
  * Generate a short transparent ripple animation clip using FFmpeg.
  */
-async function generateRippleClip(
+export async function generateRippleClip(
   size: number,
   color: string,
   durationMs: number = 500,
@@ -124,6 +133,9 @@ async function generateRippleClip(
     ].join(','),
     '-c:v', 'libvpx-vp9',
     '-crf', '18', '-b:v', '0',
+    '-deadline', 'good',
+    '-cpu-used', '4',
+    '-row-mt', '1',
     '-pix_fmt', 'yuva420p',
     '-auto-alt-ref', '0',
     '-y', clipPath,
@@ -132,14 +144,22 @@ async function generateRippleClip(
   return clipPath
 }
 
+export interface RippleConfig {
+  size: number
+  r: number
+  g: number
+  b: number
+  baseAlpha: number
+  durationMs: number
+}
+
 export interface FilterGraphInput {
   cursorSize: number
   xExpr: string
   yExpr: string
   visExpr: string
   rippleEvents: Array<{ x: number; y: number; time: number; rippleSize?: number }>
-  rippleClipPath: string | null
-  rippleDurationMs: number
+  rippleConfig: RippleConfig | null
 }
 
 export interface FilterGraphOutput {
@@ -154,18 +174,30 @@ export interface FilterGraphOutput {
  *
  * Pure function — no I/O. The caller is responsible for generating the
  * ripple clip and wiring up the FFmpeg invocation.
+ *
+ * Optional params allow the pipeline to offset input indices and labels
+ * when chaining with other filter stages. Defaults preserve the original
+ * standalone behavior.
  */
-export function buildFilterGraph(input: FilterGraphInput): FilterGraphOutput {
-  const { cursorSize, xExpr, yExpr, visExpr, rippleEvents, rippleClipPath, rippleDurationMs } = input
+export function buildFilterGraph(input: FilterGraphInput & {
+  videoLabel?: string
+  cursorInputIdx?: number
+  outputLabel?: string
+}): FilterGraphOutput {
+  const {
+    cursorSize, xExpr, yExpr, visExpr, rippleEvents, rippleConfig,
+    videoLabel = '0:v',
+    cursorInputIdx = 1,
+    outputLabel = 'final_out',
+  } = input
   const filters: string[] = []
-  let currentInput = '0:v'
-  let inputCount = 2 // 0 = video, 1 = cursor image
+  let currentInput = videoLabel
   const extraInputArgs: string[] = []
 
   // Scale cursor inline if needed, then overlay on video
-  let cursorLabel = '1:v'
+  let cursorLabel = `${cursorInputIdx}:v`
   if (cursorSize !== CURSOR_BASE_SIZE) {
-    filters.push(`[1:v]scale=${cursorSize}:${cursorSize}:flags=lanczos[cursor_scaled]`)
+    filters.push(`[${cursorInputIdx}:v]scale=${cursorSize}:${cursorSize}:flags=lanczos[cursor_scaled]`)
     cursorLabel = 'cursor_scaled'
   }
 
@@ -175,29 +207,54 @@ export function buildFilterGraph(input: FilterGraphInput): FilterGraphOutput {
   )
   currentInput = 'cursor_out'
 
-  // Add ripple overlays
-  if (rippleEvents.length > 0 && rippleClipPath) {
+  // Add ripple overlays via inline lavfi source (no extra inputs needed)
+  if (rippleEvents.length > 0 && rippleConfig) {
+    const { size, r, g, b, baseAlpha, durationMs } = rippleConfig
+    const fps = 30
+    const frames = Math.ceil((durationMs / 1000) * fps)
+    const dim = size * 2
+    const alphaVal = Math.round(255 * baseAlpha)
+
+    // Generate ripple animation as a lavfi source
+    const geq =
+      `geq=` +
+      `r='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${r},0)'` +
+      `:g='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${g},0)'` +
+      `:b='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${b},0)'` +
+      `:a='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${alphaVal}*(1-N/${frames}),0)'`
+
+    const rippleSrc = `color=c=black@0:s=${dim}x${dim}:d=${(durationMs / 1000).toFixed(2)}:r=${fps},format=rgba,${geq}[ripple_src]`
+    filters.push(rippleSrc)
+
+    // Split the ripple source for each event
+    if (rippleEvents.length === 1) {
+      // No split needed for a single ripple
+      const splitLabels = '[rip0]'
+      filters.push(`[ripple_src]copy${splitLabels}`)
+    } else {
+      const splitLabels = rippleEvents.map((_, i) => `[rip${i}]`).join('')
+      filters.push(`[ripple_src]split=${rippleEvents.length}${splitLabels}`)
+    }
+
+    // Overlay each ripple at its position and time
+    const rippleDurSec = durationMs / 1000
     for (let i = 0; i < rippleEvents.length; i++) {
       const ev = rippleEvents[i]
-      const rippleInputIdx = inputCount
-      extraInputArgs.push('-i', rippleClipPath)
-      inputCount++
-
-      const rippleSize = ev.rippleSize ?? 40
+      const rippleSize = ev.rippleSize ?? size
       const ox = Math.round(ev.x - rippleSize)
       const oy = Math.round(ev.y - rippleSize)
       const enableStart = ev.time.toFixed(4)
-      const enableEnd = (ev.time + rippleDurationMs / 1000).toFixed(4)
-      const nextLabel = i === rippleEvents.length - 1 ? 'final_out' : `ripple_${i}`
+      const enableEnd = (ev.time + rippleDurSec).toFixed(4)
+      const nextLabel = i === rippleEvents.length - 1 ? outputLabel : `ripple_${i}`
 
       filters.push(
-        `[${currentInput}][${rippleInputIdx}:v]overlay=x='${ox}':y='${oy}':enable='between(t\\,${enableStart}\\,${enableEnd})':eof_action=pass:format=auto[${nextLabel}]`,
+        `[${currentInput}][rip${i}]overlay=x='${ox}':y='${oy}':enable='between(t\\,${enableStart}\\,${enableEnd})':eof_action=pass:format=auto[${nextLabel}]`,
       )
       currentInput = nextLabel
     }
   } else {
-    // Rename cursor_out to final_out
-    filters[filters.length - 1] = filters[filters.length - 1].replace('[cursor_out]', '[final_out]')
+    // Rename cursor_out to desired output label
+    filters[filters.length - 1] = filters[filters.length - 1].replace('[cursor_out]', `[${outputLabel}]`)
   }
 
   return {
@@ -257,16 +314,21 @@ export async function applyCursorOverlay(
   // Build ripple overlays for each ripple event
   const rippleEvents = events.filter((e) => e.type === 'ripple')
 
-  // Generate ripple clip if needed
   const inputArgs: string[] = ['-i', videoPath, '-i', cursorPng]
-  let rippleClipPath: string | null = null
-  const rippleDurationMs = 500
+  let rippleConfig: RippleConfig | null = null
 
   if (rippleEvents.length > 0) {
     const rippleSize = rippleEvents[0].rippleSize ?? 40
     const rippleColor = rippleEvents[0].rippleColor ?? 'rgba(59, 130, 246, 0.4)'
-    rippleClipPath = await generateRippleClip(rippleSize, rippleColor, rippleDurationMs)
-    tempFiles.push(rippleClipPath)
+    const match = rippleColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
+    rippleConfig = {
+      size: rippleSize,
+      r: match ? parseInt(match[1]) : 59,
+      g: match ? parseInt(match[2]) : 130,
+      b: match ? parseInt(match[3]) : 246,
+      baseAlpha: match && match[4] ? parseFloat(match[4]) : 0.4,
+      durationMs: 500,
+    }
   }
 
   // Build filter graph
@@ -276,8 +338,7 @@ export async function applyCursorOverlay(
     yExpr,
     visExpr,
     rippleEvents,
-    rippleClipPath,
-    rippleDurationMs,
+    rippleConfig,
   })
   inputArgs.push(...extraInputArgs)
 
@@ -294,7 +355,7 @@ export async function applyCursorOverlay(
       '-map', '[final_out]',
       '-map', '0:a?',
       '-c:v', 'libvpx-vp9',
-      '-crf', '18', '-b:v', '0',
+      ...VP9_FAST_FLAGS,
       '-c:a', 'copy',
       '-y', outputPath,
     ])
@@ -383,7 +444,7 @@ export async function applySpeedAdjustment(
     // Uniform speed — simple setpts
     const codec = ext === '.webm' ? 'libvpx-vp9' : 'libx264'
     const qualityFlags = codec === 'libvpx-vp9'
-      ? ['-crf', '18', '-b:v', '0']
+      ? [...VP9_FAST_FLAGS]
       : ['-crf', '18', '-preset', 'slow']
     await runFFmpeg([
       '-i', videoPath,
@@ -441,7 +502,7 @@ export async function applySpeedAdjustment(
 
     const codec = ext === '.webm' ? 'libvpx-vp9' : 'libx264'
     const qualityFlags = codec === 'libvpx-vp9'
-      ? ['-crf', '18', '-b:v', '0']
+      ? [...VP9_FAST_FLAGS]
       : ['-crf', '18', '-preset', 'slow']
     await runFFmpeg([
       '-i', videoPath,
