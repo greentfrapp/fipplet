@@ -123,6 +123,7 @@ async function generateRippleClip(
       `:a='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${Math.round(255 * baseAlpha)}*(1-N/${frames}),0)'`,
     ].join(','),
     '-c:v', 'libvpx-vp9',
+    '-crf', '18', '-b:v', '0',
     '-pix_fmt', 'yuva420p',
     '-auto-alt-ref', '0',
     '-y', clipPath,
@@ -293,6 +294,7 @@ export async function applyCursorOverlay(
       '-map', '[final_out]',
       '-map', '0:a?',
       '-c:v', 'libvpx-vp9',
+      '-crf', '18', '-b:v', '0',
       '-c:a', 'copy',
       '-y', outputPath,
     ])
@@ -317,6 +319,7 @@ export async function convertToMp4(inputPath: string): Promise<string> {
   await runFFmpeg([
     '-i', inputPath,
     '-c:v', 'libx264',
+    '-crf', '18', '-preset', 'slow',
     '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart',
     '-c:a', 'aac',
@@ -379,12 +382,16 @@ export async function applySpeedAdjustment(
   if (!hasPerStep) {
     // Uniform speed — simple setpts
     const codec = ext === '.webm' ? 'libvpx-vp9' : 'libx264'
+    const qualityFlags = codec === 'libvpx-vp9'
+      ? ['-crf', '18', '-b:v', '0']
+      : ['-crf', '18', '-preset', 'slow']
     await runFFmpeg([
       '-i', videoPath,
       '-filter_complex', `[0:v]setpts=PTS/${globalSpeed}[v]`,
       '-map', '[v]',
       '-an',
       '-c:v', codec,
+      ...qualityFlags,
       '-y', outputPath,
     ])
   } else {
@@ -433,12 +440,16 @@ export async function applySpeedAdjustment(
     }
 
     const codec = ext === '.webm' ? 'libvpx-vp9' : 'libx264'
+    const qualityFlags = codec === 'libvpx-vp9'
+      ? ['-crf', '18', '-b:v', '0']
+      : ['-crf', '18', '-preset', 'slow']
     await runFFmpeg([
       '-i', videoPath,
       '-filter_complex', `[0:v]setpts=${expr}[v]`,
       '-map', '[v]',
       '-an',
       '-c:v', codec,
+      ...qualityFlags,
       '-y', outputPath,
     ])
   }

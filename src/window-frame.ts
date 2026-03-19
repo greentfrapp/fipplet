@@ -153,6 +153,7 @@ export async function applyFrameOverlay(
       '-map', '[final_out]',
       '-map', '0:a?',
       '-c:v', 'libvpx-vp9',
+      '-crf', '18', '-b:v', '0',
       '-c:a', 'copy',
       '-y', outputPath,
     ])
