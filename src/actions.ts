@@ -107,10 +107,39 @@ async function handleSelect(
 }
 
 async function handleScroll(page: Page, step: ScrollStep, _ctx: ActionContext): Promise<void> {
-  await page.evaluate(({ x, y }) => window.scrollBy(x ?? 0, y ?? 0), {
-    x: step.x,
-    y: step.y,
-  })
+  const baseDuration = 600
+  const speedMultiplier = step.speed ?? 1
+  const duration = baseDuration / speedMultiplier
+
+  await page.evaluate(({ x, y, duration }) => {
+    return new Promise<void>((resolve) => {
+      const startX = window.scrollX
+      const startY = window.scrollY
+      const dx = x ?? 0
+      const dy = y ?? 0
+      const start = performance.now()
+
+      function ease(t: number): number {
+        return t < 0.5
+          ? 4 * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 3) / 2
+      }
+
+      function tick(now: number) {
+        const elapsed = now - start
+        const t = Math.min(elapsed / duration, 1)
+        const p = ease(t)
+        window.scrollTo(startX + dx * p, startY + dy * p)
+        if (t < 1) {
+          requestAnimationFrame(tick)
+        } else {
+          resolve()
+        }
+      }
+
+      requestAnimationFrame(tick)
+    })
+  }, { x: step.x, y: step.y, duration })
 }
 
 async function handleHover(
