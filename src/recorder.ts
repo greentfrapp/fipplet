@@ -5,12 +5,14 @@ import { ACTIONS } from './actions'
 import type {
   ActionContext,
   CursorOptions,
+  OutputFormat,
   RecordOptions,
   RecordingDefinition,
   RecordingResult,
+  StepTiming,
 } from './types'
 import { initCursorTracker, getCursorEvents } from './cursor'
-import { applyCursorOverlay } from './post-process'
+import { applyCursorOverlay, applySpeedAdjustment, convertToGif, convertToMp4 } from './post-process'
 import { applyFrameOverlay } from './window-frame'
 import { resolveAuth } from './providers'
 import { loadDefinition } from './validation'
@@ -244,10 +246,15 @@ export async function record(
 
   // Execute steps
   const ctx: ActionContext = { outputDir, zoomState, cursorEnabled, cursorOptions }
+  const globalSpeed = options.speed ?? def.speed ?? 1.0
+  const stepTimings: StepTiming[] = []
+  const stepTimerStart = Date.now()
 
   for (const [i, step] of def.steps.entries()) {
     const label = step.action + ('selector' in step ? ` ${step.selector}` : '')
     process.stderr.write(`  [${i + 1}/${def.steps.length}] ${label}\n`)
+
+    const stepStart = (Date.now() - stepTimerStart) / 1000
 
     try {
       const result = await ACTIONS[step.action](page, step, ctx)
@@ -262,6 +269,14 @@ export async function record(
     if (step.action !== 'wait') {
       await page.waitForTimeout(step.pauseAfter ?? 500)
     }
+
+    const stepEnd = (Date.now() - stepTimerStart) / 1000
+    stepTimings.push({
+      stepIndex: i,
+      startTime: stepStart,
+      endTime: stepEnd,
+      speed: step.speed ?? globalSpeed,
+    })
   }
 
   // Final screenshot
@@ -352,6 +367,37 @@ export async function record(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       process.stderr.write(`  warning: frame overlay failed: ${msg}\n`)
+    }
+  }
+
+  // Apply speed adjustment if any speed != 1.0
+  const needsSpeed = globalSpeed !== 1.0 || stepTimings.some((t) => t.speed !== 1.0)
+  if (needsSpeed && videoPath) {
+    process.stderr.write(`  applying speed adjustment (global: ${globalSpeed}x)...\n`)
+    try {
+      const speedPath = await applySpeedAdjustment(videoPath, stepTimings, globalSpeed)
+      fs.unlinkSync(videoPath)
+      fs.renameSync(speedPath, videoPath)
+      process.stderr.write('  speed adjustment applied.\n')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      process.stderr.write(`  warning: speed adjustment failed: ${msg}\n`)
+    }
+  }
+
+  // Convert output format if not WebM
+  const outputFormat: OutputFormat = options.outputFormat ?? def.outputFormat ?? 'webm'
+  if (outputFormat !== 'webm' && videoPath) {
+    process.stderr.write(`  converting to ${outputFormat}...\n`)
+    try {
+      const converter = outputFormat === 'mp4' ? convertToMp4 : convertToGif
+      const convertedPath = await converter(videoPath)
+      fs.unlinkSync(videoPath)
+      videoPath = convertedPath
+      process.stderr.write(`  conversion to ${outputFormat} complete.\n`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      process.stderr.write(`  warning: format conversion failed: ${msg}\n`)
     }
   }
 

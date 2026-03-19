@@ -14,10 +14,20 @@ export interface Cookie {
   sameSite?: 'Strict' | 'Lax' | 'None'
 }
 
+export type OutputFormat = 'webm' | 'mp4' | 'gif'
+
+export interface StepTiming {
+  stepIndex: number
+  startTime: number  // seconds from recording start
+  endTime: number    // seconds from recording start
+  speed: number
+}
+
 // --- Step types (discriminated union on `action`) ---
 
 interface BaseStep {
   pauseAfter?: number
+  speed?: number
 }
 
 export interface WaitStep extends BaseStep {
@@ -164,6 +174,8 @@ export interface RecordingDefinition {
   chrome?: boolean | WindowChromeOptions
   /** Background, padding, and rounded corners around the recording. */
   background?: boolean | BackgroundOptions
+  speed?: number
+  outputFormat?: OutputFormat
   setup?: SetupBlock
   steps: Step[]
 }
@@ -172,6 +184,8 @@ export interface RecordOptions {
   outputDir?: string
   headless?: boolean
   setup?: SetupBlock
+  speed?: number
+  outputFormat?: OutputFormat
 }
 
 export interface RecordingResult {

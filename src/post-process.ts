@@ -2,7 +2,7 @@ import { execFile } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import type { CursorEvent, CursorStyle } from './types'
+import type { CursorEvent, CursorStyle, StepTiming } from './types'
 import { getCursorPng } from './cursors'
 
 /**
@@ -300,6 +300,147 @@ export async function applyCursorOverlay(
     for (const f of tempFiles) {
       try { fs.unlinkSync(f) } catch {}
     }
+  }
+
+  return outputPath
+}
+
+/**
+ * Convert a WebM video to MP4 (H.264 + AAC).
+ * Strips alpha channel, enables web streaming with faststart.
+ */
+export async function convertToMp4(inputPath: string): Promise<string> {
+  const dir = path.dirname(inputPath)
+  const base = path.basename(inputPath, path.extname(inputPath))
+  const outputPath = path.join(dir, `${base}.mp4`)
+
+  await runFFmpeg([
+    '-i', inputPath,
+    '-c:v', 'libx264',
+    '-pix_fmt', 'yuv420p',
+    '-movflags', '+faststart',
+    '-c:a', 'aac',
+    '-y', outputPath,
+  ])
+
+  return outputPath
+}
+
+/**
+ * Convert a video to GIF using two-pass palette approach for quality.
+ */
+export async function convertToGif(inputPath: string): Promise<string> {
+  const dir = path.dirname(inputPath)
+  const base = path.basename(inputPath, path.extname(inputPath))
+  const outputPath = path.join(dir, `${base}.gif`)
+  const palettePath = path.join(os.tmpdir(), `fipplet-palette-${Date.now()}.png`)
+
+  try {
+    // Pass 1: generate optimal palette
+    await runFFmpeg([
+      '-i', inputPath,
+      '-vf', 'fps=15,scale=-1:-1:flags=lanczos,palettegen',
+      '-y', palettePath,
+    ])
+
+    // Pass 2: use palette to produce high-quality GIF
+    await runFFmpeg([
+      '-i', inputPath,
+      '-i', palettePath,
+      '-filter_complex', 'fps=15,scale=-1:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=sierra2_4a',
+      '-y', outputPath,
+    ])
+  } finally {
+    try { fs.unlinkSync(palettePath) } catch {}
+  }
+
+  return outputPath
+}
+
+/**
+ * Apply speed adjustment to a video.
+ *
+ * Case 1 (uniform): All segments use the same speed → single setpts filter.
+ * Case 2 (per-step): Different segments have different speeds → piecewise setpts.
+ */
+export async function applySpeedAdjustment(
+  videoPath: string,
+  stepTimings: StepTiming[],
+  globalSpeed: number,
+): Promise<string> {
+  const dir = path.dirname(videoPath)
+  const ext = path.extname(videoPath)
+  const base = path.basename(videoPath, ext)
+  const outputPath = path.join(dir, `${base}-speed${ext}`)
+
+  // Check if all steps use the same effective speed
+  const hasPerStep = stepTimings.some((t) => t.speed !== globalSpeed)
+
+  if (!hasPerStep) {
+    // Uniform speed — simple setpts
+    const codec = ext === '.webm' ? 'libvpx-vp9' : 'libx264'
+    await runFFmpeg([
+      '-i', videoPath,
+      '-filter_complex', `[0:v]setpts=PTS/${globalSpeed}[v]`,
+      '-map', '[v]',
+      '-an',
+      '-c:v', codec,
+      '-y', outputPath,
+    ])
+  } else {
+    // Per-step speed variations — build piecewise setpts expression
+    // Sort timings by start time
+    const sorted = [...stepTimings].sort((a, b) => a.startTime - b.startTime)
+
+    // Build segments: gaps use globalSpeed, steps use their own speed
+    interface Segment { start: number; end: number; speed: number }
+    const segments: Segment[] = []
+    let cursor = 0
+
+    for (const timing of sorted) {
+      if (timing.startTime > cursor) {
+        segments.push({ start: cursor, end: timing.startTime, speed: globalSpeed })
+      }
+      segments.push({ start: timing.startTime, end: timing.endTime, speed: timing.speed })
+      cursor = timing.endTime
+    }
+
+    // Build nested if(between(...), ..., if(...)) expression from inside out.
+    // The innermost fallback uses globalSpeed for anything after the last segment.
+    let accumulatedOutput = 0
+    const segOutputOffsets: number[] = []
+    for (const seg of segments) {
+      segOutputOffsets.push(accumulatedOutput)
+      accumulatedOutput += (seg.end - seg.start) / seg.speed
+    }
+
+    // Build piecewise setpts expression using FFmpeg variables:
+    // T = source time in seconds, TB = timebase, output must be in PTS units (seconds / TB)
+    // Use \, to escape commas so the filter graph parser passes them to the expression evaluator
+    const C = '\\,'
+
+    // Fallback for time beyond all segments: continue at globalSpeed from accumulated offset
+    let expr = `(${accumulatedOutput.toFixed(6)}+(T-${cursor.toFixed(6)})/${globalSpeed.toFixed(6)})/TB`
+
+    // Build from last segment to first, wrapping in if(between(...), value, fallback)
+    for (let i = segments.length - 1; i >= 0; i--) {
+      const seg = segments[i]
+      const outOffset = segOutputOffsets[i].toFixed(6)
+      const segStart = seg.start.toFixed(6)
+      const segEnd = seg.end.toFixed(6)
+      const segSpeed = seg.speed.toFixed(6)
+      expr = `if(between(T${C}${segStart}${C}${segEnd})${C}(${outOffset}+(T-${segStart})/${segSpeed})/TB${C}${expr})`
+    }
+
+    const codec = ext === '.webm' ? 'libvpx-vp9' : 'libx264'
+    await runFFmpeg([
+      '-i', videoPath,
+      '-filter_complex', `[0:v]setpts=${expr}[v]`,
+      '-map', '[v]',
+      '-an',
+      '-c:v', codec,
+      '-y', outputPath,
+    ])
   }
 
   return outputPath

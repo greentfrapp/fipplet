@@ -1,7 +1,7 @@
 import { record } from './recorder'
 import { login } from './login'
 import { loadDefinition, loadSetup } from './validation'
-import type { SetupBlock } from './types'
+import type { OutputFormat, SetupBlock } from './types'
 
 const args = process.argv.slice(2)
 
@@ -18,6 +18,8 @@ Commands:
 Recording options:
   --output <dir>    Output directory (default: ./fipplet-output)
   --setup <file>    Setup file (login, dismiss modals, etc.) — runs before recording
+  --format <fmt>    Output format: webm (default), mp4, gif
+  --speed <n>       Playback speed multiplier (e.g. 2 = 2x faster, 0.5 = half speed)
   --headed          Run browser in headed mode
   --help, -h        Show this help message
   --version, -v     Show version
@@ -101,12 +103,27 @@ if (args[0] === 'login') {
   let outputDir = './fipplet-output'
   let setupPath: string | null = null
   let headless = true
+  let outputFormat: OutputFormat | undefined
+  let speed: number | undefined
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--output' || args[i] === '-o') {
       outputDir = args[++i]
     } else if (args[i] === '--setup') {
       setupPath = args[++i]
+    } else if (args[i] === '--format') {
+      const fmt = args[++i]
+      if (fmt !== 'webm' && fmt !== 'mp4' && fmt !== 'gif') {
+        console.error(`Error: --format must be one of: webm, mp4, gif (got '${fmt}')`)
+        process.exit(1)
+      }
+      outputFormat = fmt
+    } else if (args[i] === '--speed') {
+      speed = parseFloat(args[++i])
+      if (isNaN(speed) || speed <= 0) {
+        console.error('Error: --speed must be a number greater than 0')
+        process.exit(1)
+      }
     } else if (args[i] === '--headed') {
       headless = false
     } else if (!args[i].startsWith('-')) {
@@ -136,7 +153,7 @@ if (args[0] === 'login') {
       console.log(`fipplet: ${def.steps.length} steps → ${def.url}\n`)
     }
 
-    const result = await record(defPath!, { outputDir, headless, setup })
+    const result = await record(defPath!, { outputDir, headless, setup, outputFormat, speed })
 
     console.log('\nDone!')
     if (result.video) {
