@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html><head><style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: {{WIDTH}}px; height: {{HEIGHT}}px; }
+  img { position: absolute; }
+</style></head><body>
+  <img src="{{BG_SRC}}" style="left:0;top:0;" />
+  <img src="{{SCREENSHOT_SRC}}" style="left:{{CONTENT_X}}px;top:{{CONTENT_Y}}px;border-radius:0 0 {{BORDER_RADIUS}}px {{BORDER_RADIUS}}px;overflow:hidden;" />
+  <img src="{{FRAME_SRC}}" style="left:{{FRAME_X}}px;top:{{FRAME_Y}}px;" />
+</body></html>

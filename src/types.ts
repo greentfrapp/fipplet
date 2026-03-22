@@ -14,10 +14,20 @@ export interface Cookie {
   sameSite?: 'Strict' | 'Lax' | 'None'
 }
 
+export type OutputFormat = 'webm' | 'mp4' | 'gif'
+
+export interface StepTiming {
+  stepIndex: number
+  startTime: number  // seconds from recording start
+  endTime: number    // seconds from recording start
+  speed: number
+}
+
 // --- Step types (discriminated union on `action`) ---
 
 interface BaseStep {
   pauseAfter?: number
+  speed?: number
 }
 
 export interface WaitStep extends BaseStep {
@@ -112,6 +122,43 @@ export interface SetupBlock {
   steps: Step[]
 }
 
+export type CursorStyle = 'default' | 'pointer' | 'crosshair'
+
+export interface CursorOptions {
+  enabled?: boolean
+  /** Cursor image style. Default: 'default'. */
+  style?: CursorStyle
+  size?: number
+  color?: string
+  rippleColor?: string
+  rippleSize?: number
+  transitionMs?: number
+}
+
+export interface WindowChromeOptions {
+  enabled?: boolean
+  /** Title bar height in pixels. Default: 38. */
+  titleBarHeight?: number
+  /** Title bar color as hex string. Default: '#e8e8e8'. */
+  titleBarColor?: string
+  /** Show traffic light buttons. Default: true. */
+  trafficLights?: boolean
+  /** Display a URL in the title bar. Set to true to use the recording URL, or pass a custom string. */
+  url?: boolean | string
+}
+
+export interface BackgroundOptions {
+  enabled?: boolean
+  /** Solid background color as hex string. Default: '#6366f1'. */
+  color?: string
+  /** Two-color diagonal gradient (overrides color). */
+  gradient?: { from: string; to: string }
+  /** Padding around the window in pixels. Default: 60. */
+  padding?: number
+  /** Corner radius in pixels. Default: 12. */
+  borderRadius?: number
+}
+
 export interface RecordingDefinition {
   url: string
   viewport?: Viewport
@@ -122,6 +169,13 @@ export interface RecordingDefinition {
   localStorage?: Record<string, string>
   headers?: Record<string, string>
   auth?: AuthProvider
+  cursor?: boolean | CursorOptions
+  /** macOS-style window chrome (title bar with traffic light buttons). */
+  chrome?: boolean | WindowChromeOptions
+  /** Background, padding, and rounded corners around the recording. */
+  background?: boolean | BackgroundOptions
+  speed?: number
+  outputFormat?: OutputFormat
   setup?: SetupBlock
   steps: Step[]
 }
@@ -130,11 +184,14 @@ export interface RecordOptions {
   outputDir?: string
   headless?: boolean
   setup?: SetupBlock
+  speed?: number
+  outputFormat?: OutputFormat
 }
 
 export interface RecordingResult {
   video?: string
   screenshots: string[]
+  cursorEvents?: string
 }
 
 // --- Auth providers (discriminated union on `provider`) ---
@@ -160,7 +217,19 @@ export interface ZoomState {
   ty: number
 }
 
+export interface CursorEvent {
+  time: number          // seconds from recording start
+  type: 'move' | 'ripple' | 'hide' | 'show'
+  x: number
+  y: number
+  transitionMs?: number // for 'move' events
+  rippleSize?: number   // for 'ripple' events
+  rippleColor?: string  // for 'ripple' events
+}
+
 export interface ActionContext {
   outputDir: string
   zoomState: ZoomState
+  cursorEnabled: boolean
+  cursorOptions?: CursorOptions
 }

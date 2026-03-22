@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html><head><style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: {{WIDTH}}px; height: {{HEIGHT}}px; background: transparent; }
+</style></head><body>
+  <div style="
+    width:{{WIDTH}}px;
+    height:{{HEIGHT}}px;
+    position:relative;
+    border-radius:{{BORDER_RADIUS}}px;
+    overflow:hidden;
+    border:1px solid rgba(0,0,0,0.18);
+  ">
+    <!-- Title bar -->
+    <div style="
+      height:{{TITLE_BAR_HEIGHT}}px;
+      background:linear-gradient(to bottom,
+        color-mix(in srgb, {{TITLE_BAR_COLOR}}, white 6%),
+        color-mix(in srgb, {{TITLE_BAR_COLOR}}, black 4%));
+      border-bottom:1px solid rgba(0,0,0,0.12);
+      display:flex;
+      align-items:center;
+    ">
+      {{TRAFFIC_LIGHTS}}
+      {{ADDRESS_BAR}}
+    </div>
+    <!-- Content area: transparent -->
+  </div>
+</body></html>

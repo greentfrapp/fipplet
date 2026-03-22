@@ -18,6 +18,7 @@ import type {
 } from './types'
 import { sanitizeFilename, timestamp } from './utils'
 import { restoreZoom, suspendZoom } from './zoom'
+import { moveCursorTo, triggerRipple } from './cursor'
 
 type ActionHandler = (
   page: Page,
@@ -38,6 +39,10 @@ async function handleClick(
   step: ClickStep,
   ctx: ActionContext,
 ): Promise<void> {
+  if (ctx.cursorEnabled) {
+    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await triggerRipple(page, ctx.cursorOptions)
+  }
   await suspendZoom(page, ctx.zoomState)
   await page.click(step.selector)
   await restoreZoom(page, ctx.zoomState)
@@ -48,6 +53,10 @@ async function handleType(
   step: TypeStep,
   ctx: ActionContext,
 ): Promise<void> {
+  if (ctx.cursorEnabled) {
+    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    if (step.clear) await triggerRipple(page, ctx.cursorOptions)
+  }
   await suspendZoom(page, ctx.zoomState)
   if (step.clear) {
     await page.click(step.selector, { clickCount: 3 })
@@ -61,6 +70,10 @@ async function handleClear(
   step: ClearStep,
   ctx: ActionContext,
 ): Promise<void> {
+  if (ctx.cursorEnabled) {
+    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await triggerRipple(page, ctx.cursorOptions)
+  }
   await suspendZoom(page, ctx.zoomState)
   await page.click(step.selector, { clickCount: 3 })
   await page.keyboard.press('Backspace')
@@ -72,6 +85,9 @@ async function handleFill(
   step: FillStep,
   ctx: ActionContext,
 ): Promise<void> {
+  if (ctx.cursorEnabled) {
+    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+  }
   await suspendZoom(page, ctx.zoomState)
   await page.fill(step.selector, step.text)
   await restoreZoom(page, ctx.zoomState)
@@ -82,16 +98,48 @@ async function handleSelect(
   step: SelectStep,
   ctx: ActionContext,
 ): Promise<void> {
+  if (ctx.cursorEnabled) {
+    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+  }
   await suspendZoom(page, ctx.zoomState)
   await page.selectOption(step.selector, step.value)
   await restoreZoom(page, ctx.zoomState)
 }
 
 async function handleScroll(page: Page, step: ScrollStep, _ctx: ActionContext): Promise<void> {
-  await page.evaluate(({ x, y }) => window.scrollBy(x ?? 0, y ?? 0), {
-    x: step.x,
-    y: step.y,
-  })
+  const baseDuration = 600
+  const speedMultiplier = step.speed ?? 1
+  const duration = baseDuration / speedMultiplier
+
+  await page.evaluate(({ x, y, duration }) => {
+    return new Promise<void>((resolve) => {
+      const startX = window.scrollX
+      const startY = window.scrollY
+      const dx = x ?? 0
+      const dy = y ?? 0
+      const start = performance.now()
+
+      function ease(t: number): number {
+        return t < 0.5
+          ? 4 * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 3) / 2
+      }
+
+      function tick(now: number) {
+        const elapsed = now - start
+        const t = Math.min(elapsed / duration, 1)
+        const p = ease(t)
+        window.scrollTo(startX + dx * p, startY + dy * p)
+        if (t < 1) {
+          requestAnimationFrame(tick)
+        } else {
+          resolve()
+        }
+      }
+
+      requestAnimationFrame(tick)
+    })
+  }, { x: step.x, y: step.y, duration })
 }
 
 async function handleHover(
@@ -99,6 +147,9 @@ async function handleHover(
   step: HoverStep,
   ctx: ActionContext,
 ): Promise<void> {
+  if (ctx.cursorEnabled) {
+    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+  }
   await suspendZoom(page, ctx.zoomState)
   await page.hover(step.selector)
   await restoreZoom(page, ctx.zoomState)
@@ -139,6 +190,10 @@ async function handleZoom(
 ): Promise<void> {
   const scale = step.scale ?? 2
   const duration = step.duration ?? 600
+
+  if (ctx.cursorEnabled && step.selector) {
+    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+  }
 
   if (scale === 1 && !step.selector) {
     ctx.zoomState.scale = 1

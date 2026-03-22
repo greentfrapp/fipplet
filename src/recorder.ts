@@ -4,10 +4,16 @@ import { chromium } from 'playwright-core'
 import { ACTIONS } from './actions'
 import type {
   ActionContext,
+  CursorOptions,
+  OutputFormat,
   RecordOptions,
   RecordingDefinition,
   RecordingResult,
+  StepTiming,
 } from './types'
+import { initCursorTracker, getCursorEvents } from './cursor'
+import { convertToGif, convertToMp4 } from './post-process'
+import { runPostProcessPipeline } from './pipeline'
 import { resolveAuth } from './providers'
 import { loadDefinition } from './validation'
 import { timestamp } from './utils'
@@ -104,7 +110,7 @@ export async function record(
     }
 
     // Execute setup steps
-    const setupCtx: ActionContext = { outputDir, zoomState: createZoomState() }
+    const setupCtx: ActionContext = { outputDir, zoomState: createZoomState(), cursorEnabled: false }
     for (const [i, step] of setup.steps.entries()) {
       const label = step.action + ('selector' in step ? ` ${step.selector}` : '')
       process.stderr.write(`  [setup ${i + 1}/${setup.steps.length}] ${label}\n`)
@@ -227,12 +233,28 @@ export async function record(
       .catch((err) => process.stderr.write(`  warning: waitForSelector '${def.waitForSelector}' failed: ${err.message}\n`))
   }
 
+  // Normalize cursor options — enabled by default
+  const cursorConfig = def.cursor
+  const cursorEnabled = cursorConfig === undefined || cursorConfig === true || (typeof cursorConfig === 'object' && cursorConfig.enabled !== false)
+  const cursorOptions: CursorOptions | undefined = cursorEnabled
+    ? (typeof cursorConfig === 'object' ? cursorConfig : {})
+    : undefined
+
+  if (cursorEnabled) {
+    initCursorTracker(page, cursorOptions)
+  }
+
   // Execute steps
-  const ctx: ActionContext = { outputDir, zoomState }
+  const ctx: ActionContext = { outputDir, zoomState, cursorEnabled, cursorOptions }
+  const globalSpeed = options.speed ?? def.speed ?? 1.0
+  const stepTimings: StepTiming[] = []
+  const stepTimerStart = Date.now()
 
   for (const [i, step] of def.steps.entries()) {
     const label = step.action + ('selector' in step ? ` ${step.selector}` : '')
     process.stderr.write(`  [${i + 1}/${def.steps.length}] ${label}\n`)
+
+    const stepStart = (Date.now() - stepTimerStart) / 1000
 
     try {
       const result = await ACTIONS[step.action](page, step, ctx)
@@ -247,6 +269,14 @@ export async function record(
     if (step.action !== 'wait') {
       await page.waitForTimeout(step.pauseAfter ?? 500)
     }
+
+    const stepEnd = (Date.now() - stepTimerStart) / 1000
+    stepTimings.push({
+      stepIndex: i,
+      startTime: stepStart,
+      endTime: stepEnd,
+      speed: step.speed ?? globalSpeed,
+    })
   }
 
   // Final screenshot
@@ -261,6 +291,7 @@ export async function record(
     ? path.basename(input, path.extname(input))
     : 'recording'
   let videoPath: string | undefined
+  let cursorEventsPath: string | undefined
 
   await context.close()
 
@@ -272,8 +303,82 @@ export async function record(
 
   await browser.close()
 
+  // Write cursor events for debugging/reference
+  let cursorEventsForPipeline: import('./types').CursorEvent[] | undefined
+  if (cursorEnabled && videoPath) {
+    const cursorEvents = getCursorEvents()
+    cursorEventsPath = path.join(outputDir, `${baseName}-cursor.json`)
+    fs.writeFileSync(cursorEventsPath, JSON.stringify(cursorEvents, null, 2))
+    process.stderr.write(`  cursor events: ${cursorEvents.length} events → ${cursorEventsPath}\n`)
+    if (cursorEvents.length > 0) {
+      cursorEventsForPipeline = cursorEvents
+    }
+  }
+
+  // Resolve chrome/background config
+  const chromeConfig = def.chrome
+  const bgConfig = def.background
+  const hasChrome = chromeConfig === true || (typeof chromeConfig === 'object' && chromeConfig.enabled !== false)
+  const hasBackground = bgConfig === true || (typeof bgConfig === 'object' && bgConfig.enabled !== false)
+
+  let chromeOpts = hasChrome
+    ? (typeof chromeConfig === 'object' ? { ...chromeConfig } : {})
+    : undefined
+  const bgOpts = hasBackground
+    ? (typeof bgConfig === 'object' ? bgConfig : {})
+    : undefined
+  if (chromeOpts && chromeOpts.url === true) {
+    chromeOpts = { ...chromeOpts, url: def.url }
+  }
+
+  const needsSpeed = globalSpeed !== 1.0 || stepTimings.some((t) => t.speed !== 1.0)
+  const needsPipeline = cursorEventsForPipeline || hasChrome || hasBackground || needsSpeed
+
+  if (needsPipeline && videoPath) {
+    process.stderr.write('  post-processing...\n')
+    try {
+      const processedPath = await runPostProcessPipeline({
+        videoPath,
+        cursor: cursorEventsForPipeline
+          ? { events: cursorEventsForPipeline, style: cursorOptions?.style ?? 'default', size: cursorOptions?.size ?? 24 }
+          : undefined,
+        frame: (hasChrome || hasBackground)
+          ? { chrome: chromeOpts, background: bgOpts, videoWidth: viewport.width, videoHeight: viewport.height, screenshots }
+          : undefined,
+        speed: needsSpeed
+          ? { stepTimings, globalSpeed }
+          : undefined,
+      })
+      if (processedPath !== videoPath) {
+        fs.unlinkSync(videoPath)
+        fs.renameSync(processedPath, videoPath)
+      }
+      process.stderr.write('  post-processing complete.\n')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      process.stderr.write(`  warning: post-processing failed: ${msg}\n`)
+    }
+  }
+
+  // Convert output format if not WebM
+  const outputFormat: OutputFormat = options.outputFormat ?? def.outputFormat ?? 'webm'
+  if (outputFormat !== 'webm' && videoPath) {
+    process.stderr.write(`  converting to ${outputFormat}...\n`)
+    try {
+      const converter = outputFormat === 'mp4' ? convertToMp4 : convertToGif
+      const convertedPath = await converter(videoPath)
+      fs.unlinkSync(videoPath)
+      videoPath = convertedPath
+      process.stderr.write(`  conversion to ${outputFormat} complete.\n`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      process.stderr.write(`  warning: format conversion failed: ${msg}\n`)
+    }
+  }
+
   return {
     video: videoPath,
     screenshots,
+    cursorEvents: cursorEventsPath,
   }
 }

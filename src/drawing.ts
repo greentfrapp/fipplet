@@ -1,0 +1,27 @@
+// ---------------------------------------------------------------------------
+// Color helpers
+// ---------------------------------------------------------------------------
+
+export interface RGB {
+  r: number
+  g: number
+  b: number
+}
+
+/** Parse '#RRGGBB' or '#RGB' hex color to { r, g, b }. */
+export function parseHexColor(hex: string): RGB {
+  let h = hex.replace(/^#/, '')
+  if (h.length === 3) {
+    h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]
+  }
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  }
+}
+
+/** Convert '#RRGGBB' to FFmpeg '0xRRGGBB' format. */
+export function hexToFFmpeg(hex: string): string {
+  return '0x' + hex.replace(/^#/, '').padEnd(6, '0')
+}
