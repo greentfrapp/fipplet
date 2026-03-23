@@ -1,17 +1,17 @@
 import type { CursorStyle } from '../types'
-// @ts-expect-error -- .png resolved to absolute path by esbuild plugin
-import crosshairCursor from './crosshair.png'
 // PNG images are copied to dist/ by the resolve-png-assets esbuild plugin.
 // Each import resolves to an absolute path via path.join(__dirname, "<file>").
 // @ts-expect-error -- .png resolved to absolute path by esbuild plugin
 import defaultCursor from './default.png'
 // @ts-expect-error -- .png resolved to absolute path by esbuild plugin
 import pointerCursor from './pointer.png'
+// @ts-expect-error -- .png resolved to absolute path by esbuild plugin
+import textCursor from './text.png'
 
 const CURSOR_MAP: Record<CursorStyle, string> = {
   default: defaultCursor,
   pointer: pointerCursor,
-  crosshair: crosshairCursor,
+  text: textCursor,
 }
 
 export const CURSOR_STYLES = Object.keys(CURSOR_MAP) as CursorStyle[]

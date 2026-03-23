@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import { setLogLevel } from './logger'
-import { login } from './login'
-import { record } from './recorder'
+// login and recorder are lazy-imported inside their action handlers
+// to avoid eagerly loading playwright-core at CLI startup
 import type { OutputFormat, SetupBlock } from './types'
 import { runValidate } from './validate-command'
 import { loadDefinition, loadSetup } from './validation'
@@ -64,6 +64,9 @@ program
         return // runValidate calls process.exit, but guard anyway
       }
 
+      // Start loading recorder in background (includes playwright-core)
+      const recorderPromise = import('./recorder')
+
       // Validate --format
       let outputFormat: OutputFormat | undefined
       if (opts.format) {
@@ -125,6 +128,7 @@ program
       }
 
       try {
+        const { record } = await recorderPromise
         const result = await record(defPath, {
           outputDir: opts.output,
           headless: !opts.headed,
@@ -198,6 +202,9 @@ program
         port?: string
       },
     ) => {
+      // Start loading login module in background (includes playwright-core)
+      const loginPromise = import('./login')
+
       if (opts.remote && opts.cdp) {
         console.error('Error: --remote and --cdp are mutually exclusive')
         process.exit(1)
@@ -213,6 +220,7 @@ program
       }
 
       try {
+        const { login } = await loginPromise
         await login({
           url,
           saveState: opts.saveState,

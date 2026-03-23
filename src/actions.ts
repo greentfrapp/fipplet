@@ -24,7 +24,7 @@ import type {
   ZoomStep,
 } from './types'
 import { sanitizeFilename, timestamp } from './utils'
-import { restoreZoom, suspendZoom } from './zoom'
+// zoom suspend/restore no longer needed — all actions use screen coordinates
 
 function getMoveCursorTo(ctx: ActionContext) {
   return ctx.cursorTracker
@@ -61,6 +61,27 @@ async function awaitSelector(
   await page.locator(selector).waitFor({ state: 'visible', timeout })
 }
 
+/** Get the screen-space center of an element (includes CSS transform effects). */
+async function getScreenCenter(
+  page: Page,
+  selector: string,
+): Promise<{ x: number; y: number } | null> {
+  return page.evaluate((sel: string) => {
+    const el = document.querySelector(sel)
+    if (!el) return null
+    const rect = el.getBoundingClientRect()
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+  }, selector)
+}
+
+/** Focus an element without changing zoom. Works at any zoom level. */
+async function focusElement(page: Page, selector: string): Promise<void> {
+  await page.evaluate((sel: string) => {
+    const el = document.querySelector(sel) as HTMLElement | null
+    el?.focus()
+  }, selector)
+}
+
 async function handleWait(page: Page, step: WaitStep): Promise<void> {
   await page.waitForTimeout(step.ms ?? 1000)
 }
@@ -84,9 +105,10 @@ async function handleClick(
     )
     await getTriggerRipple(ctx)(page, ctx.cursorOptions)
   }
-  await suspendZoom(page, ctx.zoomState)
-  await page.click(step.selector)
-  await restoreZoom(page, ctx.zoomState)
+  const center = await getScreenCenter(page, step.selector)
+  if (center) {
+    await page.mouse.click(center.x, center.y)
+  }
 }
 
 async function handleType(
@@ -108,12 +130,16 @@ async function handleType(
     )
     if (step.clear) await getTriggerRipple(ctx)(page, ctx.cursorOptions)
   }
-  await suspendZoom(page, ctx.zoomState)
-  if (step.clear) {
-    await page.click(step.selector, { clickCount: 3 })
+  // Click to focus (using screen coordinates preserves zoom)
+  const center = await getScreenCenter(page, step.selector)
+  if (center) {
+    if (step.clear) {
+      await page.mouse.click(center.x, center.y, { clickCount: 3 })
+    } else {
+      await page.mouse.click(center.x, center.y)
+    }
   }
-  await page.type(step.selector, step.text, { delay: step.delay ?? 80 })
-  await restoreZoom(page, ctx.zoomState)
+  await page.keyboard.type(step.text, { delay: step.delay ?? 80 })
 }
 
 async function handleClear(
@@ -135,9 +161,9 @@ async function handleClear(
     )
     await getTriggerRipple(ctx)(page, ctx.cursorOptions)
   }
-  await suspendZoom(page, ctx.zoomState)
-  await page.fill(step.selector, '')
-  await restoreZoom(page, ctx.zoomState)
+  await focusElement(page, step.selector)
+  await page.keyboard.press('Control+a')
+  await page.keyboard.press('Delete')
 }
 
 async function handleFill(
@@ -158,9 +184,18 @@ async function handleFill(
       ctx.cursorOptions,
     )
   }
-  await suspendZoom(page, ctx.zoomState)
-  await page.fill(step.selector, step.text)
-  await restoreZoom(page, ctx.zoomState)
+  // Focus and set value via evaluate to avoid zoom suspend
+  await page.evaluate(
+    ({ sel, text }: { sel: string; text: string }) => {
+      const el = document.querySelector(sel) as HTMLInputElement | null
+      if (!el) return
+      el.focus()
+      el.value = text
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+    },
+    { sel: step.selector, text: step.text },
+  )
 }
 
 async function handleSelect(
@@ -181,21 +216,28 @@ async function handleSelect(
       ctx.cursorOptions,
     )
   }
-  await suspendZoom(page, ctx.zoomState)
-  await page.selectOption(step.selector, step.value)
-  await restoreZoom(page, ctx.zoomState)
+  // Set select value via evaluate to avoid zoom suspend
+  await page.evaluate(
+    ({ sel, value }: { sel: string; value: string }) => {
+      const el = document.querySelector(sel) as HTMLSelectElement | null
+      if (!el) return
+      el.focus()
+      el.value = value
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+    },
+    { sel: step.selector, value: step.value },
+  )
 }
 
 async function handleScroll(
   page: Page,
   step: ScrollStep,
-  ctx: ActionContext,
+  _ctx: ActionContext,
 ): Promise<void> {
   const baseDuration = 600
   const speedMultiplier = step.scrollSpeed ?? 1
   const duration = baseDuration / speedMultiplier
 
-  await suspendZoom(page, ctx.zoomState)
   await page.evaluate(
     ({ x, y, duration }) => {
       return new Promise<void>((resolve) => {
@@ -226,7 +268,6 @@ async function handleScroll(
     },
     { x: step.x, y: step.y, duration },
   )
-  await restoreZoom(page, ctx.zoomState)
 }
 
 async function handleHover(
@@ -247,9 +288,11 @@ async function handleHover(
       ctx.cursorOptions,
     )
   }
-  await suspendZoom(page, ctx.zoomState)
-  await page.hover(step.selector)
-  await restoreZoom(page, ctx.zoomState)
+  // Use screen coordinates to trigger :hover without disrupting zoom
+  const center = await getScreenCenter(page, step.selector)
+  if (center) {
+    await page.mouse.move(center.x, center.y)
+  }
 }
 
 async function handleKeyboard(
@@ -309,6 +352,7 @@ async function handleZoom(
     ctx.zoomState.scale = 1
     ctx.zoomState.tx = 0
     ctx.zoomState.ty = 0
+    if (ctx.cursorTracker) ctx.cursorTracker.setZoom(1, duration)
     await page.evaluate((ms: number) => {
       const html = document.documentElement
       html.style.transition = `transform ${ms}ms ease-in-out`
@@ -319,16 +363,30 @@ async function handleZoom(
     return
   }
 
-  await suspendZoom(page, ctx.zoomState)
-
+  // Compute target in layout coordinates without suspending zoom
   let targetX: number
   let targetY: number
 
   if (step.selector) {
-    const box = await page.locator(step.selector).boundingBox()
-    if (!box) throw new Error(`zoom target '${step.selector}' not found`)
-    targetX = box.x + box.width / 2
-    targetY = box.y + box.height / 2
+    const { scale: curScale, tx: curTx, ty: curTy } = ctx.zoomState
+    const center = await page.evaluate(
+      ({ sel, s, tx, ty }: { sel: string; s: number; tx: number; ty: number }) => {
+        const el = document.querySelector(sel)
+        if (!el) return null
+        const rect = el.getBoundingClientRect()
+        const screenX = rect.x + rect.width / 2
+        const screenY = rect.y + rect.height / 2
+        // Reverse CSS transform to get layout coordinates
+        return {
+          x: s === 1 ? screenX : screenX / s - tx,
+          y: s === 1 ? screenY : screenY / s - ty,
+        }
+      },
+      { sel: step.selector, s: curScale, tx: curTx, ty: curTy },
+    )
+    if (!center) throw new Error(`zoom target '${step.selector}' not found`)
+    targetX = center.x
+    targetY = center.y
   } else {
     targetX = step.x ?? 640
     targetY = step.y ?? 360
@@ -348,6 +406,7 @@ async function handleZoom(
   ctx.zoomState.scale = scale
   ctx.zoomState.tx = clampedTx
   ctx.zoomState.ty = clampedTy
+  if (ctx.cursorTracker) ctx.cursorTracker.setZoom(scale, duration)
 
   await page.evaluate(
     ({

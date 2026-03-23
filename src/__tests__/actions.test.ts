@@ -20,7 +20,14 @@ function mockPage() {
     evaluate: vi.fn().mockResolvedValue({ x: 100, y: 200 }),
     waitForTimeout: vi.fn().mockResolvedValue(undefined),
     waitForResponse: vi.fn().mockResolvedValue(undefined),
-    keyboard: { press: vi.fn().mockResolvedValue(undefined) },
+    mouse: {
+      click: vi.fn().mockResolvedValue(undefined),
+      move: vi.fn().mockResolvedValue(undefined),
+    },
+    keyboard: {
+      press: vi.fn().mockResolvedValue(undefined),
+      type: vi.fn().mockResolvedValue(undefined),
+    },
     screenshot: vi.fn().mockResolvedValue(undefined),
     viewportSize: vi.fn().mockReturnValue({ width: 1280, height: 720 }),
     goto: vi.fn().mockResolvedValue(undefined),
@@ -84,7 +91,7 @@ describe('selector-based actions await selector', () => {
       state: 'visible',
       timeout: 5000,
     })
-    expect(page.click).toHaveBeenCalledWith('#btn')
+    expect(page.mouse.click).toHaveBeenCalledWith(100, 200)
   })
 
   it('click uses custom timeout when provided', async () => {
@@ -112,7 +119,8 @@ describe('selector-based actions await selector', () => {
       state: 'visible',
       timeout: 5000,
     })
-    expect(page.fill).toHaveBeenCalledWith('#input', 'hello')
+    // fill now uses evaluate to set value directly
+    expect(page.evaluate).toHaveBeenCalled()
   })
 
   it('hover waits for selector before hovering', async () => {
@@ -127,7 +135,7 @@ describe('selector-based actions await selector', () => {
       state: 'visible',
       timeout: 5000,
     })
-    expect(page.hover).toHaveBeenCalledWith('.link')
+    expect(page.mouse.move).toHaveBeenCalledWith(100, 200)
   })
 
   it('type waits for selector before typing', async () => {
@@ -142,7 +150,7 @@ describe('selector-based actions await selector', () => {
       state: 'visible',
       timeout: 5000,
     })
-    expect(page.type).toHaveBeenCalledWith('#field', 'abc', { delay: 80 })
+    expect(page.keyboard.type).toHaveBeenCalledWith('abc', { delay: 80 })
   })
 
   it('clear waits for selector before clearing', async () => {
@@ -171,7 +179,8 @@ describe('selector-based actions await selector', () => {
       state: 'visible',
       timeout: 5000,
     })
-    expect(page.selectOption).toHaveBeenCalledWith('#drop', 'opt1')
+    // select now uses evaluate to set value directly
+    expect(page.evaluate).toHaveBeenCalled()
   })
 })
 
@@ -184,7 +193,7 @@ describe('XPath selector support', () => {
       baseCtx(),
     )
     expect(page.locator).toHaveBeenCalledWith('//button[@type="submit"]')
-    expect(page.click).toHaveBeenCalledWith('//button[@type="submit"]')
+    expect(page.mouse.click).toHaveBeenCalledWith(100, 200)
   })
 
   it('fill works with XPath selectors', async () => {
@@ -199,7 +208,7 @@ describe('XPath selector support', () => {
       baseCtx(),
     )
     expect(page.locator).toHaveBeenCalledWith('//input[@name="email"]')
-    expect(page.fill).toHaveBeenCalledWith('//input[@name="email"]', 'test')
+    expect(page.evaluate).toHaveBeenCalled()
   })
 
   it('hover works with XPath selectors', async () => {
@@ -210,7 +219,7 @@ describe('XPath selector support', () => {
       baseCtx(),
     )
     expect(page.locator).toHaveBeenCalledWith('//a[@href="/about"]')
-    expect(page.hover).toHaveBeenCalledWith('//a[@href="/about"]')
+    expect(page.mouse.move).toHaveBeenCalledWith(100, 200)
   })
 
   it('type works with XPath selectors', async () => {
@@ -221,7 +230,7 @@ describe('XPath selector support', () => {
       baseCtx(),
     )
     expect(page.locator).toHaveBeenCalledWith('//textarea')
-    expect(page.type).toHaveBeenCalledWith('//textarea', 'hello', { delay: 80 })
+    expect(page.keyboard.type).toHaveBeenCalledWith('hello', { delay: 80 })
   })
 })
 

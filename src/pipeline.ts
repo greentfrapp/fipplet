@@ -1,3 +1,4 @@
+import { execFile } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -8,13 +9,15 @@ import {
   renderRoundedMask,
   renderWindowFrame,
 } from './chrome-renderer'
-import { getCursorPng } from './cursors'
+import { CURSOR_STYLES, getCursorPng } from './cursors'
 import {
   type RippleConfig,
   VP9_FAST_FLAGS,
   buildFilterGraph,
   buildPositionExpr,
+  buildStyleExpr,
   buildVisibilityExpr,
+  buildZoomSegments,
   runFFmpeg,
 } from './post-process'
 import type {
@@ -34,7 +37,7 @@ export interface PipelineConfig {
   videoPath: string
   cursor?: {
     events: CursorEvent[]
-    style: CursorStyle
+    defaultStyle: CursorStyle
     size: number
   }
   frame?: {
@@ -159,6 +162,34 @@ export async function runPostProcessPipeline(
   const outputDir = path.dirname(videoPath)
   const outputPath = path.join(outputDir, `${base}-processed${ext}`)
 
+  // Probe main video duration to limit output (prevents infinite streams from looped PNGs)
+  const probeDuration = await new Promise<number | null>((resolve) => {
+    let ffmpeg: string
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      ffmpeg = require('ffmpeg-static') as string
+    } catch {
+      ffmpeg = 'ffmpeg'
+    }
+    execFile(
+      ffmpeg,
+      ['-i', videoPath, '-f', 'null', '-'],
+      { timeout: 10000 },
+      (_err, _stdout, stderr) => {
+        const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/)
+        if (match) {
+          resolve(
+            parseInt(match[1]) * 3600 +
+              parseInt(match[2]) * 60 +
+              parseFloat(match[3]),
+          )
+        } else {
+          resolve(null)
+        }
+      },
+    )
+  })
+
   const inputArgs: string[] = ['-i', videoPath] // index 0
   let inputCount = 1
   const filterSegments: string[] = []
@@ -176,9 +207,18 @@ export async function runPostProcessPipeline(
     // Stage 1: Cursor overlay
     // -----------------------------------------------------------------
     if (cursor) {
-      const cursorPng = getCursorPng(cursor.style)
-      inputArgs.push('-i', cursorPng)
-      const cursorInputIdx = inputCount++
+      // Determine which cursor styles are actually used
+      const usedStyles = new Set<CursorStyle>([cursor.defaultStyle])
+      for (const ev of cursor.events) {
+        if (ev.cursorStyle) usedStyles.add(ev.cursorStyle)
+      }
+      // Load only used cursor style PNGs as inputs
+      const cursorInputs: Array<{ style: CursorStyle; inputIdx: number }> = []
+      for (const style of CURSOR_STYLES) {
+        if (!usedStyles.has(style)) continue
+        inputArgs.push('-i', getCursorPng(style))
+        cursorInputs.push({ style, inputIdx: inputCount++ })
+      }
 
       // Build position/visibility expressions
       const moveEvents = cursor.events.filter((e) => e.type === 'move')
@@ -222,18 +262,35 @@ export async function runPostProcessPipeline(
         }
       }
 
+      // Build per-style enable expressions (only for used styles)
+      const styleExprs: Record<string, string> = {}
+      for (const { style } of cursorInputs) {
+        styleExprs[style] = buildStyleExpr(
+          cursor.events,
+          style,
+          cursor.defaultStyle,
+        )
+      }
+
+      // Build discrete zoom segments for cursor scaling
+      const zoomSegments = buildZoomSegments(cursor.events, cursor.size)
+
       const cursorOutputLabel = frame || speed ? 'cur_out' : 'pipeline_out'
 
       const { filterGraph, extraInputArgs } = buildFilterGraph({
         cursorSize: cursor.size,
+        zoomSegments,
         xExpr,
         yExpr,
         visExpr,
         rippleEvents,
         rippleConfig,
         videoLabel: currentLabel,
-        cursorInputIdx,
         outputLabel: cursorOutputLabel,
+        multiCursor: {
+          inputs: cursorInputs,
+          styleExprs,
+        },
       })
 
       inputArgs.push(...extraInputArgs)
@@ -396,6 +453,7 @@ export async function runPostProcessPipeline(
       '-c:v',
       'libvpx-vp9',
       ...VP9_FAST_FLAGS,
+      ...(probeDuration ? ['-t', String(probeDuration)] : []),
       '-y',
       outputPath,
     ])

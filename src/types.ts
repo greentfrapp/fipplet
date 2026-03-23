@@ -135,7 +135,7 @@ export interface SetupBlock {
   steps: Step[]
 }
 
-export type CursorStyle = 'default' | 'pointer' | 'crosshair'
+export type CursorStyle = 'default' | 'pointer' | 'text'
 
 export interface CursorOptions {
   enabled?: boolean
@@ -236,12 +236,15 @@ export interface ZoomState {
 
 export interface CursorEvent {
   time: number // seconds from recording start
-  type: 'move' | 'ripple' | 'hide' | 'show'
+  type: 'move' | 'ripple' | 'hide' | 'show' | 'zoom'
   x: number
   y: number
   transitionMs?: number // for 'move' events
   rippleSize?: number // for 'ripple' events
   rippleColor?: string // for 'ripple' events
+  cursorStyle?: CursorStyle // for 'move' events — auto-detected from target element
+  zoomScale?: number // for 'zoom' events — page zoom level
+  zoomDurationMs?: number // for 'zoom' events — transition duration
 }
 
 export interface CursorTracker {
@@ -263,6 +266,7 @@ export interface CursorTracker {
   ): Promise<void>
   hideCursor(page: import('playwright-core').Page): Promise<void>
   showCursor(page: import('playwright-core').Page): Promise<void>
+  setZoom(scale: number, durationMs: number): void
   getEvents(): CursorEvent[]
 }
 

@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   buildFilterGraph,
   buildPositionExpr,
+  buildStyleExpr,
   buildVisibilityExpr,
+  buildZoomSegments,
 } from '../post-process'
 import type { FilterGraphInput } from '../post-process'
-import type { CursorEvent } from '../types'
+import type { CursorEvent, CursorStyle } from '../types'
 
 /**
  * Evaluate an FFmpeg expression by replacing `t` with a value.
@@ -123,7 +125,7 @@ describe('buildPositionExpr', () => {
 
 describe('buildFilterGraph', () => {
   const baseInput: FilterGraphInput = {
-    cursorSize: 48,
+    cursorSize: 100,
     xExpr: '100',
     yExpr: '200',
     visExpr: '1',
@@ -140,7 +142,7 @@ describe('buildFilterGraph', () => {
     durationMs: 500,
   }
 
-  it('uses cursor directly when at base size (48)', () => {
+  it('uses cursor directly when at base size (100)', () => {
     const { filterGraph } = buildFilterGraph(baseInput)
     expect(filterGraph).not.toContain('scale=')
     expect(filterGraph).toContain('[1:v]')
@@ -284,5 +286,126 @@ describe('buildVisibilityExpr', () => {
       expect(evalExpr(expr, 3.5)).toBe(0) // after second hide
       expect(evalExpr(expr, 4.5)).toBe(1) // after second show
     })
+  })
+})
+
+describe('buildStyleExpr', () => {
+  it('returns "1" for matching default when no move events have styles', () => {
+    expect(buildStyleExpr([], 'default', 'default')).toBe('1')
+  })
+
+  it('returns "0" for non-matching default when no move events have styles', () => {
+    expect(buildStyleExpr([], 'pointer', 'default')).toBe('0')
+  })
+
+  it('returns "0" when all move events use a different style', () => {
+    const events: CursorEvent[] = [
+      { time: 1, type: 'move', x: 0, y: 0, cursorStyle: 'pointer' },
+      { time: 2, type: 'move', x: 0, y: 0, cursorStyle: 'pointer' },
+    ]
+    const expr = buildStyleExpr(events, 'text', 'default')
+    expect(evalExpr(expr, 0)).toBe(0)
+    expect(evalExpr(expr, 1.5)).toBe(0)
+    expect(evalExpr(expr, 3)).toBe(0)
+  })
+
+  describe('style switching', () => {
+    const events: CursorEvent[] = [
+      { time: 1, type: 'move', x: 0, y: 0, cursorStyle: 'default' },
+      { time: 3, type: 'move', x: 0, y: 0, cursorStyle: 'text' },
+      { time: 5, type: 'move', x: 0, y: 0, cursorStyle: 'pointer' },
+    ]
+
+    it('tracks default style correctly', () => {
+      const expr = buildStyleExpr(events, 'default', 'default')
+      expect(evalExpr(expr, 0.5)).toBe(1) // before first move, uses defaultStyle
+      expect(evalExpr(expr, 2)).toBe(1) // after first move (default)
+      expect(evalExpr(expr, 4)).toBe(0) // after second move (text)
+      expect(evalExpr(expr, 6)).toBe(0) // after third move (pointer)
+    })
+
+    it('tracks text style correctly', () => {
+      const expr = buildStyleExpr(events, 'text', 'default')
+      expect(evalExpr(expr, 0.5)).toBe(0)
+      expect(evalExpr(expr, 2)).toBe(0)
+      expect(evalExpr(expr, 4)).toBe(1)
+      expect(evalExpr(expr, 6)).toBe(0)
+    })
+
+    it('tracks pointer style correctly', () => {
+      const expr = buildStyleExpr(events, 'pointer', 'default')
+      expect(evalExpr(expr, 0.5)).toBe(0)
+      expect(evalExpr(expr, 2)).toBe(0)
+      expect(evalExpr(expr, 4)).toBe(0)
+      expect(evalExpr(expr, 6)).toBe(1)
+    })
+  })
+})
+
+describe('buildZoomSegments', () => {
+  it('returns single segment at base size when no zoom events', () => {
+    const segments = buildZoomSegments([], 32)
+    expect(segments).toHaveLength(1)
+    expect(segments[0].cursorSize).toBe(32)
+    expect(segments[0].enableExpr).toBe('1')
+  })
+
+  it('returns multiple segments for a single zoom event', () => {
+    const events: CursorEvent[] = [
+      { time: 2, type: 'zoom', x: 0, y: 0, zoomScale: 2, zoomDurationMs: 600 },
+    ]
+    const segments = buildZoomSegments(events, 32)
+    // Should have: pre-zoom segment (32px) + intermediate steps + post-zoom segment (64px)
+    expect(segments.length).toBeGreaterThan(2)
+    // First and last sizes should be 32 and 64
+    const sizes = segments.map((s) => s.cursorSize)
+    expect(Math.min(...sizes)).toBe(32)
+    expect(Math.max(...sizes)).toBe(64)
+  })
+
+  it('generates interpolated intermediate sizes during transition', () => {
+    const events: CursorEvent[] = [
+      { time: 5, type: 'zoom', x: 0, y: 0, zoomScale: 2, zoomDurationMs: 600 },
+    ]
+    const segments = buildZoomSegments(events, 32)
+    const sizes = [...new Set(segments.map((s) => s.cursorSize))].sort(
+      (a, b) => a - b,
+    )
+    // Should have sizes between 32 and 64 (not just those two)
+    expect(sizes.length).toBeGreaterThan(2)
+    expect(sizes[0]).toBe(32)
+    expect(sizes[sizes.length - 1]).toBe(64)
+    // All intermediate sizes should be between 32 and 64
+    for (const size of sizes) {
+      expect(size).toBeGreaterThanOrEqual(32)
+      expect(size).toBeLessThanOrEqual(64)
+    }
+  })
+
+  it('handles zoom-in then zoom-out', () => {
+    const events: CursorEvent[] = [
+      { time: 2, type: 'zoom', x: 0, y: 0, zoomScale: 2, zoomDurationMs: 600 },
+      { time: 5, type: 'zoom', x: 0, y: 0, zoomScale: 1, zoomDurationMs: 600 },
+    ]
+    const segments = buildZoomSegments(events, 32)
+    // Should have segments covering both transitions
+    const sizes = segments.map((s) => s.cursorSize)
+    expect(sizes).toContain(32) // base size
+    expect(sizes).toContain(64) // zoomed size
+    // Enable expressions should cover the full timeline
+    for (const seg of segments) {
+      expect(seg.enableExpr).toBeTruthy()
+    }
+  })
+
+  it('ignores non-zoom events', () => {
+    const events: CursorEvent[] = [
+      { time: 1, type: 'move', x: 100, y: 200 },
+      { time: 2, type: 'ripple', x: 100, y: 200 },
+      { time: 3, type: 'hide', x: 0, y: 0 },
+    ]
+    const segments = buildZoomSegments(events, 32)
+    expect(segments).toHaveLength(1)
+    expect(segments[0].cursorSize).toBe(32)
   })
 })

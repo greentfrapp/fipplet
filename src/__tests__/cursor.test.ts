@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createCursorTracker,
   getCursorEvents,
   hideCursor,
   initCursorTracker,
@@ -66,7 +67,7 @@ describe('cursor event tracker', () => {
 
       expect(page.evaluate).toHaveBeenCalledWith(
         expect.any(Function),
-        '//button[@type="submit"]',
+        expect.objectContaining({ sel: '//button[@type="submit"]' }),
       )
       const events = getCursorEvents()
       expect(events).toHaveLength(1)
@@ -77,7 +78,10 @@ describe('cursor event tracker', () => {
       const page = mockPage({ x: 80, y: 90 })
       await moveCursorTo(page, '../div', zoomState())
 
-      expect(page.evaluate).toHaveBeenCalledWith(expect.any(Function), '../div')
+      expect(page.evaluate).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({ sel: '../div' }),
+      )
       const events = getCursorEvents()
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({ type: 'move', x: 80, y: 90 })
@@ -169,6 +173,33 @@ describe('cursor event tracker', () => {
       const events = getCursorEvents()
       expect(events[0].time).toBeGreaterThanOrEqual(0)
       expect(events[0].time).toBeLessThan(5) // sanity check: < 5 seconds
+    })
+  })
+
+  describe('setZoom', () => {
+    it('logs a zoom event with scale and duration', () => {
+      const tracker = createCursorTracker()
+      tracker.setZoom(2, 600)
+
+      const events = tracker.getEvents()
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({
+        type: 'zoom',
+        zoomScale: 2,
+        zoomDurationMs: 600,
+      })
+    })
+
+    it('records current cursor position in zoom event', async () => {
+      const tracker = createCursorTracker()
+      const page = mockPage({ x: 300, y: 400 })
+      await tracker.moveCursorTo(page, '#btn', zoomState())
+      tracker.setZoom(1.5, 400)
+
+      const events = tracker.getEvents()
+      const zoomEvent = events.find((e) => e.type === 'zoom')!
+      expect(zoomEvent.x).toBe(300)
+      expect(zoomEvent.y).toBe(400)
     })
   })
 

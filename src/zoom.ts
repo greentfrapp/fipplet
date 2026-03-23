@@ -11,8 +11,9 @@ export async function suspendZoom(page: Page, state: ZoomState): Promise<void> {
     const html = document.documentElement
     html.style.transition = 'none'
     html.style.transform = 'scale(1) translate(0px, 0px)'
+    // Force synchronous reflow so Playwright sees the unzoomed layout
+    void html.offsetHeight
   })
-  await page.waitForTimeout(50)
 }
 
 export async function restoreZoom(page: Page, state: ZoomState): Promise<void> {
@@ -23,8 +24,8 @@ export async function restoreZoom(page: Page, state: ZoomState): Promise<void> {
       const html = document.documentElement
       html.style.transition = 'none'
       html.style.transform = `scale(${scale}) translate(${tx}px, ${ty}px)`
+      void html.offsetHeight
     },
     { scale, tx, ty },
   )
-  await page.waitForTimeout(50)
 }

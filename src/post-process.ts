@@ -2,7 +2,7 @@ import { execFile } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import type { CursorEvent } from './types'
+import type { CursorEvent, CursorStyle } from './types'
 
 /** Shared VP9 encoding flags optimized for speed with screen content. */
 export const VP9_FAST_FLAGS = [
@@ -27,8 +27,7 @@ export const VP9_FAST_FLAGS = [
 function getFFmpegPath(): string {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const installer = require('@ffmpeg-installer/ffmpeg')
-    return installer.path
+    return require('ffmpeg-static') as string
   } catch {
     return 'ffmpeg'
   }
@@ -55,8 +54,8 @@ export function runFFmpeg(
   })
 }
 
-/** Base size of bundled cursor PNGs. */
-const CURSOR_BASE_SIZE = 48
+/** Base size of bundled cursor PNGs (100×100 high-res source). */
+const CURSOR_BASE_SIZE = 100
 
 /**
  * Build FFmpeg piecewise-linear expression for cursor position.
@@ -116,6 +115,142 @@ export function buildVisibilityExpr(events: CursorEvent[]): string {
   return result
 }
 
+/**
+ * Build FFmpeg expression for cursor style switching.
+ * Returns '1' when the active cursor style matches `targetStyle`, '0' otherwise.
+ * Scans move events to determine which style is active at each time segment.
+ */
+export function buildStyleExpr(
+  events: CursorEvent[],
+  targetStyle: CursorStyle,
+  defaultStyle: CursorStyle,
+): string {
+  const moveEvents = events.filter(
+    (e) => e.type === 'move' && e.cursorStyle !== undefined,
+  )
+
+  // No style info at all — use default
+  if (moveEvents.length === 0) {
+    return defaultStyle === targetStyle ? '1' : '0'
+  }
+
+  // Build segments: before first move uses defaultStyle, then each move sets the style
+  const segments: Array<{ time: number; active: boolean }> = []
+
+  // Before first move event
+  segments.push({ time: 0, active: defaultStyle === targetStyle })
+
+  for (const ev of moveEvents) {
+    segments.push({
+      time: ev.time,
+      active: (ev.cursorStyle ?? defaultStyle) === targetStyle,
+    })
+  }
+
+  // Collapse consecutive segments with the same value
+  const collapsed: Array<{ time: number; active: boolean }> = [segments[0]]
+  for (let i = 1; i < segments.length; i++) {
+    if (segments[i].active !== collapsed[collapsed.length - 1].active) {
+      collapsed.push(segments[i])
+    }
+  }
+
+  // If only one segment, return constant
+  if (collapsed.length === 1) {
+    return collapsed[0].active ? '1' : '0'
+  }
+
+  // Build nested if expression from the end
+  let expr = collapsed[collapsed.length - 1].active ? '1' : '0'
+  for (let i = collapsed.length - 2; i >= 0; i--) {
+    const val = collapsed[i].active ? '1' : '0'
+    const boundary = collapsed[i + 1].time.toFixed(4)
+    expr = `if(lt(t,${boundary}),${val},${expr})`
+  }
+
+  return expr
+}
+
+export interface ZoomSegment {
+  /** Cursor pixel size for this segment. */
+  cursorSize: number
+  /** FFmpeg enable expression: '1' when this zoom level is active. */
+  enableExpr: string
+}
+
+/**
+ * Build discrete zoom segments for cursor scaling.
+ * Returns one segment per zoom level, each with a pre-computed cursor size
+ * and an FFmpeg enable expression for when that zoom level is active.
+ * Uses discrete switching (at the midpoint of the zoom transition) since
+ * FFmpeg's scale filter doesn't support time-based expressions.
+ */
+/** Number of intermediate steps to approximate smooth cursor scaling during zoom. */
+const ZOOM_INTERPOLATION_STEPS = 6
+
+export function buildZoomSegments(
+  events: CursorEvent[],
+  baseCursorSize: number,
+): ZoomSegment[] {
+  const zoomEvents = events.filter((e) => e.type === 'zoom' && e.zoomScale !== undefined)
+
+  // No zoom events — single segment at base size
+  if (zoomEvents.length === 0) {
+    return [{ cursorSize: baseCursorSize, enableExpr: '1' }]
+  }
+
+  // Build time ranges with interpolated intermediate steps during transitions
+  interface TimeRange { start: number; end: number }
+  const sizeRanges = new Map<number, TimeRange[]>()
+
+  const addRange = (size: number, start: number, end: number) => {
+    if (end <= start) return
+    if (!sizeRanges.has(size)) sizeRanges.set(size, [])
+    sizeRanges.get(size)!.push({ start, end })
+  }
+
+  let currentScale = 1
+  let currentTime = 0
+
+  for (const ev of zoomEvents) {
+    const durationSec = (ev.zoomDurationMs ?? 600) / 1000
+    const transStart = ev.time
+    const transEnd = ev.time + durationSec
+    const fromScale = currentScale
+    const toScale = ev.zoomScale!
+
+    // Static segment before this transition
+    addRange(Math.round(baseCursorSize * fromScale), currentTime, transStart)
+
+    // Interpolated steps during the transition
+    const steps = ZOOM_INTERPOLATION_STEPS
+    for (let i = 0; i < steps; i++) {
+      const t0 = transStart + (i / steps) * durationSec
+      const t1 = transStart + ((i + 1) / steps) * durationSec
+      const midT = (i + 0.5) / steps // normalized midpoint for interpolation
+      const interpScale = fromScale + (toScale - fromScale) * midT
+      addRange(Math.round(baseCursorSize * interpScale), t0, t1)
+    }
+
+    currentScale = toScale
+    currentTime = transEnd
+  }
+  // Final segment extends to very large time
+  addRange(Math.round(baseCursorSize * currentScale), currentTime, 99999)
+
+  // Build enable expressions per cursor size
+  const segments: ZoomSegment[] = []
+  for (const [cursorSize, ranges] of sizeRanges) {
+    const parts = ranges.map((r) =>
+      `between(t\\,${r.start.toFixed(4)}\\,${r.end.toFixed(4)})`,
+    )
+    const enableExpr = parts.length === 1 ? parts[0] : parts.join('+')
+    segments.push({ cursorSize, enableExpr })
+  }
+
+  return segments
+}
+
 export interface RippleConfig {
   size: number
   r: number
@@ -127,6 +262,8 @@ export interface RippleConfig {
 
 export interface FilterGraphInput {
   cursorSize: number
+  /** Discrete zoom segments for cursor scaling during zoom. */
+  zoomSegments?: ZoomSegment[]
   xExpr: string
   yExpr: string
   visExpr: string
@@ -161,10 +298,16 @@ export function buildFilterGraph(
     videoLabel?: string
     cursorInputIdx?: number
     outputLabel?: string
+    /** Multi-cursor support: overlay multiple cursor PNGs with per-style enable expressions. */
+    multiCursor?: {
+      inputs: Array<{ style: CursorStyle; inputIdx: number }>
+      styleExprs: Record<string, string>
+    }
   },
 ): FilterGraphOutput {
   const {
     cursorSize,
+    zoomSegments,
     xExpr,
     yExpr,
     visExpr,
@@ -173,25 +316,86 @@ export function buildFilterGraph(
     videoLabel = '0:v',
     cursorInputIdx = 1,
     outputLabel = 'final_out',
+    multiCursor,
   } = input
   const filters: string[] = []
   let currentInput = videoLabel
   const extraInputArgs: string[] = []
 
-  // Scale cursor inline if needed, then overlay on video
-  let cursorLabel = `${cursorInputIdx}:v`
-  if (cursorSize !== CURSOR_BASE_SIZE) {
-    filters.push(
-      `[${cursorInputIdx}:v]scale=${cursorSize}:${cursorSize}:flags=lanczos[cursor_scaled]`,
-    )
-    cursorLabel = 'cursor_scaled'
-  }
+  // Determine effective zoom segments (default: single segment at base cursor size)
+  const effectiveZoom = zoomSegments && zoomSegments.length > 1
+    ? zoomSegments
+    : undefined
 
-  // Overlay cursor on video
-  filters.push(
-    `[${currentInput}][${cursorLabel}]overlay=x='${xExpr}':y='${yExpr}':enable='${visExpr}':format=auto[cursor_out]`,
-  )
-  currentInput = 'cursor_out'
+  if (multiCursor && multiCursor.inputs.length > 0) {
+    if (effectiveZoom) {
+      // Multi-cursor × multi-zoom: one overlay per (style × zoom) pair
+      for (const { style, inputIdx } of multiCursor.inputs) {
+        const styleExpr = multiCursor.styleExprs[style] ?? '0'
+
+        for (let z = 0; z < effectiveZoom.length; z++) {
+          const zoom = effectiveZoom[z]
+          const label = `cursor_${style}_z${z}`
+
+          // Scale cursor to zoom-adjusted size
+          let cursorLabel = `${inputIdx}:v`
+          if (zoom.cursorSize !== CURSOR_BASE_SIZE) {
+            const scaledLabel = `${label}_scaled`
+            filters.push(
+              `[${inputIdx}:v]scale=${zoom.cursorSize}:${zoom.cursorSize}:flags=lanczos[${scaledLabel}]`,
+            )
+            cursorLabel = scaledLabel
+          }
+
+          // Enable = visibility × style × zoom
+          const enableExpr = `(${visExpr})*(${styleExpr})*(${zoom.enableExpr})`
+          const outLabel = `${label}_out`
+
+          filters.push(
+            `[${currentInput}][${cursorLabel}]overlay=x='${xExpr}':y='${yExpr}':enable='${enableExpr}':format=auto[${outLabel}]`,
+          )
+          currentInput = outLabel
+        }
+      }
+    } else {
+      // Multi-cursor, no zoom: one overlay per style
+      for (let i = 0; i < multiCursor.inputs.length; i++) {
+        const { style, inputIdx } = multiCursor.inputs[i]
+        const styleExpr = multiCursor.styleExprs[style] ?? '0'
+
+        let cursorLabel = `${inputIdx}:v`
+        if (cursorSize !== CURSOR_BASE_SIZE) {
+          const scaledLabel = `cursor_${style}_scaled`
+          filters.push(
+            `[${inputIdx}:v]scale=${cursorSize}:${cursorSize}:flags=lanczos[${scaledLabel}]`,
+          )
+          cursorLabel = scaledLabel
+        }
+
+        const enableExpr = `(${visExpr})*(${styleExpr})`
+        const outLabel = `cursor_${style}_out`
+
+        filters.push(
+          `[${currentInput}][${cursorLabel}]overlay=x='${xExpr}':y='${yExpr}':enable='${enableExpr}':format=auto[${outLabel}]`,
+        )
+        currentInput = outLabel
+      }
+    }
+  } else {
+    // Single cursor (legacy path)
+    let cursorLabel = `${cursorInputIdx}:v`
+    if (cursorSize !== CURSOR_BASE_SIZE) {
+      filters.push(
+        `[${cursorInputIdx}:v]scale=${cursorSize}:${cursorSize}:flags=lanczos[cursor_scaled]`,
+      )
+      cursorLabel = 'cursor_scaled'
+    }
+
+    filters.push(
+      `[${currentInput}][${cursorLabel}]overlay=x='${xExpr}':y='${yExpr}':enable='${visExpr}':format=auto[cursor_out]`,
+    )
+    currentInput = 'cursor_out'
+  }
 
   // Add ripple overlays via inline lavfi source (no extra inputs needed)
   if (rippleEvents.length > 0 && rippleConfig) {
@@ -240,11 +444,11 @@ export function buildFilterGraph(
       currentInput = nextLabel
     }
   } else {
-    // Rename cursor_out to desired output label
-    filters[filters.length - 1] = filters[filters.length - 1].replace(
-      '[cursor_out]',
-      `[${outputLabel}]`,
-    )
+    // Rename last cursor overlay output to desired output label
+    const lastFilter = filters[filters.length - 1]
+    const lastBracket = lastFilter.lastIndexOf('[')
+    filters[filters.length - 1] =
+      lastFilter.substring(0, lastBracket) + `[${outputLabel}]`
   }
 
   return {
