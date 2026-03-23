@@ -22,10 +22,9 @@ describe('sanitizeFilename', () => {
     expect(sanitizeFilename('step_01')).toBe('step_01')
   })
 
-  it('replaces ".." with underscores', () => {
-    expect(sanitizeFilename('foo..bar')).toBe('foo_bar')
-    // Full traversal: .. replaced first, then slashes
-    expect(sanitizeFilename('../../etc/passwd')).toBe('____etc_passwd')
+  it('replaces dots and special characters with underscores', () => {
+    expect(sanitizeFilename('foo..bar')).toBe('foo__bar')
+    expect(sanitizeFilename('../../etc/passwd')).toBe('______etc_passwd')
   })
 
   it('replaces forward slashes with underscores', () => {
@@ -34,6 +33,11 @@ describe('sanitizeFilename', () => {
 
   it('replaces backslashes with underscores', () => {
     expect(sanitizeFilename('path\\to\\file')).toBe('path_to_file')
+  })
+
+  it('strips Windows-reserved and special characters', () => {
+    expect(sanitizeFilename('file:name*?.png')).toBe('file_name___png')
+    expect(sanitizeFilename('hello <world>')).toBe('hello__world_')
   })
 
   it('handles combined traversal attempts', () => {

@@ -6,5 +6,5 @@ export function timestamp(): string {
 }
 
 export function sanitizeFilename(name: string): string {
-  return name.replace(/\.\./g, '_').replace(/[/\\]/g, '_')
+  return name.replace(/[^a-zA-Z0-9_-]/g, '_')
 }

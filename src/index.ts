@@ -4,6 +4,7 @@ export { loadDefinition, loadSetup } from './validation.js'
 export { resolveAuth } from './providers/index.js'
 export { setLogLevel, getLogLevel } from './logger.js'
 export type { LogLevel } from './logger.js'
+export { createCursorTracker, moveCursorToPoint, hideCursor, showCursor } from './cursor.js'
 export type {
   RecordingDefinition,
   RecordOptions,
@@ -35,5 +36,6 @@ export type {
   BackgroundOptions,
   OutputFormat,
   StepTiming,
+  CursorTracker,
 } from './types.js'
 export type { LoginOptions } from './login.js'

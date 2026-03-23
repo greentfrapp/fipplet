@@ -2,8 +2,7 @@ import { execFile } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import type { CursorEvent, CursorStyle, StepTiming } from './types'
-import { getCursorPng } from './cursors'
+import type { CursorEvent } from './types'
 
 /** Shared VP9 encoding flags optimized for speed with screen content. */
 export const VP9_FAST_FLAGS = [
@@ -28,10 +27,10 @@ function getFFmpegPath(): string {
   }
 }
 
-export function runFFmpeg(args: string[]): Promise<void> {
+export function runFFmpeg(args: string[], timeoutMs: number = 5 * 60 * 1000): Promise<void> {
   const ffmpeg = getFFmpegPath()
   return new Promise((resolve, reject) => {
-    execFile(ffmpeg, args, { maxBuffer: 50 * 1024 * 1024 }, (err, _stdout, stderr) => {
+    execFile(ffmpeg, args, { maxBuffer: 50 * 1024 * 1024, timeout: timeoutMs }, (err, _stdout, stderr) => {
       if (err) {
         reject(new Error(`ffmpeg failed: ${err.message}\n${stderr}`))
       } else {
@@ -100,48 +99,6 @@ export function buildVisibilityExpr(events: CursorEvent[]): string {
   result = `if(lt(t,${visEvents[0].time.toFixed(4)}),1,${result})`
 
   return result
-}
-
-/**
- * Generate a short transparent ripple animation clip using FFmpeg.
- */
-export async function generateRippleClip(
-  size: number,
-  color: string,
-  durationMs: number = 500,
-): Promise<string> {
-  const clipPath = path.join(os.tmpdir(), `fipplet-ripple-${Date.now()}.webm`)
-
-  // Parse rgba color
-  const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
-  const r = match ? parseInt(match[1]) : 59
-  const g = match ? parseInt(match[2]) : 130
-  const b = match ? parseInt(match[3]) : 246
-  const baseAlpha = match && match[4] ? parseFloat(match[4]) : 0.4
-  const fps = 30
-  const frames = Math.ceil((durationMs / 1000) * fps)
-
-  await runFFmpeg([
-    '-f', 'lavfi',
-    '-i', `color=c=black@0:s=${size * 2}x${size * 2}:d=${(durationMs / 1000).toFixed(2)}:r=${fps},format=rgba`,
-    '-vf', [
-      `geq=` +
-      `r='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${r},0)'` +
-      `:g='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${g},0)'` +
-      `:b='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${b},0)'` +
-      `:a='if(lte(hypot(X-${size},Y-${size}),${size}*(N+1)/${frames})*gt(hypot(X-${size},Y-${size}),(${size}*(N+1)/${frames})-3),${Math.round(255 * baseAlpha)}*(1-N/${frames}),0)'`,
-    ].join(','),
-    '-c:v', 'libvpx-vp9',
-    '-crf', '18', '-b:v', '0',
-    '-deadline', 'good',
-    '-cpu-used', '4',
-    '-row-mt', '1',
-    '-pix_fmt', 'yuva420p',
-    '-auto-alt-ref', '0',
-    '-y', clipPath,
-  ])
-
-  return clipPath
 }
 
 export interface RippleConfig {
@@ -263,111 +220,6 @@ export function buildFilterGraph(input: FilterGraphInput & {
   }
 }
 
-export interface CursorOverlayOptions {
-  /** Cursor image style. Default: 'default'. */
-  cursorStyle?: CursorStyle
-  /** Cursor display size in pixels. Default: 24. */
-  cursorSize?: number
-  /** Output path. Defaults to replacing the input with a suffixed version. */
-  outputPath?: string
-}
-
-/**
- * Composite cursor overlay onto a video using FFmpeg.
- *
- * Reads cursor events (move/ripple/hide/show), builds FFmpeg filter expressions
- * that position the cursor image and render ripple effects, then produces a
- * new video file with the cursor baked in.
- */
-export async function applyCursorOverlay(
-  videoPath: string,
-  events: CursorEvent[],
-  options: CursorOverlayOptions,
-): Promise<string> {
-  const outputDir = path.dirname(videoPath)
-  const cursorStyle = options.cursorStyle ?? 'default'
-  const cursorSize = options.cursorSize ?? 24
-  const ext = path.extname(videoPath)
-  const base = path.basename(videoPath, ext)
-  const outputPath = options.outputPath ?? path.join(outputDir, `${base}-cursor${ext}`)
-
-  // Extract move keyframes for position expressions
-  const moveEvents = events.filter((e) => e.type === 'move')
-  const keyframes = moveEvents.map((e) => ({
-    time: e.time,
-    x: e.x,
-    y: e.y,
-    transitionMs: e.transitionMs ?? 350,
-  }))
-
-  const xKeyframes = keyframes.map((k) => ({ time: k.time, value: k.x, transitionMs: k.transitionMs }))
-  const yKeyframes = keyframes.map((k) => ({ time: k.time, value: k.y, transitionMs: k.transitionMs }))
-
-  const xExpr = buildPositionExpr(xKeyframes, 'x')
-  const yExpr = buildPositionExpr(yKeyframes, 'y')
-  const visExpr = buildVisibilityExpr(events)
-
-  // Resolve bundled cursor image path (always base size; scaled inline in filter graph)
-  const cursorPng = getCursorPng(cursorStyle)
-  const tempFiles: string[] = []
-
-  // Build ripple overlays for each ripple event
-  const rippleEvents = events.filter((e) => e.type === 'ripple')
-
-  const inputArgs: string[] = ['-i', videoPath, '-i', cursorPng]
-  let rippleConfig: RippleConfig | null = null
-
-  if (rippleEvents.length > 0) {
-    const rippleSize = rippleEvents[0].rippleSize ?? 40
-    const rippleColor = rippleEvents[0].rippleColor ?? 'rgba(59, 130, 246, 0.4)'
-    const match = rippleColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
-    rippleConfig = {
-      size: rippleSize,
-      r: match ? parseInt(match[1]) : 59,
-      g: match ? parseInt(match[2]) : 130,
-      b: match ? parseInt(match[3]) : 246,
-      baseAlpha: match && match[4] ? parseFloat(match[4]) : 0.4,
-      durationMs: 500,
-    }
-  }
-
-  // Build filter graph
-  const { filterGraph, extraInputArgs } = buildFilterGraph({
-    cursorSize,
-    xExpr,
-    yExpr,
-    visExpr,
-    rippleEvents,
-    rippleConfig,
-  })
-  inputArgs.push(...extraInputArgs)
-
-  // Write filter graph to a script file to avoid shell/argument escaping issues
-  // with complex expressions containing commas and parentheses
-  const filterScriptPath = path.join(os.tmpdir(), `fipplet-filter-${Date.now()}.txt`)
-  fs.writeFileSync(filterScriptPath, filterGraph)
-  tempFiles.push(filterScriptPath)
-
-  try {
-    await runFFmpeg([
-      ...inputArgs,
-      '-filter_complex_script', filterScriptPath,
-      '-map', '[final_out]',
-      '-map', '0:a?',
-      '-c:v', 'libvpx-vp9',
-      ...VP9_FAST_FLAGS,
-      '-c:a', 'copy',
-      '-y', outputPath,
-    ])
-  } finally {
-    for (const f of tempFiles) {
-      try { fs.unlinkSync(f) } catch {}
-    }
-  }
-
-  return outputPath
-}
-
 /**
  * Convert a WebM video to MP4 (H.264 + AAC).
  * Strips alpha channel, enables web streaming with faststart.
@@ -421,99 +273,3 @@ export async function convertToGif(inputPath: string): Promise<string> {
   return outputPath
 }
 
-/**
- * Apply speed adjustment to a video.
- *
- * Case 1 (uniform): All segments use the same speed → single setpts filter.
- * Case 2 (per-step): Different segments have different speeds → piecewise setpts.
- */
-export async function applySpeedAdjustment(
-  videoPath: string,
-  stepTimings: StepTiming[],
-  globalSpeed: number,
-): Promise<string> {
-  const dir = path.dirname(videoPath)
-  const ext = path.extname(videoPath)
-  const base = path.basename(videoPath, ext)
-  const outputPath = path.join(dir, `${base}-speed${ext}`)
-
-  // Check if all steps use the same effective speed
-  const hasPerStep = stepTimings.some((t) => t.speed !== globalSpeed)
-
-  if (!hasPerStep) {
-    // Uniform speed — simple setpts
-    const codec = ext === '.webm' ? 'libvpx-vp9' : 'libx264'
-    const qualityFlags = codec === 'libvpx-vp9'
-      ? [...VP9_FAST_FLAGS]
-      : ['-crf', '18', '-preset', 'slow']
-    await runFFmpeg([
-      '-i', videoPath,
-      '-filter_complex', `[0:v]setpts=PTS/${globalSpeed}[v]`,
-      '-map', '[v]',
-      '-an',
-      '-c:v', codec,
-      ...qualityFlags,
-      '-y', outputPath,
-    ])
-  } else {
-    // Per-step speed variations — build piecewise setpts expression
-    // Sort timings by start time
-    const sorted = [...stepTimings].sort((a, b) => a.startTime - b.startTime)
-
-    // Build segments: gaps use globalSpeed, steps use their own speed
-    interface Segment { start: number; end: number; speed: number }
-    const segments: Segment[] = []
-    let cursor = 0
-
-    for (const timing of sorted) {
-      if (timing.startTime > cursor) {
-        segments.push({ start: cursor, end: timing.startTime, speed: globalSpeed })
-      }
-      segments.push({ start: timing.startTime, end: timing.endTime, speed: timing.speed })
-      cursor = timing.endTime
-    }
-
-    // Build nested if(between(...), ..., if(...)) expression from inside out.
-    // The innermost fallback uses globalSpeed for anything after the last segment.
-    let accumulatedOutput = 0
-    const segOutputOffsets: number[] = []
-    for (const seg of segments) {
-      segOutputOffsets.push(accumulatedOutput)
-      accumulatedOutput += (seg.end - seg.start) / seg.speed
-    }
-
-    // Build piecewise setpts expression using FFmpeg variables:
-    // T = source time in seconds, TB = timebase, output must be in PTS units (seconds / TB)
-    // Use \, to escape commas so the filter graph parser passes them to the expression evaluator
-    const C = '\\,'
-
-    // Fallback for time beyond all segments: continue at globalSpeed from accumulated offset
-    let expr = `(${accumulatedOutput.toFixed(6)}+(T-${cursor.toFixed(6)})/${globalSpeed.toFixed(6)})/TB`
-
-    // Build from last segment to first, wrapping in if(between(...), value, fallback)
-    for (let i = segments.length - 1; i >= 0; i--) {
-      const seg = segments[i]
-      const outOffset = segOutputOffsets[i].toFixed(6)
-      const segStart = seg.start.toFixed(6)
-      const segEnd = seg.end.toFixed(6)
-      const segSpeed = seg.speed.toFixed(6)
-      expr = `if(between(T${C}${segStart}${C}${segEnd})${C}(${outOffset}+(T-${segStart})/${segSpeed})/TB${C}${expr})`
-    }
-
-    const codec = ext === '.webm' ? 'libvpx-vp9' : 'libx264'
-    const qualityFlags = codec === 'libvpx-vp9'
-      ? [...VP9_FAST_FLAGS]
-      : ['-crf', '18', '-preset', 'slow']
-    await runFFmpeg([
-      '-i', videoPath,
-      '-filter_complex', `[0:v]setpts=${expr}[v]`,
-      '-map', '[v]',
-      '-an',
-      '-c:v', codec,
-      ...qualityFlags,
-      '-y', outputPath,
-    ])
-  }
-
-  return outputPath
-}

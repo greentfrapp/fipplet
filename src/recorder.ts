@@ -11,7 +11,7 @@ import type {
   RecordingResult,
   StepTiming,
 } from './types'
-import { initCursorTracker, getCursorEvents } from './cursor'
+import { createCursorTracker } from './cursor'
 import { convertToGif, convertToMp4 } from './post-process'
 import { runPostProcessPipeline } from './pipeline'
 import { resolveAuth } from './providers'
@@ -24,7 +24,9 @@ export async function record(
   input: RecordingDefinition | string,
   options: RecordOptions = {},
 ): Promise<RecordingResult> {
-  const def = typeof input === 'string' ? loadDefinition(input) : input
+  const def = typeof input === 'string'
+    ? loadDefinition(input)
+    : loadDefinition(structuredClone(input))
 
   // Resolve auth provider → merge into definition
   if (def.auth) {
@@ -94,8 +96,9 @@ export async function record(
     const setupUrl = setup.url ?? def.url
     try {
       await setupPage.goto(setupUrl, { waitUntil: 'load', timeout: 15000 })
-    } catch {
-      // Page didn't reach load, continue anyway
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logError(`  warning: setup navigation to '${setupUrl}' did not reach load: ${msg}`)
     }
 
     // Handle localStorage injection during setup
@@ -213,8 +216,9 @@ export async function record(
   } else {
     try {
       await page.goto(def.url, { waitUntil: 'load', timeout: 15000 })
-    } catch {
-      // Page didn't reach load, continue anyway
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      logError(`  warning: navigation to '${def.url}' did not reach load: ${msg}`)
     }
   }
 
@@ -241,12 +245,10 @@ export async function record(
     ? (typeof cursorConfig === 'object' ? cursorConfig : {})
     : undefined
 
-  if (cursorEnabled) {
-    initCursorTracker(page, cursorOptions)
-  }
+  const cursorTracker = cursorEnabled ? createCursorTracker() : undefined
 
   // Execute steps
-  const ctx: ActionContext = { outputDir, zoomState, cursorEnabled, cursorOptions }
+  const ctx: ActionContext = { outputDir, zoomState, cursorEnabled, cursorOptions, cursorTracker }
   const globalSpeed = options.speed ?? def.speed ?? 1.0
   const stepTimings: StepTiming[] = []
   const stepTimerStart = Date.now()
@@ -326,8 +328,8 @@ export async function record(
 
   // Write cursor events for debugging/reference
   let cursorEventsForPipeline: import('./types').CursorEvent[] | undefined
-  if (cursorEnabled && videoPath) {
-    const cursorEvents = getCursorEvents()
+  if (cursorTracker && videoPath) {
+    const cursorEvents = cursorTracker.getEvents()
     cursorEventsPath = path.join(outputDir, `${baseName}-cursor.json`)
     fs.writeFileSync(cursorEventsPath, JSON.stringify(cursorEvents, null, 2))
     logVerbose(`  cursor events: ${cursorEvents.length} events → ${cursorEventsPath}`)

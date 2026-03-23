@@ -39,7 +39,7 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "playwright-core": ">=1.49.0"
+    "playwright-core": ">=1.51.0"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",

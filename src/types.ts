@@ -73,6 +73,8 @@ export interface ScrollStep extends BaseStep {
   action: 'scroll'
   x?: number
   y?: number
+  /** Scroll animation speed multiplier (separate from BaseStep.speed which controls video playback speed). */
+  scrollSpeed?: number
 }
 
 export interface HoverStep extends BaseStep {
@@ -242,9 +244,19 @@ export interface CursorEvent {
   rippleColor?: string  // for 'ripple' events
 }
 
+export interface CursorTracker {
+  moveCursorTo(page: import('playwright-core').Page, selector: string, zoomState: ZoomState, options?: CursorOptions): Promise<void>
+  moveCursorToPoint(page: import('playwright-core').Page, x: number, y: number, options?: CursorOptions): Promise<void>
+  triggerRipple(page: import('playwright-core').Page, options?: CursorOptions): Promise<void>
+  hideCursor(page: import('playwright-core').Page): Promise<void>
+  showCursor(page: import('playwright-core').Page): Promise<void>
+  getEvents(): CursorEvent[]
+}
+
 export interface ActionContext {
   outputDir: string
   zoomState: ZoomState
   cursorEnabled: boolean
   cursorOptions?: CursorOptions
+  cursorTracker?: CursorTracker
 }

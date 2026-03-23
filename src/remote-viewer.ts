@@ -253,14 +253,12 @@ export function startViewer(
           }
           latestFrame = str
           cdpSend('Page.screencastFrameAck', { sessionId: msg.params.sessionId })
-          // Replace previous frame in buffer by index instead of filtering
+          // Replace previous frame in buffer instead of accumulating stale frames
           if (lastFrameIndex !== null) {
             messageBuffer[lastFrameIndex] = str
             return
           }
-        }
-
-        if (msg.method === 'Page.screencastFrame') {
+          // First frame: record its index and fall through to push
           lastFrameIndex = messageBuffer.length
         }
         messageBuffer.push(str)

@@ -2,6 +2,7 @@ import path from 'path'
 import type { Page } from 'playwright-core'
 import type {
   ActionContext,
+  ActionName,
   ClearStep,
   ClickStep,
   FillStep,
@@ -19,7 +20,20 @@ import type {
 } from './types'
 import { sanitizeFilename, timestamp } from './utils'
 import { restoreZoom, suspendZoom } from './zoom'
-import { moveCursorTo, triggerRipple } from './cursor'
+import { moveCursorTo as defaultMoveCursorTo, triggerRipple as defaultTriggerRipple } from './cursor'
+import { logError } from './logger'
+
+function getMoveCursorTo(ctx: ActionContext) {
+  return ctx.cursorTracker
+    ? ctx.cursorTracker.moveCursorTo.bind(ctx.cursorTracker)
+    : defaultMoveCursorTo
+}
+
+function getTriggerRipple(ctx: ActionContext) {
+  return ctx.cursorTracker
+    ? ctx.cursorTracker.triggerRipple.bind(ctx.cursorTracker)
+    : defaultTriggerRipple
+}
 
 type ActionHandler = (
   page: Page,
@@ -49,8 +63,8 @@ async function handleClick(
 ): Promise<void> {
   await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
-    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
-    await triggerRipple(page, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getTriggerRipple(ctx)(page, ctx.cursorOptions)
   }
   await suspendZoom(page, ctx.zoomState)
   await page.click(step.selector)
@@ -64,8 +78,8 @@ async function handleType(
 ): Promise<void> {
   await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
-    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
-    if (step.clear) await triggerRipple(page, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    if (step.clear) await getTriggerRipple(ctx)(page, ctx.cursorOptions)
   }
   await suspendZoom(page, ctx.zoomState)
   if (step.clear) {
@@ -82,12 +96,11 @@ async function handleClear(
 ): Promise<void> {
   await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
-    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
-    await triggerRipple(page, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getTriggerRipple(ctx)(page, ctx.cursorOptions)
   }
   await suspendZoom(page, ctx.zoomState)
-  await page.click(step.selector, { clickCount: 3 })
-  await page.keyboard.press('Backspace')
+  await page.fill(step.selector, '')
   await restoreZoom(page, ctx.zoomState)
 }
 
@@ -98,7 +111,7 @@ async function handleFill(
 ): Promise<void> {
   await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
-    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
   }
   await suspendZoom(page, ctx.zoomState)
   await page.fill(step.selector, step.text)
@@ -112,18 +125,19 @@ async function handleSelect(
 ): Promise<void> {
   await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
-    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
   }
   await suspendZoom(page, ctx.zoomState)
   await page.selectOption(step.selector, step.value)
   await restoreZoom(page, ctx.zoomState)
 }
 
-async function handleScroll(page: Page, step: ScrollStep, _ctx: ActionContext): Promise<void> {
+async function handleScroll(page: Page, step: ScrollStep, ctx: ActionContext): Promise<void> {
   const baseDuration = 600
-  const speedMultiplier = step.speed ?? 1
+  const speedMultiplier = step.scrollSpeed ?? 1
   const duration = baseDuration / speedMultiplier
 
+  await suspendZoom(page, ctx.zoomState)
   await page.evaluate(({ x, y, duration }) => {
     return new Promise<void>((resolve) => {
       const startX = window.scrollX
@@ -153,6 +167,7 @@ async function handleScroll(page: Page, step: ScrollStep, _ctx: ActionContext): 
       requestAnimationFrame(tick)
     })
   }, { x: step.x, y: step.y, duration })
+  await restoreZoom(page, ctx.zoomState)
 }
 
 async function handleHover(
@@ -162,7 +177,7 @@ async function handleHover(
 ): Promise<void> {
   await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
-    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
   }
   await suspendZoom(page, ctx.zoomState)
   await page.hover(step.selector)
@@ -183,7 +198,7 @@ async function handleNavigate(
   ctx.zoomState.ty = 0
   await page
     .goto(step.url, { waitUntil: 'networkidle', timeout: 10000 })
-    .catch((err) => process.stderr.write(`  warning: navigate to '${step.url}' did not reach networkidle: ${err.message}\n`))
+    .catch((err) => logError(`  warning: navigate to '${step.url}' did not reach networkidle: ${err.message}`))
 }
 
 async function handleScreenshot(
@@ -206,7 +221,7 @@ async function handleZoom(
   const duration = step.duration ?? 600
 
   if (ctx.cursorEnabled && step.selector) {
-    await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
   }
 
   if (scale === 1 && !step.selector) {
@@ -286,7 +301,7 @@ async function handleWaitForNetwork(
   )
 }
 
-export const ACTIONS: Record<string, ActionHandler> = {
+export const ACTIONS: Record<ActionName, ActionHandler> = {
   wait: action<WaitStep>(handleWait),
   click: action<ClickStep>(handleClick),
   type: action<TypeStep>(handleType),
