@@ -201,7 +201,9 @@
       "type": "object",
       "properties": {
         "pauseAfter": { "type": "number", "description": "Pause in milliseconds after this step. Default: 500." },
-        "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Playback speed multiplier for this step." }
+        "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Playback speed multiplier for this step." },
+        "timeout": { "type": "number", "exclusiveMinimum": 0, "description": "Timeout in milliseconds for selector resolution. Default: 5000." },
+        "waitFor": { "type": "string", "description": "Selector or 'networkidle' condition to wait for before the action executes." }
       }
     },
     "Step": {
@@ -217,7 +219,8 @@
         { "$ref": "#/$defs/KeyboardStep" },
         { "$ref": "#/$defs/NavigateStep" },
         { "$ref": "#/$defs/ScreenshotStep" },
-        { "$ref": "#/$defs/ZoomStep" }
+        { "$ref": "#/$defs/ZoomStep" },
+        { "$ref": "#/$defs/WaitForNetworkStep" }
       ]
     },
     "WaitStep": {
@@ -227,7 +230,9 @@
         "action": { "type": "string", "const": "wait" },
         "ms": { "type": "number", "minimum": 0, "description": "Duration to wait in milliseconds. Default: 1000." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -238,7 +243,9 @@
         "action": { "type": "string", "const": "click" },
         "selector": { "type": "string", "description": "CSS selector of the element to click." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -252,7 +259,9 @@
         "delay": { "type": "number", "minimum": 0, "description": "Delay between keystrokes in milliseconds. Default: 80." },
         "clear": { "type": "boolean", "description": "Clear the field before typing." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -263,7 +272,9 @@
         "action": { "type": "string", "const": "clear" },
         "selector": { "type": "string", "description": "CSS selector of the element to clear." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -275,7 +286,9 @@
         "selector": { "type": "string", "description": "CSS selector of the element to fill." },
         "text": { "type": "string", "description": "Text to fill." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -287,7 +300,9 @@
         "selector": { "type": "string", "description": "CSS selector of the select element." },
         "value": { "type": "string", "description": "Value to select." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -299,7 +314,9 @@
         "x": { "type": "number", "description": "Horizontal scroll delta in pixels." },
         "y": { "type": "number", "description": "Vertical scroll delta in pixels." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -310,7 +327,9 @@
         "action": { "type": "string", "const": "hover" },
         "selector": { "type": "string", "description": "CSS selector of the element to hover over." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -321,7 +340,9 @@
         "action": { "type": "string", "const": "keyboard" },
         "key": { "type": "string", "description": "Key to press (e.g., 'Enter', 'Escape', 'Tab')." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -332,7 +353,9 @@
         "action": { "type": "string", "const": "navigate" },
         "url": { "type": "string", "description": "URL to navigate to." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -344,7 +367,9 @@
         "name": { "type": "string", "description": "Screenshot filename (without extension)." },
         "fullPage": { "type": "boolean", "description": "Capture the full page. Default: false." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     },
@@ -359,7 +384,22 @@
         "y": { "type": "number", "description": "Y coordinate to zoom into (if no selector)." },
         "duration": { "type": "number", "description": "Zoom animation duration in milliseconds. Default: 600." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
-        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
+      },
+      "additionalProperties": false
+    },
+    "WaitForNetworkStep": {
+      "type": "object",
+      "required": ["action", "urlPattern"],
+      "properties": {
+        "action": { "type": "string", "const": "waitForNetwork" },
+        "urlPattern": { "type": "string", "description": "URL substring to match against completed responses." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
+        "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
+        "waitFor": { "$ref": "#/$defs/BaseStepProperties/properties/waitFor" }
       },
       "additionalProperties": false
     }

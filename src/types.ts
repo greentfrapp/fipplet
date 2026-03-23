@@ -28,6 +28,10 @@ export interface StepTiming {
 interface BaseStep {
   pauseAfter?: number
   speed?: number
+  /** Timeout in ms for selector resolution. Default: 5000. */
+  timeout?: number
+  /** Selector or 'networkidle' condition to wait for before the action executes. */
+  waitFor?: string
 }
 
 export interface WaitStep extends BaseStep {
@@ -101,6 +105,12 @@ export interface ZoomStep extends BaseStep {
   duration?: number
 }
 
+export interface WaitForNetworkStep extends BaseStep {
+  action: 'waitForNetwork'
+  /** URL substring to match against completed responses. */
+  urlPattern: string
+}
+
 export type Step =
   | WaitStep
   | ClickStep
@@ -114,6 +124,7 @@ export type Step =
   | NavigateStep
   | ScreenshotStep
   | ZoomStep
+  | WaitForNetworkStep
 
 export type ActionName = Step['action']
 
@@ -186,12 +197,16 @@ export interface RecordOptions {
   setup?: SetupBlock
   speed?: number
   outputFormat?: OutputFormat
+  /** Keep intermediate files (cursor JSON, etc.) instead of cleaning up. */
+  keepIntermediates?: boolean
 }
 
 export interface RecordingResult {
   video?: string
   screenshots: string[]
   cursorEvents?: string
+  /** Path to the output.json manifest file. */
+  manifest?: string
 }
 
 // --- Auth providers (discriminated union on `provider`) ---

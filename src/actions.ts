@@ -13,6 +13,7 @@ import type {
   SelectStep,
   Step,
   TypeStep,
+  WaitForNetworkStep,
   WaitStep,
   ZoomStep,
 } from './types'
@@ -30,6 +31,13 @@ function action<S extends Step>(handler: (page: Page, step: S, ctx: ActionContex
   return handler as ActionHandler
 }
 
+const DEFAULT_SELECTOR_TIMEOUT = 5000
+
+/** Wait for a selector to become visible, retrying until timeout. */
+async function awaitSelector(page: Page, selector: string, timeout: number): Promise<void> {
+  await page.locator(selector).waitFor({ state: 'visible', timeout })
+}
+
 async function handleWait(page: Page, step: WaitStep): Promise<void> {
   await page.waitForTimeout(step.ms ?? 1000)
 }
@@ -39,6 +47,7 @@ async function handleClick(
   step: ClickStep,
   ctx: ActionContext,
 ): Promise<void> {
+  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
     await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
     await triggerRipple(page, ctx.cursorOptions)
@@ -53,6 +62,7 @@ async function handleType(
   step: TypeStep,
   ctx: ActionContext,
 ): Promise<void> {
+  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
     await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
     if (step.clear) await triggerRipple(page, ctx.cursorOptions)
@@ -70,6 +80,7 @@ async function handleClear(
   step: ClearStep,
   ctx: ActionContext,
 ): Promise<void> {
+  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
     await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
     await triggerRipple(page, ctx.cursorOptions)
@@ -85,6 +96,7 @@ async function handleFill(
   step: FillStep,
   ctx: ActionContext,
 ): Promise<void> {
+  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
     await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
   }
@@ -98,6 +110,7 @@ async function handleSelect(
   step: SelectStep,
   ctx: ActionContext,
 ): Promise<void> {
+  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
     await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
   }
@@ -147,6 +160,7 @@ async function handleHover(
   step: HoverStep,
   ctx: ActionContext,
 ): Promise<void> {
+  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
   if (ctx.cursorEnabled) {
     await moveCursorTo(page, step.selector, ctx.zoomState, ctx.cursorOptions)
   }
@@ -261,6 +275,17 @@ async function handleZoom(
   await page.waitForTimeout(duration + 100)
 }
 
+async function handleWaitForNetwork(
+  page: Page,
+  step: WaitForNetworkStep,
+): Promise<void> {
+  const timeout = step.timeout ?? DEFAULT_SELECTOR_TIMEOUT
+  await page.waitForResponse(
+    (response) => response.url().includes(step.urlPattern),
+    { timeout },
+  )
+}
+
 export const ACTIONS: Record<string, ActionHandler> = {
   wait: action<WaitStep>(handleWait),
   click: action<ClickStep>(handleClick),
@@ -274,4 +299,5 @@ export const ACTIONS: Record<string, ActionHandler> = {
   navigate: action<NavigateStep>(handleNavigate),
   screenshot: action<ScreenshotStep>(handleScreenshot),
   zoom: action<ZoomStep>(handleZoom),
+  waitForNetwork: action<WaitForNetworkStep>(handleWaitForNetwork),
 }

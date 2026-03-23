@@ -166,6 +166,15 @@ function validateSteps(steps: Step[], prefix: string): void {
     if (step.speed !== undefined && (typeof step.speed !== 'number' || step.speed <= 0)) {
       throw new Error(`${prefix} ${i}: 'speed' must be a number greater than 0\n  → ${snippet}`)
     }
+    if (step.timeout !== undefined && (typeof step.timeout !== 'number' || step.timeout <= 0)) {
+      throw new Error(`${prefix} ${i}: 'timeout' must be a number greater than 0\n  → ${snippet}`)
+    }
+    if (step.waitFor !== undefined && typeof step.waitFor !== 'string') {
+      throw new Error(`${prefix} ${i}: 'waitFor' must be a string (selector or 'networkidle')\n  → ${snippet}`)
+    }
+    if (step.action === 'waitForNetwork' && !('urlPattern' in step && step.urlPattern)) {
+      throw new Error(`${prefix} ${i} ('waitForNetwork'): missing required 'urlPattern' field\n  → ${snippet}`)
+    }
   }
 }
 

@@ -257,6 +257,20 @@ export async function record(
     const stepStart = (Date.now() - stepTimerStart) / 1000
     const stepWallStart = Date.now()
 
+    // Process waitFor condition before dispatching to action handler
+    if (step.waitFor) {
+      try {
+        if (step.waitFor === 'networkidle') {
+          await page.waitForLoadState('networkidle')
+        } else {
+          await page.waitForSelector(step.waitFor, { timeout: step.timeout ?? 5000 })
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        logError(`  step ${i + 1} waitFor failed: ${msg}`)
+      }
+    }
+
     try {
       const result = await ACTIONS[step.action](page, step, ctx)
       if (step.action === 'screenshot' && typeof result === 'string') {
@@ -383,9 +397,36 @@ export async function record(
     }
   }
 
+  // Clean up intermediate files unless --keep-intermediates
+  if (!options.keepIntermediates) {
+    if (cursorEventsPath) {
+      try {
+        fs.unlinkSync(cursorEventsPath)
+        logVerbose(`  cleaned up: ${cursorEventsPath}`)
+        cursorEventsPath = undefined
+      } catch {
+        // ignore — file may already be gone
+      }
+    }
+  }
+
+  // Write output manifest
+  let manifestPath: string | undefined
+  const manifest = {
+    timestamp: new Date().toISOString(),
+    definition: typeof input === 'string' ? path.resolve(input) : undefined,
+    video: videoPath ? path.relative(outputDir, videoPath) : undefined,
+    screenshots: screenshots.map((s) => path.relative(outputDir, s)),
+    viewport,
+  }
+  manifestPath = path.join(outputDir, 'output.json')
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
+  logVerbose(`  manifest: ${manifestPath}`)
+
   return {
     video: videoPath,
     screenshots,
     cursorEvents: cursorEventsPath,
+    manifest: manifestPath,
   }
 }

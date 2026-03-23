@@ -23,6 +23,7 @@ program
   .option('--dry-run', 'Validate definition and print summary without launching a browser')
   .option('--verbose', 'Enable detailed output (per-step timing, diagnostics)')
   .option('--quiet', 'Suppress all output except errors and final output paths')
+  .option('--keep-intermediates', 'Keep intermediate files (cursor JSON, etc.)')
   .action(async (defPath: string, opts: {
     output: string
     setup?: string
@@ -32,6 +33,7 @@ program
     dryRun?: boolean
     verbose?: boolean
     quiet?: boolean
+    keepIntermediates?: boolean
   }) => {
     // Set log level
     if (opts.verbose && opts.quiet) {
@@ -177,6 +179,7 @@ program
         setup,
         outputFormat,
         speed,
+        keepIntermediates: opts.keepIntermediates,
       })
 
       if (!opts.quiet) {

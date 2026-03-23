@@ -28,6 +28,7 @@ export type {
   NavigateStep,
   ScreenshotStep,
   ZoomStep,
+  WaitForNetworkStep,
   CursorOptions,
   CursorStyle,
   WindowChromeOptions,
