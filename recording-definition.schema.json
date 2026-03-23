@@ -24,7 +24,7 @@
     },
     "waitForSelector": {
       "type": "string",
-      "description": "CSS selector to wait for before starting steps."
+      "description": "CSS selector or XPath expression to wait for before starting steps."
     },
     "storageState": {
       "type": "string",
@@ -203,7 +203,7 @@
         "pauseAfter": { "type": "number", "description": "Pause in milliseconds after this step. Default: 500." },
         "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Playback speed multiplier for this step." },
         "timeout": { "type": "number", "exclusiveMinimum": 0, "description": "Timeout in milliseconds for selector resolution. Default: 5000." },
-        "waitFor": { "type": "string", "description": "Selector or 'networkidle' condition to wait for before the action executes." }
+        "waitFor": { "type": "string", "description": "CSS selector, XPath expression, or 'networkidle' condition to wait for before the action executes." }
       }
     },
     "Step": {
@@ -241,7 +241,7 @@
       "required": ["action", "selector"],
       "properties": {
         "action": { "type": "string", "const": "click" },
-        "selector": { "type": "string", "description": "CSS selector of the element to click." },
+        "selector": { "type": "string", "description": "CSS selector or XPath expression of the element to click." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
         "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
         "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
@@ -254,7 +254,7 @@
       "required": ["action", "selector", "text"],
       "properties": {
         "action": { "type": "string", "const": "type" },
-        "selector": { "type": "string", "description": "CSS selector of the element to type into." },
+        "selector": { "type": "string", "description": "CSS selector or XPath expression of the element to type into." },
         "text": { "type": "string", "description": "Text to type." },
         "delay": { "type": "number", "minimum": 0, "description": "Delay between keystrokes in milliseconds. Default: 80." },
         "clear": { "type": "boolean", "description": "Clear the field before typing." },
@@ -270,7 +270,7 @@
       "required": ["action", "selector"],
       "properties": {
         "action": { "type": "string", "const": "clear" },
-        "selector": { "type": "string", "description": "CSS selector of the element to clear." },
+        "selector": { "type": "string", "description": "CSS selector or XPath expression of the element to clear." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
         "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
         "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
@@ -283,7 +283,7 @@
       "required": ["action", "selector", "text"],
       "properties": {
         "action": { "type": "string", "const": "fill" },
-        "selector": { "type": "string", "description": "CSS selector of the element to fill." },
+        "selector": { "type": "string", "description": "CSS selector or XPath expression of the element to fill." },
         "text": { "type": "string", "description": "Text to fill." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
         "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
@@ -297,7 +297,7 @@
       "required": ["action", "selector", "value"],
       "properties": {
         "action": { "type": "string", "const": "select" },
-        "selector": { "type": "string", "description": "CSS selector of the select element." },
+        "selector": { "type": "string", "description": "CSS selector or XPath expression of the select element." },
         "value": { "type": "string", "description": "Value to select." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
         "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
@@ -325,7 +325,7 @@
       "required": ["action", "selector"],
       "properties": {
         "action": { "type": "string", "const": "hover" },
-        "selector": { "type": "string", "description": "CSS selector of the element to hover over." },
+        "selector": { "type": "string", "description": "CSS selector or XPath expression of the element to hover over." },
         "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
         "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" },
         "timeout": { "$ref": "#/$defs/BaseStepProperties/properties/timeout" },
@@ -378,7 +378,7 @@
       "required": ["action"],
       "properties": {
         "action": { "type": "string", "const": "zoom" },
-        "selector": { "type": "string", "description": "CSS selector to zoom into (centers on the element)." },
+        "selector": { "type": "string", "description": "CSS selector or XPath expression to zoom into (centers on the element)." },
         "scale": { "type": "number", "description": "Zoom scale. Default: 2. Set to 1 to reset." },
         "x": { "type": "number", "description": "X coordinate to zoom into (if no selector)." },
         "y": { "type": "number", "description": "Y coordinate to zoom into (if no selector)." },

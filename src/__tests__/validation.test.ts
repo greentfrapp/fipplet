@@ -97,6 +97,40 @@ describe('loadDefinition', () => {
     }
   })
 
+  describe('XPath selector support', () => {
+    it('accepts XPath selectors starting with //', () => {
+      const result = loadDefinition({
+        url: 'https://example.com',
+        steps: [{ action: 'click', selector: '//button[@type="submit"]' }],
+      })
+      expect(result.steps[0]).toMatchObject({ selector: '//button[@type="submit"]' })
+    })
+
+    it('accepts XPath selectors starting with ..', () => {
+      const result = loadDefinition({
+        url: 'https://example.com',
+        steps: [{ action: 'hover', selector: '../div[@class="menu"]' }],
+      })
+      expect(result.steps[0]).toMatchObject({ selector: '../div[@class="menu"]' })
+    })
+
+    it('accepts XPath selectors in all selector-based actions', () => {
+      const def = {
+        url: 'https://example.com',
+        steps: [
+          { action: 'click', selector: '//button' },
+          { action: 'type', selector: '//input', text: 'hello' },
+          { action: 'clear', selector: '//textarea' },
+          { action: 'fill', selector: '//input[@name="q"]', text: 'search' },
+          { action: 'select', selector: '//select[@id="opt"]', value: 'a' },
+          { action: 'hover', selector: '//a[@href]' },
+        ],
+      }
+      const result = loadDefinition(def)
+      expect(result.steps).toHaveLength(6)
+    })
+  })
+
   describe('text-required actions', () => {
     for (const action of ['type', 'fill']) {
       it(`throws when '${action}' is missing text`, () => {

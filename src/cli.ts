@@ -2,6 +2,7 @@ import { Command } from 'commander'
 import { record } from './recorder'
 import { login } from './login'
 import { loadDefinition, loadSetup } from './validation'
+import { runValidate } from './validate-command'
 import { setLogLevel } from './logger'
 import type { OutputFormat, SetupBlock } from './types'
 
@@ -11,6 +12,7 @@ const program = new Command()
   .name('fipplet')
   .description('Programmatic video recordings for web apps')
   .version(__FIPPLET_VERSION__, '-v, --version')
+  .enablePositionalOptions()
 
 // --- Recording command (default) ---
 program
@@ -42,6 +44,12 @@ program
     }
     if (opts.verbose) setLogLevel('verbose')
     if (opts.quiet) setLogLevel('quiet')
+
+    // --- Dry run: print summary and exit ---
+    if (opts.dryRun) {
+      runValidate(defPath, { setup: opts.setup })
+      return // runValidate calls process.exit, but guard anyway
+    }
 
     // Validate --format
     let outputFormat: OutputFormat | undefined
@@ -85,83 +93,6 @@ program
       }
     }
 
-    // --- Dry run: print summary and exit ---
-    if (opts.dryRun) {
-      const hasSetup = setup ?? def.setup
-      const selectors = new Set<string>()
-      const actions = new Map<string, number>()
-
-      for (const step of def.steps) {
-        actions.set(step.action, (actions.get(step.action) ?? 0) + 1)
-        if ('selector' in step && step.selector) {
-          selectors.add(step.selector as string)
-        }
-      }
-
-      if (hasSetup) {
-        for (const step of hasSetup.steps) {
-          if ('selector' in step && step.selector) {
-            selectors.add(step.selector as string)
-          }
-        }
-      }
-
-      // Collect env vars referenced in the original file
-      const envVarsUsed = new Set<string>()
-      try {
-        const fs = await import('fs')
-        const raw = fs.readFileSync(defPath, 'utf-8')
-        const envPattern = /\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g
-        let match
-        while ((match = envPattern.exec(raw)) !== null) {
-          const name = match[1] ?? match[2]
-          // Skip JSON Schema $schema references
-          if (name === 'schema') continue
-          envVarsUsed.add(name)
-        }
-      } catch {
-        // ignore — env var scanning is best-effort
-      }
-
-      console.log('Definition valid ✓\n')
-      console.log(`  URL:        ${def.url}`)
-      console.log(`  Viewport:   ${def.viewport ? `${def.viewport.width}×${def.viewport.height}` : '1280×720 (default)'}`)
-      console.log(`  Steps:      ${def.steps.length}`)
-      if (hasSetup) {
-        console.log(`  Setup:      ${hasSetup.steps.length} step(s)${hasSetup.url ? ` → ${hasSetup.url}` : ''}`)
-      }
-      console.log(`  Actions:    ${[...actions.entries()].map(([a, n]) => `${a}(${n})`).join(', ')}`)
-      if (selectors.size > 0) {
-        console.log(`  Selectors:  ${selectors.size} unique`)
-        for (const sel of selectors) {
-          console.log(`              ${sel}`)
-        }
-      }
-      if (envVarsUsed.size > 0) {
-        console.log(`  Env vars:   ${[...envVarsUsed].join(', ')}`)
-      }
-      if (def.auth) {
-        console.log(`  Auth:       ${def.auth.provider}`)
-      }
-      if (def.cursor !== undefined) {
-        console.log(`  Cursor:     ${typeof def.cursor === 'boolean' ? def.cursor : 'custom'}`)
-      }
-      if (def.chrome) {
-        console.log(`  Chrome:     enabled`)
-      }
-      if (def.background) {
-        console.log(`  Background: enabled`)
-      }
-      if (def.speed) {
-        console.log(`  Speed:      ${def.speed}×`)
-      }
-      if (def.outputFormat) {
-        console.log(`  Format:     ${def.outputFormat}`)
-      }
-
-      process.exit(0)
-    }
-
     // --- Normal recording ---
     const hasSetup = setup ?? def.setup
     if (!opts.quiet) {
@@ -196,6 +127,25 @@ program
       console.error(`Error: ${msg}`)
       process.exit(1)
     }
+  })
+
+// --- Validate subcommand ---
+program
+  .command('validate <file>')
+  .description('Validate a recording definition and print a summary (exit 0 = valid, exit 1 = invalid)')
+  .option('--setup <file>', 'Setup file to validate alongside the definition')
+  .option('--quiet', 'Exit silently on success, print errors on failure')
+  .action((file: string, opts: { setup?: string, quiet?: boolean }) => {
+    runValidate(file, opts)
+  })
+
+// --- Init subcommand ---
+program
+  .command('init')
+  .description('Interactively create a new recording definition')
+  .action(async () => {
+    const { runInit } = await import('./init')
+    await runInit()
   })
 
 // --- Login subcommand ---

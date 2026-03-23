@@ -45,7 +45,9 @@ export async function moveCursorTo(
   await suspendZoom(page, zoomState)
 
   const center = await page.evaluate((sel: string) => {
-    const el = document.querySelector(sel)
+    const el = sel.startsWith('//') || sel.startsWith('..')
+      ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue as Element | null
+      : document.querySelector(sel)
     if (!el) return null
     const rect = el.getBoundingClientRect()
     return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }

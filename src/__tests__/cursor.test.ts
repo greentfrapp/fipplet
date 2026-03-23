@@ -58,6 +58,26 @@ describe('cursor event tracker', () => {
       expect(getCursorEvents()).toHaveLength(0)
     })
 
+    it('passes XPath selectors starting with // to page.evaluate', async () => {
+      const page = mockPage({ x: 150, y: 250 })
+      await moveCursorTo(page, '//button[@type="submit"]', zoomState())
+
+      expect(page.evaluate).toHaveBeenCalledWith(expect.any(Function), '//button[@type="submit"]')
+      const events = getCursorEvents()
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({ type: 'move', x: 150, y: 250 })
+    })
+
+    it('passes XPath selectors starting with .. to page.evaluate', async () => {
+      const page = mockPage({ x: 80, y: 90 })
+      await moveCursorTo(page, '../div', zoomState())
+
+      expect(page.evaluate).toHaveBeenCalledWith(expect.any(Function), '../div')
+      const events = getCursorEvents()
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({ type: 'move', x: 80, y: 90 })
+    })
+
     it('waits for transitionMs + 50ms after logging', async () => {
       const page = mockPage({ x: 10, y: 20 })
       await moveCursorTo(page, '#el', zoomState(), { transitionMs: 400 })

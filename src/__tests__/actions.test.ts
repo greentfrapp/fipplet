@@ -124,6 +124,36 @@ describe('selector-based actions await selector', () => {
   })
 })
 
+describe('XPath selector support', () => {
+  it('click works with XPath selectors', async () => {
+    const page = mockPage()
+    await ACTIONS.click(page as any, { action: 'click', selector: '//button[@type="submit"]' } as any, baseCtx())
+    expect(page.locator).toHaveBeenCalledWith('//button[@type="submit"]')
+    expect(page.click).toHaveBeenCalledWith('//button[@type="submit"]')
+  })
+
+  it('fill works with XPath selectors', async () => {
+    const page = mockPage()
+    await ACTIONS.fill(page as any, { action: 'fill', selector: '//input[@name="email"]', text: 'test' } as any, baseCtx())
+    expect(page.locator).toHaveBeenCalledWith('//input[@name="email"]')
+    expect(page.fill).toHaveBeenCalledWith('//input[@name="email"]', 'test')
+  })
+
+  it('hover works with XPath selectors', async () => {
+    const page = mockPage()
+    await ACTIONS.hover(page as any, { action: 'hover', selector: '//a[@href="/about"]' } as any, baseCtx())
+    expect(page.locator).toHaveBeenCalledWith('//a[@href="/about"]')
+    expect(page.hover).toHaveBeenCalledWith('//a[@href="/about"]')
+  })
+
+  it('type works with XPath selectors', async () => {
+    const page = mockPage()
+    await ACTIONS.type(page as any, { action: 'type', selector: '//textarea', text: 'hello' } as any, baseCtx())
+    expect(page.locator).toHaveBeenCalledWith('//textarea')
+    expect(page.type).toHaveBeenCalledWith('//textarea', 'hello', { delay: 80 })
+  })
+})
+
 describe('waitForNetwork action', () => {
   it('calls page.waitForResponse with a URL matcher', async () => {
     const page = mockPage()
