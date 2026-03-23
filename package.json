@@ -40,6 +40,17 @@
     "pr-demo"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/greentfrapp/fipplet.git"
+  },
+  "homepage": "https://github.com/greentfrapp/fipplet#readme",
+  "bugs": {
+    "url": "https://github.com/greentfrapp/fipplet/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "peerDependencies": {
     "playwright-core": ">=1.51.0"
   },
@@ -54,11 +65,16 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "ffmpeg-static": "^5.2.0",
     "@inquirer/prompts": "^8.3.2",
     "commander": "^14.0.3",
     "jsonc-parser": "^3.3.1",
     "ws": "^8.19.0",
     "yaml": "^2.8.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "ffmpeg-static"
+    ]
   }
 }

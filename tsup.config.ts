@@ -65,6 +65,7 @@ export default defineConfig([
     dts: true,
     clean: true,
     splitting: false,
+    minify: true,
     ...bundlePlaywright,
     ...assetLoaders,
   },
@@ -73,6 +74,7 @@ export default defineConfig([
     format: ["cjs"],
     banner: { js: "#!/usr/bin/env node" },
     splitting: false,
+    minify: true,
     ...bundlePlaywright,
     ...assetLoaders,
     define: {
