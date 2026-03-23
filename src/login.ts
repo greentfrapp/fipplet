@@ -90,7 +90,9 @@ export async function login(options: LoginOptions): Promise<void> {
     console.log(`\nSession saved to ${outputPath}`)
     return
   } else {
-    console.log('Opening browser — log in manually, then close the browser window.\n')
+    console.log(
+      'Opening browser — log in manually, then close the browser window.\n',
+    )
 
     tempProfileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-login-'))
     context = await chromium.launchPersistentContext(tempProfileDir, {
@@ -153,7 +155,10 @@ async function getPageCdpWsUrl(cdpPort: number): Promise<string> {
             res.on('data', (chunk: Buffer) => (data += chunk))
             res.on('end', () => {
               try {
-                const pages = JSON.parse(data) as Array<{ webSocketDebuggerUrl?: string; type?: string }>
+                const pages = JSON.parse(data) as Array<{
+                  webSocketDebuggerUrl?: string
+                  type?: string
+                }>
                 const page = pages.find((p) => p.type === 'page')
                 if (page?.webSocketDebuggerUrl) {
                   resolve(page.webSocketDebuggerUrl)
@@ -172,7 +177,7 @@ async function getPageCdpWsUrl(cdpPort: number): Promise<string> {
       if (attempt === maxAttempts) {
         throw new Error(
           `Chrome DevTools not ready after ${maxAttempts} attempts (${(maxAttempts * delayMs) / 1000}s). ` +
-            `Last error: ${err instanceof Error ? err.message : err}`
+            `Last error: ${err instanceof Error ? err.message : err}`,
         )
       }
       await new Promise((r) => setTimeout(r, delayMs))

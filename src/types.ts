@@ -18,8 +18,8 @@ export type OutputFormat = 'webm' | 'mp4' | 'gif'
 
 export interface StepTiming {
   stepIndex: number
-  startTime: number  // seconds from recording start
-  endTime: number    // seconds from recording start
+  startTime: number // seconds from recording start
+  endTime: number // seconds from recording start
   speed: number
 }
 
@@ -235,19 +235,32 @@ export interface ZoomState {
 }
 
 export interface CursorEvent {
-  time: number          // seconds from recording start
+  time: number // seconds from recording start
   type: 'move' | 'ripple' | 'hide' | 'show'
   x: number
   y: number
   transitionMs?: number // for 'move' events
-  rippleSize?: number   // for 'ripple' events
-  rippleColor?: string  // for 'ripple' events
+  rippleSize?: number // for 'ripple' events
+  rippleColor?: string // for 'ripple' events
 }
 
 export interface CursorTracker {
-  moveCursorTo(page: import('playwright-core').Page, selector: string, zoomState: ZoomState, options?: CursorOptions): Promise<void>
-  moveCursorToPoint(page: import('playwright-core').Page, x: number, y: number, options?: CursorOptions): Promise<void>
-  triggerRipple(page: import('playwright-core').Page, options?: CursorOptions): Promise<void>
+  moveCursorTo(
+    page: import('playwright-core').Page,
+    selector: string,
+    zoomState: ZoomState,
+    options?: CursorOptions,
+  ): Promise<void>
+  moveCursorToPoint(
+    page: import('playwright-core').Page,
+    x: number,
+    y: number,
+    options?: CursorOptions,
+  ): Promise<void>
+  triggerRipple(
+    page: import('playwright-core').Page,
+    options?: CursorOptions,
+  ): Promise<void>
   hideCursor(page: import('playwright-core').Page): Promise<void>
   showCursor(page: import('playwright-core').Page): Promise<void>
   getEvents(): CursorEvent[]

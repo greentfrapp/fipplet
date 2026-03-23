@@ -1,6 +1,11 @@
 import type { Page } from 'playwright-core'
-import type { CursorEvent, CursorOptions, CursorTracker, ZoomState } from './types'
-import { suspendZoom, restoreZoom } from './zoom'
+import type {
+  CursorEvent,
+  CursorOptions,
+  CursorTracker,
+  ZoomState,
+} from './types'
+import { restoreZoom, suspendZoom } from './zoom'
 
 /**
  * Encapsulated cursor tracker. Each `record()` call creates its own instance,
@@ -34,9 +39,16 @@ export class CursorTrackerImpl implements CursorTracker {
     await suspendZoom(page, zoomState)
 
     const center = await page.evaluate((sel: string) => {
-      const el = sel.startsWith('//') || sel.startsWith('..')
-        ? document.evaluate(sel, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue as Element | null
-        : document.querySelector(sel)
+      const el =
+        sel.startsWith('//') || sel.startsWith('..')
+          ? (document.evaluate(
+              sel,
+              document,
+              null,
+              XPathResult.FIRST_ORDERED_NODE_TYPE,
+              null,
+            ).singleNodeValue as Element | null)
+          : document.querySelector(sel)
       if (!el) return null
       const rect = el.getBoundingClientRect()
       return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
@@ -141,7 +153,10 @@ export function createCursorTracker(): CursorTrackerImpl {
 
 let defaultTracker = new CursorTrackerImpl()
 
-export function initCursorTracker(_page: Page, _options: CursorOptions = {}): void {
+export function initCursorTracker(
+  _page: Page,
+  _options: CursorOptions = {},
+): void {
   defaultTracker = new CursorTrackerImpl()
 }
 
@@ -163,7 +178,10 @@ export async function moveCursorToPoint(
   return defaultTracker.moveCursorToPoint(page, x, y, options)
 }
 
-export async function triggerRipple(page: Page, options: CursorOptions = {}): Promise<void> {
+export async function triggerRipple(
+  page: Page,
+  options: CursorOptions = {},
+): Promise<void> {
   return defaultTracker.triggerRipple(page, options)
 }
 

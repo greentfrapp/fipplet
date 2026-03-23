@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resolveSupabaseAuth } from './supabase'
 import type { SupabaseAuthProvider } from '../types'
+import { resolveSupabaseAuth } from './supabase'
 
 const mockConfig: SupabaseAuthProvider = {
   provider: 'supabase',
@@ -54,10 +54,9 @@ describe('resolveSupabaseAuth', () => {
   it('calls generate_link with correct parameters', async () => {
     fetchSpy
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ properties: { hashed_token: 'h' } }),
-          { status: 200 },
-        ),
+        new Response(JSON.stringify({ properties: { hashed_token: 'h' } }), {
+          status: 200,
+        }),
       )
       .mockResolvedValueOnce(
         new Response(JSON.stringify(mockSession), { status: 200 }),
@@ -156,14 +155,11 @@ describe('resolveSupabaseAuth', () => {
   it('throws when verify returns an error', async () => {
     fetchSpy
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ properties: { hashed_token: 'h' } }),
-          { status: 200 },
-        ),
+        new Response(JSON.stringify({ properties: { hashed_token: 'h' } }), {
+          status: 200,
+        }),
       )
-      .mockResolvedValueOnce(
-        new Response('Invalid token', { status: 422 }),
-      )
+      .mockResolvedValueOnce(new Response('Invalid token', { status: 422 }))
 
     await expect(resolveSupabaseAuth(mockConfig)).rejects.toThrow(
       'Supabase verify failed (422): Invalid token',
@@ -179,10 +175,9 @@ describe('resolveSupabaseAuth', () => {
     for (const [url, expectedKey] of configs) {
       fetchSpy
         .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify({ properties: { hashed_token: 'h' } }),
-            { status: 200 },
-          ),
+          new Response(JSON.stringify({ properties: { hashed_token: 'h' } }), {
+            status: 200,
+          }),
         )
         .mockResolvedValueOnce(
           new Response(JSON.stringify(mockSession), { status: 200 }),
@@ -196,10 +191,9 @@ describe('resolveSupabaseAuth', () => {
   it('does not return cookies or headers', async () => {
     fetchSpy
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ properties: { hashed_token: 'h' } }),
-          { status: 200 },
-        ),
+        new Response(JSON.stringify({ properties: { hashed_token: 'h' } }), {
+          status: 200,
+        }),
       )
       .mockResolvedValueOnce(
         new Response(JSON.stringify(mockSession), { status: 200 }),

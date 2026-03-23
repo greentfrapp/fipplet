@@ -2,6 +2,11 @@ import fs from 'fs'
 import path from 'path'
 import { chromium } from 'playwright-core'
 import { ACTIONS } from './actions'
+import { createCursorTracker } from './cursor'
+import { log, logError, logVerbose } from './logger'
+import { runPostProcessPipeline } from './pipeline'
+import { convertToGif, convertToMp4 } from './post-process'
+import { resolveAuth } from './providers'
 import type {
   ActionContext,
   CursorOptions,
@@ -11,22 +16,18 @@ import type {
   RecordingResult,
   StepTiming,
 } from './types'
-import { createCursorTracker } from './cursor'
-import { convertToGif, convertToMp4 } from './post-process'
-import { runPostProcessPipeline } from './pipeline'
-import { resolveAuth } from './providers'
-import { loadDefinition } from './validation'
 import { timestamp } from './utils'
+import { loadDefinition } from './validation'
 import { createZoomState } from './zoom'
-import { log, logVerbose, logError } from './logger'
 
 export async function record(
   input: RecordingDefinition | string,
   options: RecordOptions = {},
 ): Promise<RecordingResult> {
-  const def = typeof input === 'string'
-    ? loadDefinition(input)
-    : loadDefinition(structuredClone(input))
+  const def =
+    typeof input === 'string'
+      ? loadDefinition(input)
+      : loadDefinition(structuredClone(input))
 
   // Resolve auth provider → merge into definition
   if (def.auth) {
@@ -98,7 +99,9 @@ export async function record(
       await setupPage.goto(setupUrl, { waitUntil: 'load', timeout: 15000 })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logError(`  warning: setup navigation to '${setupUrl}' did not reach load: ${msg}`)
+      logError(
+        `  warning: setup navigation to '${setupUrl}' did not reach load: ${msg}`,
+      )
     }
 
     // Handle localStorage injection during setup
@@ -110,13 +113,20 @@ export async function record(
       }, def.localStorage)
       await setupPage
         .reload({ waitUntil: 'load', timeout: 15000 })
-        .catch((err) => logError(`  warning: reload did not reach load: ${err.message}`))
+        .catch((err) =>
+          logError(`  warning: reload did not reach load: ${err.message}`),
+        )
     }
 
     // Execute setup steps
-    const setupCtx: ActionContext = { outputDir, zoomState: createZoomState(), cursorEnabled: false }
+    const setupCtx: ActionContext = {
+      outputDir,
+      zoomState: createZoomState(),
+      cursorEnabled: false,
+    }
     for (const [i, step] of setup.steps.entries()) {
-      const label = step.action + ('selector' in step ? ` ${step.selector}` : '')
+      const label =
+        step.action + ('selector' in step ? ` ${step.selector}` : '')
       log(`  [setup ${i + 1}/${setup.steps.length}] ${label}`)
 
       try {
@@ -172,7 +182,8 @@ export async function record(
   }
 
   const page = await context.newPage()
-  const needsScrollRestore = setupScroll && (setupScroll.x !== 0 || setupScroll.y !== 0)
+  const needsScrollRestore =
+    setupScroll && (setupScroll.x !== 0 || setupScroll.y !== 0)
 
   // Hide page before navigation so the pre-scroll frame isn't visible in the video.
   // Intercept the HTML response and inject a <style> tag that hides everything.
@@ -182,9 +193,13 @@ export async function record(
     await page.route('**/*', async (route, request) => {
       const response = await route.fetch()
       const contentType = response.headers()['content-type'] ?? ''
-      if (request.resourceType() === 'document' && contentType.includes('text/html')) {
+      if (
+        request.resourceType() === 'document' &&
+        contentType.includes('text/html')
+      ) {
         let body = await response.text()
-        const hideStyle = '<style id="__fipplet-hide">html{visibility:hidden!important}</style>'
+        const hideStyle =
+          '<style id="__fipplet-hide">html{visibility:hidden!important}</style>'
         // Inject right after <head> if present, otherwise prepend
         if (body.includes('<head>')) {
           body = body.replace('<head>', '<head>' + hideStyle)
@@ -204,7 +219,9 @@ export async function record(
   if (!setup && def.localStorage && Object.keys(def.localStorage).length > 0) {
     await page
       .goto(def.url, { waitUntil: 'commit', timeout: 15000 })
-      .catch((err) => logError(`  warning: initial navigation failed: ${err.message}`))
+      .catch((err) =>
+        logError(`  warning: initial navigation failed: ${err.message}`),
+      )
     await page.evaluate((entries: Record<string, string>) => {
       for (const [key, value] of Object.entries(entries)) {
         localStorage.setItem(key, value)
@@ -212,13 +229,17 @@ export async function record(
     }, def.localStorage)
     await page
       .reload({ waitUntil: 'load', timeout: 15000 })
-      .catch((err) => logError(`  warning: reload did not reach load: ${err.message}`))
+      .catch((err) =>
+        logError(`  warning: reload did not reach load: ${err.message}`),
+      )
   } else {
     try {
       await page.goto(def.url, { waitUntil: 'load', timeout: 15000 })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      logError(`  warning: navigation to '${def.url}' did not reach load: ${msg}`)
+      logError(
+        `  warning: navigation to '${def.url}' did not reach load: ${msg}`,
+      )
     }
   }
 
@@ -235,20 +256,35 @@ export async function record(
   if (def.waitForSelector) {
     await page
       .waitForSelector(def.waitForSelector, { timeout: 10000 })
-      .catch((err) => logError(`  warning: waitForSelector '${def.waitForSelector}' failed: ${err.message}`))
+      .catch((err) =>
+        logError(
+          `  warning: waitForSelector '${def.waitForSelector}' failed: ${err.message}`,
+        ),
+      )
   }
 
   // Normalize cursor options — enabled by default
   const cursorConfig = def.cursor
-  const cursorEnabled = cursorConfig === undefined || cursorConfig === true || (typeof cursorConfig === 'object' && cursorConfig.enabled !== false)
+  const cursorEnabled =
+    cursorConfig === undefined ||
+    cursorConfig === true ||
+    (typeof cursorConfig === 'object' && cursorConfig.enabled !== false)
   const cursorOptions: CursorOptions | undefined = cursorEnabled
-    ? (typeof cursorConfig === 'object' ? cursorConfig : {})
+    ? typeof cursorConfig === 'object'
+      ? cursorConfig
+      : {}
     : undefined
 
   const cursorTracker = cursorEnabled ? createCursorTracker() : undefined
 
   // Execute steps
-  const ctx: ActionContext = { outputDir, zoomState, cursorEnabled, cursorOptions, cursorTracker }
+  const ctx: ActionContext = {
+    outputDir,
+    zoomState,
+    cursorEnabled,
+    cursorOptions,
+    cursorTracker,
+  }
   const globalSpeed = options.speed ?? def.speed ?? 1.0
   const stepTimings: StepTiming[] = []
   const stepTimerStart = Date.now()
@@ -265,7 +301,9 @@ export async function record(
         if (step.waitFor === 'networkidle') {
           await page.waitForLoadState('networkidle')
         } else {
-          await page.waitForSelector(step.waitFor, { timeout: step.timeout ?? 5000 })
+          await page.waitForSelector(step.waitFor, {
+            timeout: step.timeout ?? 5000,
+          })
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
@@ -310,9 +348,10 @@ export async function record(
   // Save video: close the context first (finalizes the video file),
   // then call saveAs on the video handle.
   const video = page.video()
-  const baseName = typeof input === 'string'
-    ? path.basename(input, path.extname(input))
-    : 'recording'
+  const baseName =
+    typeof input === 'string'
+      ? path.basename(input, path.extname(input))
+      : 'recording'
   let videoPath: string | undefined
   let cursorEventsPath: string | undefined
 
@@ -332,7 +371,9 @@ export async function record(
     const cursorEvents = cursorTracker.getEvents()
     cursorEventsPath = path.join(outputDir, `${baseName}-cursor.json`)
     fs.writeFileSync(cursorEventsPath, JSON.stringify(cursorEvents, null, 2))
-    logVerbose(`  cursor events: ${cursorEvents.length} events → ${cursorEventsPath}`)
+    logVerbose(
+      `  cursor events: ${cursorEvents.length} events → ${cursorEventsPath}`,
+    )
     if (cursorEvents.length > 0) {
       cursorEventsForPipeline = cursorEvents
     }
@@ -341,21 +382,31 @@ export async function record(
   // Resolve chrome/background config
   const chromeConfig = def.chrome
   const bgConfig = def.background
-  const hasChrome = chromeConfig === true || (typeof chromeConfig === 'object' && chromeConfig.enabled !== false)
-  const hasBackground = bgConfig === true || (typeof bgConfig === 'object' && bgConfig.enabled !== false)
+  const hasChrome =
+    chromeConfig === true ||
+    (typeof chromeConfig === 'object' && chromeConfig.enabled !== false)
+  const hasBackground =
+    bgConfig === true ||
+    (typeof bgConfig === 'object' && bgConfig.enabled !== false)
 
   let chromeOpts = hasChrome
-    ? (typeof chromeConfig === 'object' ? { ...chromeConfig } : {})
+    ? typeof chromeConfig === 'object'
+      ? { ...chromeConfig }
+      : {}
     : undefined
   const bgOpts = hasBackground
-    ? (typeof bgConfig === 'object' ? bgConfig : {})
+    ? typeof bgConfig === 'object'
+      ? bgConfig
+      : {}
     : undefined
   if (chromeOpts && chromeOpts.url === true) {
     chromeOpts = { ...chromeOpts, url: def.url }
   }
 
-  const needsSpeed = globalSpeed !== 1.0 || stepTimings.some((t) => t.speed !== 1.0)
-  const needsPipeline = cursorEventsForPipeline || hasChrome || hasBackground || needsSpeed
+  const needsSpeed =
+    globalSpeed !== 1.0 || stepTimings.some((t) => t.speed !== 1.0)
+  const needsPipeline =
+    cursorEventsForPipeline || hasChrome || hasBackground || needsSpeed
 
   if (needsPipeline && videoPath) {
     log('  post-processing...')
@@ -363,14 +414,23 @@ export async function record(
       const processedPath = await runPostProcessPipeline({
         videoPath,
         cursor: cursorEventsForPipeline
-          ? { events: cursorEventsForPipeline, style: cursorOptions?.style ?? 'default', size: cursorOptions?.size ?? 24 }
+          ? {
+              events: cursorEventsForPipeline,
+              style: cursorOptions?.style ?? 'default',
+              size: cursorOptions?.size ?? 24,
+            }
           : undefined,
-        frame: (hasChrome || hasBackground)
-          ? { chrome: chromeOpts, background: bgOpts, videoWidth: viewport.width, videoHeight: viewport.height, screenshots }
-          : undefined,
-        speed: needsSpeed
-          ? { stepTimings, globalSpeed }
-          : undefined,
+        frame:
+          hasChrome || hasBackground
+            ? {
+                chrome: chromeOpts,
+                background: bgOpts,
+                videoWidth: viewport.width,
+                videoHeight: viewport.height,
+                screenshots,
+              }
+            : undefined,
+        speed: needsSpeed ? { stepTimings, globalSpeed } : undefined,
       })
       if (processedPath !== videoPath) {
         fs.unlinkSync(videoPath)
@@ -384,7 +444,8 @@ export async function record(
   }
 
   // Convert output format if not WebM
-  const outputFormat: OutputFormat = options.outputFormat ?? def.outputFormat ?? 'webm'
+  const outputFormat: OutputFormat =
+    options.outputFormat ?? def.outputFormat ?? 'webm'
   if (outputFormat !== 'webm' && videoPath) {
     log(`  converting to ${outputFormat}...`)
     try {

@@ -6,11 +6,18 @@ import type { CursorEvent } from './types'
 
 /** Shared VP9 encoding flags optimized for speed with screen content. */
 export const VP9_FAST_FLAGS = [
-  '-crf', '24', '-b:v', '0',
-  '-deadline', 'realtime',
-  '-cpu-used', '8',
-  '-row-mt', '1',
-  '-threads', '0',
+  '-crf',
+  '24',
+  '-b:v',
+  '0',
+  '-deadline',
+  'realtime',
+  '-cpu-used',
+  '8',
+  '-row-mt',
+  '1',
+  '-threads',
+  '0',
 ] as const
 
 /**
@@ -27,16 +34,24 @@ function getFFmpegPath(): string {
   }
 }
 
-export function runFFmpeg(args: string[], timeoutMs: number = 5 * 60 * 1000): Promise<void> {
+export function runFFmpeg(
+  args: string[],
+  timeoutMs: number = 5 * 60 * 1000,
+): Promise<void> {
   const ffmpeg = getFFmpegPath()
   return new Promise((resolve, reject) => {
-    execFile(ffmpeg, args, { maxBuffer: 50 * 1024 * 1024, timeout: timeoutMs }, (err, _stdout, stderr) => {
-      if (err) {
-        reject(new Error(`ffmpeg failed: ${err.message}\n${stderr}`))
-      } else {
-        resolve()
-      }
-    })
+    execFile(
+      ffmpeg,
+      args,
+      { maxBuffer: 50 * 1024 * 1024, timeout: timeoutMs },
+      (err, _stdout, stderr) => {
+        if (err) {
+          reject(new Error(`ffmpeg failed: ${err.message}\n${stderr}`))
+        } else {
+          resolve()
+        }
+      },
+    )
   })
 }
 
@@ -115,7 +130,12 @@ export interface FilterGraphInput {
   xExpr: string
   yExpr: string
   visExpr: string
-  rippleEvents: Array<{ x: number; y: number; time: number; rippleSize?: number }>
+  rippleEvents: Array<{
+    x: number
+    y: number
+    time: number
+    rippleSize?: number
+  }>
   rippleConfig: RippleConfig | null
 }
 
@@ -136,13 +156,20 @@ export interface FilterGraphOutput {
  * when chaining with other filter stages. Defaults preserve the original
  * standalone behavior.
  */
-export function buildFilterGraph(input: FilterGraphInput & {
-  videoLabel?: string
-  cursorInputIdx?: number
-  outputLabel?: string
-}): FilterGraphOutput {
+export function buildFilterGraph(
+  input: FilterGraphInput & {
+    videoLabel?: string
+    cursorInputIdx?: number
+    outputLabel?: string
+  },
+): FilterGraphOutput {
   const {
-    cursorSize, xExpr, yExpr, visExpr, rippleEvents, rippleConfig,
+    cursorSize,
+    xExpr,
+    yExpr,
+    visExpr,
+    rippleEvents,
+    rippleConfig,
     videoLabel = '0:v',
     cursorInputIdx = 1,
     outputLabel = 'final_out',
@@ -154,7 +181,9 @@ export function buildFilterGraph(input: FilterGraphInput & {
   // Scale cursor inline if needed, then overlay on video
   let cursorLabel = `${cursorInputIdx}:v`
   if (cursorSize !== CURSOR_BASE_SIZE) {
-    filters.push(`[${cursorInputIdx}:v]scale=${cursorSize}:${cursorSize}:flags=lanczos[cursor_scaled]`)
+    filters.push(
+      `[${cursorInputIdx}:v]scale=${cursorSize}:${cursorSize}:flags=lanczos[cursor_scaled]`,
+    )
     cursorLabel = 'cursor_scaled'
   }
 
@@ -202,7 +231,8 @@ export function buildFilterGraph(input: FilterGraphInput & {
       const oy = Math.round(ev.y - rippleSize)
       const enableStart = ev.time.toFixed(4)
       const enableEnd = (ev.time + rippleDurSec).toFixed(4)
-      const nextLabel = i === rippleEvents.length - 1 ? outputLabel : `ripple_${i}`
+      const nextLabel =
+        i === rippleEvents.length - 1 ? outputLabel : `ripple_${i}`
 
       filters.push(
         `[${currentInput}][rip${i}]overlay=x='${ox}':y='${oy}':enable='between(t\\,${enableStart}\\,${enableEnd})':eof_action=pass:format=auto[${nextLabel}]`,
@@ -211,7 +241,10 @@ export function buildFilterGraph(input: FilterGraphInput & {
     }
   } else {
     // Rename cursor_out to desired output label
-    filters[filters.length - 1] = filters[filters.length - 1].replace('[cursor_out]', `[${outputLabel}]`)
+    filters[filters.length - 1] = filters[filters.length - 1].replace(
+      '[cursor_out]',
+      `[${outputLabel}]`,
+    )
   }
 
   return {
@@ -230,13 +263,22 @@ export async function convertToMp4(inputPath: string): Promise<string> {
   const outputPath = path.join(dir, `${base}.mp4`)
 
   await runFFmpeg([
-    '-i', inputPath,
-    '-c:v', 'libx264',
-    '-crf', '18', '-preset', 'slow',
-    '-pix_fmt', 'yuv420p',
-    '-movflags', '+faststart',
-    '-c:a', 'aac',
-    '-y', outputPath,
+    '-i',
+    inputPath,
+    '-c:v',
+    'libx264',
+    '-crf',
+    '18',
+    '-preset',
+    'slow',
+    '-pix_fmt',
+    'yuv420p',
+    '-movflags',
+    '+faststart',
+    '-c:a',
+    'aac',
+    '-y',
+    outputPath,
   ])
 
   return outputPath
@@ -249,27 +291,38 @@ export async function convertToGif(inputPath: string): Promise<string> {
   const dir = path.dirname(inputPath)
   const base = path.basename(inputPath, path.extname(inputPath))
   const outputPath = path.join(dir, `${base}.gif`)
-  const palettePath = path.join(os.tmpdir(), `fipplet-palette-${Date.now()}.png`)
+  const palettePath = path.join(
+    os.tmpdir(),
+    `fipplet-palette-${Date.now()}.png`,
+  )
 
   try {
     // Pass 1: generate optimal palette
     await runFFmpeg([
-      '-i', inputPath,
-      '-vf', 'fps=15,scale=-1:-1:flags=lanczos,palettegen',
-      '-y', palettePath,
+      '-i',
+      inputPath,
+      '-vf',
+      'fps=15,scale=-1:-1:flags=lanczos,palettegen',
+      '-y',
+      palettePath,
     ])
 
     // Pass 2: use palette to produce high-quality GIF
     await runFFmpeg([
-      '-i', inputPath,
-      '-i', palettePath,
-      '-filter_complex', 'fps=15,scale=-1:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=sierra2_4a',
-      '-y', outputPath,
+      '-i',
+      inputPath,
+      '-i',
+      palettePath,
+      '-filter_complex',
+      'fps=15,scale=-1:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=sierra2_4a',
+      '-y',
+      outputPath,
     ])
   } finally {
-    try { fs.unlinkSync(palettePath) } catch {}
+    try {
+      fs.unlinkSync(palettePath)
+    } catch {}
   }
 
   return outputPath
 }
-

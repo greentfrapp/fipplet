@@ -1,16 +1,15 @@
+import { confirm, input, select } from '@inquirer/prompts'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { runInit } from '../init'
 
 vi.mock('@inquirer/prompts', () => ({
   input: vi.fn(),
   select: vi.fn(),
   confirm: vi.fn(),
 }))
-
-import { input, select, confirm } from '@inquirer/prompts'
-import { runInit } from '../init'
 
 const mockedInput = vi.mocked(input)
 const mockedSelect = vi.mocked(select)
@@ -31,13 +30,15 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function mockPrompts(overrides: {
-  url?: string
-  width?: string
-  height?: string
-  auth?: string
-  filename?: string
-} = {}) {
+function mockPrompts(
+  overrides: {
+    url?: string
+    width?: string
+    height?: string
+    auth?: string
+    filename?: string
+  } = {},
+) {
   const values = {
     url: 'https://example.com',
     width: '1280',
@@ -65,12 +66,17 @@ describe('runInit', () => {
     expect(fs.existsSync(outPath)).toBe(true)
 
     const def = JSON.parse(fs.readFileSync(outPath, 'utf-8'))
-    expect(def.$schema).toBe('https://fipplet.dev/recording-definition.schema.json')
+    expect(def.$schema).toBe(
+      'https://fipplet.dev/recording-definition.schema.json',
+    )
     expect(def.url).toBe('https://example.com')
     expect(def.viewport).toEqual({ width: 1280, height: 720 })
     expect(def.steps).toHaveLength(2)
     expect(def.steps[0]).toMatchObject({ action: 'wait', ms: 1000 })
-    expect(def.steps[1]).toMatchObject({ action: 'screenshot', name: 'initial' })
+    expect(def.steps[1]).toMatchObject({
+      action: 'screenshot',
+      name: 'initial',
+    })
     expect(def.auth).toBeUndefined()
     expect(def.storageState).toBeUndefined()
     expect(def.localStorage).toBeUndefined()
@@ -80,7 +86,9 @@ describe('runInit', () => {
     mockPrompts({ auth: 'storageState' })
     await runInit()
 
-    const def = JSON.parse(fs.readFileSync(path.join(tmpDir, 'recording.json'), 'utf-8'))
+    const def = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, 'recording.json'), 'utf-8'),
+    )
     expect(def.storageState).toBe('./state.json')
     expect(def.auth).toBeUndefined()
   })
@@ -89,7 +97,9 @@ describe('runInit', () => {
     mockPrompts({ auth: 'localStorage' })
     await runInit()
 
-    const def = JSON.parse(fs.readFileSync(path.join(tmpDir, 'recording.json'), 'utf-8'))
+    const def = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, 'recording.json'), 'utf-8'),
+    )
     expect(def.localStorage).toEqual({ 'auth-token': 'YOUR_TOKEN_HERE' })
   })
 
@@ -97,7 +107,9 @@ describe('runInit', () => {
     mockPrompts({ auth: 'supabase' })
     await runInit()
 
-    const def = JSON.parse(fs.readFileSync(path.join(tmpDir, 'recording.json'), 'utf-8'))
+    const def = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, 'recording.json'), 'utf-8'),
+    )
     expect(def.auth).toMatchObject({
       provider: 'supabase',
       url: '${SUPABASE_URL}',
@@ -110,7 +122,9 @@ describe('runInit', () => {
     mockPrompts({ width: '1920', height: '1080' })
     await runInit()
 
-    const def = JSON.parse(fs.readFileSync(path.join(tmpDir, 'recording.json'), 'utf-8'))
+    const def = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, 'recording.json'), 'utf-8'),
+    )
     expect(def.viewport).toEqual({ width: 1920, height: 1080 })
   })
 
@@ -147,6 +161,6 @@ describe('runInit', () => {
     // File should remain unchanged
     const content = JSON.parse(fs.readFileSync(outPath, 'utf-8'))
     expect(content).toEqual({ original: true })
-    expect(logSpy.mock.calls.some(c => c[0].includes('Aborted'))).toBe(true)
+    expect(logSpy.mock.calls.some((c) => c[0].includes('Aborted'))).toBe(true)
   })
 })

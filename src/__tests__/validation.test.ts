@@ -78,7 +78,14 @@ describe('loadDefinition', () => {
   })
 
   describe('selector-required actions', () => {
-    const selectorActions = ['click', 'type', 'clear', 'fill', 'select', 'hover']
+    const selectorActions = [
+      'click',
+      'type',
+      'clear',
+      'fill',
+      'select',
+      'hover',
+    ]
 
     for (const action of selectorActions) {
       it(`throws when '${action}' is missing selector`, () => {
@@ -103,7 +110,9 @@ describe('loadDefinition', () => {
         url: 'https://example.com',
         steps: [{ action: 'click', selector: '//button[@type="submit"]' }],
       })
-      expect(result.steps[0]).toMatchObject({ selector: '//button[@type="submit"]' })
+      expect(result.steps[0]).toMatchObject({
+        selector: '//button[@type="submit"]',
+      })
     })
 
     it('accepts XPath selectors starting with ..', () => {
@@ -111,7 +120,9 @@ describe('loadDefinition', () => {
         url: 'https://example.com',
         steps: [{ action: 'hover', selector: '../div[@class="menu"]' }],
       })
-      expect(result.steps[0]).toMatchObject({ selector: '../div[@class="menu"]' })
+      expect(result.steps[0]).toMatchObject({
+        selector: '../div[@class="menu"]',
+      })
     })
 
     it('accepts XPath selectors in all selector-based actions', () => {

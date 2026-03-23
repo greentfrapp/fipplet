@@ -31,13 +31,15 @@ describe('runValidate', () => {
       ],
     })
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit')
+    })
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     expect(() => runValidate(filePath)).toThrow('exit')
     expect(exitSpy).toHaveBeenCalledWith(0)
 
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n')
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n')
     expect(output).toContain('Definition valid')
     expect(output).toContain('https://example.com')
     expect(output).toContain('Steps:      2')
@@ -49,7 +51,9 @@ describe('runValidate', () => {
   it('exits 1 for an invalid definition', () => {
     const filePath = writeDefFile('bad.json', { bad: true })
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit')
+    })
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     expect(() => runValidate(filePath)).toThrow('exit')
@@ -63,7 +67,9 @@ describe('runValidate', () => {
       steps: [{ action: 'wait' }],
     })
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit')
+    })
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     expect(() => runValidate(filePath, { quiet: true })).toThrow('exit')
@@ -80,13 +86,15 @@ describe('runValidate', () => {
       steps: [{ action: 'click', selector: '.dismiss' }],
     })
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit')
+    })
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     expect(() => runValidate(defPath, { setup: setupPath })).toThrow('exit')
     expect(exitSpy).toHaveBeenCalledWith(0)
 
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n')
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n')
     expect(output).toContain('Setup:')
     expect(output).toContain('.dismiss')
   })
@@ -98,7 +106,9 @@ describe('runValidate', () => {
     })
     const setupPath = writeDefFile('bad-setup.json', { steps: [] })
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit')
+    })
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
     expect(() => runValidate(defPath, { setup: setupPath })).toThrow('exit')
@@ -117,13 +127,15 @@ describe('runValidate', () => {
       steps: [{ action: 'wait' }],
     })
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit')
+    })
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     expect(() => runValidate(filePath)).toThrow('exit')
     expect(exitSpy).toHaveBeenCalledWith(0)
 
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n')
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n')
     expect(output).toContain('Auth:       supabase')
   })
 
@@ -134,12 +146,14 @@ describe('runValidate', () => {
       steps: [{ action: 'wait' }],
     })
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit')
+    })
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     expect(() => runValidate(filePath)).toThrow('exit')
 
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n')
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n')
     expect(output).toContain('1920×1080')
   })
 
@@ -149,23 +163,30 @@ describe('runValidate', () => {
       steps: [{ action: 'wait' }],
     })
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit')
+    })
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     expect(() => runValidate(filePath)).toThrow('exit')
 
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n')
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n')
     expect(output).toContain('1280×720 (default)')
   })
 
   it('detects env vars in definition file', () => {
     const filePath = path.join(tmpDir, 'envvars.json')
-    fs.writeFileSync(filePath, JSON.stringify({
-      url: '${BASE_URL}/app',
-      steps: [{ action: 'wait' }],
-    }))
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({
+        url: '${BASE_URL}/app',
+        steps: [{ action: 'wait' }],
+      }),
+    )
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit') })
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit')
+    })
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     // Set env var so loadDefinition doesn't fail on substitution
@@ -176,7 +197,7 @@ describe('runValidate', () => {
       delete process.env.BASE_URL
     }
 
-    const output = logSpy.mock.calls.map(c => c[0]).join('\n')
+    const output = logSpy.mock.calls.map((c) => c[0]).join('\n')
     expect(output).toContain('Env vars:')
     expect(output).toContain('BASE_URL')
   })

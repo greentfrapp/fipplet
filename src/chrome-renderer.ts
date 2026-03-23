@@ -2,9 +2,9 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import type { Browser } from 'playwright-core'
-import windowFrameHtml from './templates/window-frame.html'
 import backgroundHtml from './templates/background.html'
 import compositeHtml from './templates/composite.html'
+import windowFrameHtml from './templates/window-frame.html'
 
 export interface WindowFrameRenderConfig {
   width: number
@@ -23,7 +23,9 @@ export interface BackgroundRenderConfig {
   windowHeight: number
   padding: number
   borderRadius: number
-  background: { type: 'solid'; color: string } | { type: 'gradient'; from: string; to: string }
+  background:
+    | { type: 'solid'; color: string }
+    | { type: 'gradient'; from: string; to: string }
 }
 
 /**
@@ -34,7 +36,15 @@ export async function renderWindowFrame(
   config: WindowFrameRenderConfig,
   browser: Browser,
 ): Promise<string> {
-  const { width, height, titleBarHeight, titleBarColor, trafficLights, borderRadius, urlText } = config
+  const {
+    width,
+    height,
+    titleBarHeight,
+    titleBarColor,
+    trafficLights,
+    borderRadius,
+    urlText,
+  } = config
 
   const isHttps = urlText?.startsWith('https') ?? false
   const lockSvg = isHttps
@@ -100,11 +110,20 @@ export async function renderBackground(
   config: BackgroundRenderConfig,
   browser: Browser,
 ): Promise<string> {
-  const { totalWidth, totalHeight, windowWidth, windowHeight, padding, borderRadius, background } = config
+  const {
+    totalWidth,
+    totalHeight,
+    windowWidth,
+    windowHeight,
+    padding,
+    borderRadius,
+    background,
+  } = config
 
-  const bgCss = background.type === 'gradient'
-    ? `linear-gradient(135deg, ${background.from}, ${background.to})`
-    : background.color
+  const bgCss =
+    background.type === 'gradient'
+      ? `linear-gradient(135deg, ${background.from}, ${background.to})`
+      : background.color
 
   const html = backgroundHtml
     .replaceAll('{{TOTAL_WIDTH}}', String(totalWidth))
@@ -115,7 +134,9 @@ export async function renderBackground(
     .replace('{{WINDOW_HEIGHT}}', String(windowHeight))
     .replaceAll('{{BORDER_RADIUS}}', String(borderRadius))
 
-  const page = await browser.newPage({ viewport: { width: totalWidth, height: totalHeight } })
+  const page = await browser.newPage({
+    viewport: { width: totalWidth, height: totalHeight },
+  })
   await page.setContent(html, { waitUntil: 'load' })
   const pngPath = path.join(os.tmpdir(), `fipplet-bg-${Date.now()}.png`)
   await page.screenshot({ path: pngPath })
@@ -175,9 +196,19 @@ export async function compositeScreenshot(
   config: CompositeScreenshotConfig,
   browser: Browser,
 ): Promise<void> {
-  const { screenshotPath, framePngPath, bgPngPath, totalWidth, totalHeight, padding, titleBarHeight, borderRadius } = config
+  const {
+    screenshotPath,
+    framePngPath,
+    bgPngPath,
+    totalWidth,
+    totalHeight,
+    padding,
+    titleBarHeight,
+    borderRadius,
+  } = config
 
-  const toDataUrl = (p: string) => 'data:image/png;base64,' + fs.readFileSync(p).toString('base64')
+  const toDataUrl = (p: string) =>
+    'data:image/png;base64,' + fs.readFileSync(p).toString('base64')
 
   const html = compositeHtml
     .replaceAll('{{WIDTH}}', String(totalWidth))
@@ -191,12 +222,18 @@ export async function compositeScreenshot(
     .replace('{{FRAME_Y}}', String(padding))
     .replaceAll('{{BORDER_RADIUS}}', String(borderRadius))
 
-  const page = await browser.newPage({ viewport: { width: totalWidth, height: totalHeight } })
+  const page = await browser.newPage({
+    viewport: { width: totalWidth, height: totalHeight },
+  })
   await page.setContent(html, { waitUntil: 'load' })
   await page.screenshot({ path: screenshotPath })
   await page.close()
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }

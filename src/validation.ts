@@ -1,6 +1,6 @@
 import fs from 'fs'
-import path from 'path'
 import { parse as parseJsonc } from 'jsonc-parser'
+import path from 'path'
 import { parse as parseYaml } from 'yaml'
 import { ACTIONS } from './actions'
 import type { RecordingDefinition, SetupBlock, Step } from './types'
@@ -12,7 +12,9 @@ function substituteEnvVars(value: string): string {
     const name = braced ?? bare
     const resolved = process.env[name]
     if (resolved === undefined) {
-      throw new Error(`Environment variable '${name}' is not set (referenced as '${match}')`)
+      throw new Error(
+        `Environment variable '${name}' is not set (referenced as '${match}')`,
+      )
     }
     return resolved
   })
@@ -100,8 +102,7 @@ export function loadDefinition(input: string | object): RecordingDefinition {
       throw new Error("Auth block must include a 'provider' field")
     }
     if (def.auth.provider === 'supabase') {
-      if (!def.auth.url)
-        throw new Error("Supabase auth: missing 'url' field")
+      if (!def.auth.url) throw new Error("Supabase auth: missing 'url' field")
       if (!def.auth.serviceRoleKey)
         throw new Error("Supabase auth: missing 'serviceRoleKey' field")
       if (!def.auth.email)
@@ -111,14 +112,20 @@ export function loadDefinition(input: string | object): RecordingDefinition {
     }
   }
 
-  if (def.cursor !== undefined && typeof def.cursor !== 'boolean' && typeof def.cursor !== 'object') {
+  if (
+    def.cursor !== undefined &&
+    typeof def.cursor !== 'boolean' &&
+    typeof def.cursor !== 'object'
+  ) {
     throw new Error("'cursor' must be a boolean or an object")
   }
 
   if (def.outputFormat !== undefined) {
     const validFormats = ['webm', 'mp4', 'gif']
     if (!validFormats.includes(def.outputFormat)) {
-      throw new Error(`'outputFormat' must be one of: ${validFormats.join(', ')} (got '${def.outputFormat}')`)
+      throw new Error(
+        `'outputFormat' must be one of: ${validFormats.join(', ')} (got '${def.outputFormat}')`,
+      )
     }
   }
 
@@ -139,41 +146,83 @@ export function loadDefinition(input: string | object): RecordingDefinition {
 }
 
 function validateSteps(steps: Step[], prefix: string): void {
-  const selectorRequired = new Set(['click', 'type', 'clear', 'fill', 'select', 'hover'])
+  const selectorRequired = new Set([
+    'click',
+    'type',
+    'clear',
+    'fill',
+    'select',
+    'hover',
+  ])
   const textRequired = new Set(['type', 'fill'])
 
   for (const [i, step] of steps.entries()) {
-    const snippet = formatStepSnippet(step as unknown as Record<string, unknown>)
+    const snippet = formatStepSnippet(
+      step as unknown as Record<string, unknown>,
+    )
 
     if (!step.action) {
       throw new Error(`${prefix} ${i} missing 'action' field\n  → ${snippet}`)
     }
     if (!ACTIONS[step.action]) {
-      throw new Error(`${prefix} ${i}: unknown action '${step.action}'\n  → ${snippet}`)
+      throw new Error(
+        `${prefix} ${i}: unknown action '${step.action}'\n  → ${snippet}`,
+      )
     }
-    if (selectorRequired.has(step.action) && !('selector' in step && step.selector)) {
-      throw new Error(`${prefix} ${i} ('${step.action}'): missing required 'selector' field\n  → ${snippet}`)
+    if (
+      selectorRequired.has(step.action) &&
+      !('selector' in step && step.selector)
+    ) {
+      throw new Error(
+        `${prefix} ${i} ('${step.action}'): missing required 'selector' field\n  → ${snippet}`,
+      )
     }
-    if (textRequired.has(step.action) && !('text' in step && step.text !== undefined)) {
-      throw new Error(`${prefix} ${i} ('${step.action}'): missing required 'text' field\n  → ${snippet}`)
+    if (
+      textRequired.has(step.action) &&
+      !('text' in step && step.text !== undefined)
+    ) {
+      throw new Error(
+        `${prefix} ${i} ('${step.action}'): missing required 'text' field\n  → ${snippet}`,
+      )
     }
     if (step.action === 'keyboard' && !('key' in step && step.key)) {
-      throw new Error(`${prefix} ${i} ('keyboard'): missing required 'key' field\n  → ${snippet}`)
+      throw new Error(
+        `${prefix} ${i} ('keyboard'): missing required 'key' field\n  → ${snippet}`,
+      )
     }
     if (step.action === 'navigate' && !('url' in step && step.url)) {
-      throw new Error(`${prefix} ${i} ('navigate'): missing required 'url' field\n  → ${snippet}`)
+      throw new Error(
+        `${prefix} ${i} ('navigate'): missing required 'url' field\n  → ${snippet}`,
+      )
     }
-    if (step.speed !== undefined && (typeof step.speed !== 'number' || step.speed <= 0)) {
-      throw new Error(`${prefix} ${i}: 'speed' must be a number greater than 0\n  → ${snippet}`)
+    if (
+      step.speed !== undefined &&
+      (typeof step.speed !== 'number' || step.speed <= 0)
+    ) {
+      throw new Error(
+        `${prefix} ${i}: 'speed' must be a number greater than 0\n  → ${snippet}`,
+      )
     }
-    if (step.timeout !== undefined && (typeof step.timeout !== 'number' || step.timeout <= 0)) {
-      throw new Error(`${prefix} ${i}: 'timeout' must be a number greater than 0\n  → ${snippet}`)
+    if (
+      step.timeout !== undefined &&
+      (typeof step.timeout !== 'number' || step.timeout <= 0)
+    ) {
+      throw new Error(
+        `${prefix} ${i}: 'timeout' must be a number greater than 0\n  → ${snippet}`,
+      )
     }
     if (step.waitFor !== undefined && typeof step.waitFor !== 'string') {
-      throw new Error(`${prefix} ${i}: 'waitFor' must be a string (selector or 'networkidle')\n  → ${snippet}`)
+      throw new Error(
+        `${prefix} ${i}: 'waitFor' must be a string (selector or 'networkidle')\n  → ${snippet}`,
+      )
     }
-    if (step.action === 'waitForNetwork' && !('urlPattern' in step && step.urlPattern)) {
-      throw new Error(`${prefix} ${i} ('waitForNetwork'): missing required 'urlPattern' field\n  → ${snippet}`)
+    if (
+      step.action === 'waitForNetwork' &&
+      !('urlPattern' in step && step.urlPattern)
+    ) {
+      throw new Error(
+        `${prefix} ${i} ('waitForNetwork'): missing required 'urlPattern' field\n  → ${snippet}`,
+      )
     }
   }
 }

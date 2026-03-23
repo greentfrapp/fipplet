@@ -8,7 +8,9 @@ function mockPage() {
   return {
     locator: vi.fn().mockReturnValue({
       waitFor: waitForMock,
-      boundingBox: vi.fn().mockResolvedValue({ x: 50, y: 50, width: 100, height: 40 }),
+      boundingBox: vi
+        .fn()
+        .mockResolvedValue({ x: 50, y: 50, width: 100, height: 40 }),
     }),
     click: vi.fn().mockResolvedValue(undefined),
     fill: vi.fn().mockResolvedValue(undefined),
@@ -72,54 +74,103 @@ describe('ACTIONS registry', () => {
 describe('selector-based actions await selector', () => {
   it('click waits for selector with default timeout', async () => {
     const page = mockPage()
-    await ACTIONS.click(page as any, { action: 'click', selector: '#btn' } as any, baseCtx())
+    await ACTIONS.click(
+      page as any,
+      { action: 'click', selector: '#btn' } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('#btn')
-    expect(page.locator('#btn').waitFor).toHaveBeenCalledWith({ state: 'visible', timeout: 5000 })
+    expect(page.locator('#btn').waitFor).toHaveBeenCalledWith({
+      state: 'visible',
+      timeout: 5000,
+    })
     expect(page.click).toHaveBeenCalledWith('#btn')
   })
 
   it('click uses custom timeout when provided', async () => {
     const page = mockPage()
-    await ACTIONS.click(page as any, { action: 'click', selector: '#btn', timeout: 10000 } as any, baseCtx())
-    expect(page.locator('#btn').waitFor).toHaveBeenCalledWith({ state: 'visible', timeout: 10000 })
+    await ACTIONS.click(
+      page as any,
+      { action: 'click', selector: '#btn', timeout: 10000 } as any,
+      baseCtx(),
+    )
+    expect(page.locator('#btn').waitFor).toHaveBeenCalledWith({
+      state: 'visible',
+      timeout: 10000,
+    })
   })
 
   it('fill waits for selector before filling', async () => {
     const page = mockPage()
-    await ACTIONS.fill(page as any, { action: 'fill', selector: '#input', text: 'hello' } as any, baseCtx())
+    await ACTIONS.fill(
+      page as any,
+      { action: 'fill', selector: '#input', text: 'hello' } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('#input')
-    expect(page.locator('#input').waitFor).toHaveBeenCalledWith({ state: 'visible', timeout: 5000 })
+    expect(page.locator('#input').waitFor).toHaveBeenCalledWith({
+      state: 'visible',
+      timeout: 5000,
+    })
     expect(page.fill).toHaveBeenCalledWith('#input', 'hello')
   })
 
   it('hover waits for selector before hovering', async () => {
     const page = mockPage()
-    await ACTIONS.hover(page as any, { action: 'hover', selector: '.link' } as any, baseCtx())
+    await ACTIONS.hover(
+      page as any,
+      { action: 'hover', selector: '.link' } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('.link')
-    expect(page.locator('.link').waitFor).toHaveBeenCalledWith({ state: 'visible', timeout: 5000 })
+    expect(page.locator('.link').waitFor).toHaveBeenCalledWith({
+      state: 'visible',
+      timeout: 5000,
+    })
     expect(page.hover).toHaveBeenCalledWith('.link')
   })
 
   it('type waits for selector before typing', async () => {
     const page = mockPage()
-    await ACTIONS.type(page as any, { action: 'type', selector: '#field', text: 'abc' } as any, baseCtx())
+    await ACTIONS.type(
+      page as any,
+      { action: 'type', selector: '#field', text: 'abc' } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('#field')
-    expect(page.locator('#field').waitFor).toHaveBeenCalledWith({ state: 'visible', timeout: 5000 })
+    expect(page.locator('#field').waitFor).toHaveBeenCalledWith({
+      state: 'visible',
+      timeout: 5000,
+    })
     expect(page.type).toHaveBeenCalledWith('#field', 'abc', { delay: 80 })
   })
 
   it('clear waits for selector before clearing', async () => {
     const page = mockPage()
-    await ACTIONS.clear(page as any, { action: 'clear', selector: '#field' } as any, baseCtx())
+    await ACTIONS.clear(
+      page as any,
+      { action: 'clear', selector: '#field' } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('#field')
-    expect(page.locator('#field').waitFor).toHaveBeenCalledWith({ state: 'visible', timeout: 5000 })
+    expect(page.locator('#field').waitFor).toHaveBeenCalledWith({
+      state: 'visible',
+      timeout: 5000,
+    })
   })
 
   it('select waits for selector before selecting', async () => {
     const page = mockPage()
-    await ACTIONS.select(page as any, { action: 'select', selector: '#drop', value: 'opt1' } as any, baseCtx())
+    await ACTIONS.select(
+      page as any,
+      { action: 'select', selector: '#drop', value: 'opt1' } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('#drop')
-    expect(page.locator('#drop').waitFor).toHaveBeenCalledWith({ state: 'visible', timeout: 5000 })
+    expect(page.locator('#drop').waitFor).toHaveBeenCalledWith({
+      state: 'visible',
+      timeout: 5000,
+    })
     expect(page.selectOption).toHaveBeenCalledWith('#drop', 'opt1')
   })
 })
@@ -127,28 +178,48 @@ describe('selector-based actions await selector', () => {
 describe('XPath selector support', () => {
   it('click works with XPath selectors', async () => {
     const page = mockPage()
-    await ACTIONS.click(page as any, { action: 'click', selector: '//button[@type="submit"]' } as any, baseCtx())
+    await ACTIONS.click(
+      page as any,
+      { action: 'click', selector: '//button[@type="submit"]' } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('//button[@type="submit"]')
     expect(page.click).toHaveBeenCalledWith('//button[@type="submit"]')
   })
 
   it('fill works with XPath selectors', async () => {
     const page = mockPage()
-    await ACTIONS.fill(page as any, { action: 'fill', selector: '//input[@name="email"]', text: 'test' } as any, baseCtx())
+    await ACTIONS.fill(
+      page as any,
+      {
+        action: 'fill',
+        selector: '//input[@name="email"]',
+        text: 'test',
+      } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('//input[@name="email"]')
     expect(page.fill).toHaveBeenCalledWith('//input[@name="email"]', 'test')
   })
 
   it('hover works with XPath selectors', async () => {
     const page = mockPage()
-    await ACTIONS.hover(page as any, { action: 'hover', selector: '//a[@href="/about"]' } as any, baseCtx())
+    await ACTIONS.hover(
+      page as any,
+      { action: 'hover', selector: '//a[@href="/about"]' } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('//a[@href="/about"]')
     expect(page.hover).toHaveBeenCalledWith('//a[@href="/about"]')
   })
 
   it('type works with XPath selectors', async () => {
     const page = mockPage()
-    await ACTIONS.type(page as any, { action: 'type', selector: '//textarea', text: 'hello' } as any, baseCtx())
+    await ACTIONS.type(
+      page as any,
+      { action: 'type', selector: '//textarea', text: 'hello' } as any,
+      baseCtx(),
+    )
     expect(page.locator).toHaveBeenCalledWith('//textarea')
     expect(page.type).toHaveBeenCalledWith('//textarea', 'hello', { delay: 80 })
   })
@@ -157,7 +228,11 @@ describe('XPath selector support', () => {
 describe('waitForNetwork action', () => {
   it('calls page.waitForResponse with a URL matcher', async () => {
     const page = mockPage()
-    await ACTIONS.waitForNetwork(page as any, { action: 'waitForNetwork', urlPattern: '/api/data' } as any, baseCtx())
+    await ACTIONS.waitForNetwork(
+      page as any,
+      { action: 'waitForNetwork', urlPattern: '/api/data' } as any,
+      baseCtx(),
+    )
     expect(page.waitForResponse).toHaveBeenCalledTimes(1)
     // Verify the matcher function and options
     const [matcher, options] = page.waitForResponse.mock.calls[0]
@@ -167,22 +242,36 @@ describe('waitForNetwork action', () => {
 
   it('URL matcher matches responses containing the pattern', async () => {
     const page = mockPage()
-    await ACTIONS.waitForNetwork(page as any, { action: 'waitForNetwork', urlPattern: '/api/data' } as any, baseCtx())
+    await ACTIONS.waitForNetwork(
+      page as any,
+      { action: 'waitForNetwork', urlPattern: '/api/data' } as any,
+      baseCtx(),
+    )
     const matcher = page.waitForResponse.mock.calls[0][0]
-    expect(matcher({ url: () => 'https://example.com/api/data?page=1' })).toBe(true)
+    expect(matcher({ url: () => 'https://example.com/api/data?page=1' })).toBe(
+      true,
+    )
     expect(matcher({ url: () => 'https://example.com/other' })).toBe(false)
   })
 
   it('uses custom timeout when provided', async () => {
     const page = mockPage()
-    await ACTIONS.waitForNetwork(page as any, { action: 'waitForNetwork', urlPattern: '/api', timeout: 15000 } as any, baseCtx())
+    await ACTIONS.waitForNetwork(
+      page as any,
+      { action: 'waitForNetwork', urlPattern: '/api', timeout: 15000 } as any,
+      baseCtx(),
+    )
     const [, options] = page.waitForResponse.mock.calls[0]
     expect(options).toEqual({ timeout: 15000 })
   })
 
   it('uses default 5000ms timeout when not provided', async () => {
     const page = mockPage()
-    await ACTIONS.waitForNetwork(page as any, { action: 'waitForNetwork', urlPattern: '/api' } as any, baseCtx())
+    await ACTIONS.waitForNetwork(
+      page as any,
+      { action: 'waitForNetwork', urlPattern: '/api' } as any,
+      baseCtx(),
+    )
     const [, options] = page.waitForResponse.mock.calls[0]
     expect(options).toEqual({ timeout: 5000 })
   })

@@ -1,5 +1,10 @@
 import path from 'path'
 import type { Page } from 'playwright-core'
+import {
+  moveCursorTo as defaultMoveCursorTo,
+  triggerRipple as defaultTriggerRipple,
+} from './cursor'
+import { logError } from './logger'
 import type {
   ActionContext,
   ActionName,
@@ -20,8 +25,6 @@ import type {
 } from './types'
 import { sanitizeFilename, timestamp } from './utils'
 import { restoreZoom, suspendZoom } from './zoom'
-import { moveCursorTo as defaultMoveCursorTo, triggerRipple as defaultTriggerRipple } from './cursor'
-import { logError } from './logger'
 
 function getMoveCursorTo(ctx: ActionContext) {
   return ctx.cursorTracker
@@ -41,14 +44,20 @@ type ActionHandler = (
   ctx: ActionContext,
 ) => Promise<void | string>
 
-function action<S extends Step>(handler: (page: Page, step: S, ctx: ActionContext) => Promise<void | string>): ActionHandler {
+function action<S extends Step>(
+  handler: (page: Page, step: S, ctx: ActionContext) => Promise<void | string>,
+): ActionHandler {
   return handler as ActionHandler
 }
 
 const DEFAULT_SELECTOR_TIMEOUT = 5000
 
 /** Wait for a selector to become visible, retrying until timeout. */
-async function awaitSelector(page: Page, selector: string, timeout: number): Promise<void> {
+async function awaitSelector(
+  page: Page,
+  selector: string,
+  timeout: number,
+): Promise<void> {
   await page.locator(selector).waitFor({ state: 'visible', timeout })
 }
 
@@ -61,9 +70,18 @@ async function handleClick(
   step: ClickStep,
   ctx: ActionContext,
 ): Promise<void> {
-  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
+  await awaitSelector(
+    page,
+    step.selector,
+    step.timeout ?? DEFAULT_SELECTOR_TIMEOUT,
+  )
   if (ctx.cursorEnabled) {
-    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(
+      page,
+      step.selector,
+      ctx.zoomState,
+      ctx.cursorOptions,
+    )
     await getTriggerRipple(ctx)(page, ctx.cursorOptions)
   }
   await suspendZoom(page, ctx.zoomState)
@@ -76,9 +94,18 @@ async function handleType(
   step: TypeStep,
   ctx: ActionContext,
 ): Promise<void> {
-  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
+  await awaitSelector(
+    page,
+    step.selector,
+    step.timeout ?? DEFAULT_SELECTOR_TIMEOUT,
+  )
   if (ctx.cursorEnabled) {
-    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(
+      page,
+      step.selector,
+      ctx.zoomState,
+      ctx.cursorOptions,
+    )
     if (step.clear) await getTriggerRipple(ctx)(page, ctx.cursorOptions)
   }
   await suspendZoom(page, ctx.zoomState)
@@ -94,9 +121,18 @@ async function handleClear(
   step: ClearStep,
   ctx: ActionContext,
 ): Promise<void> {
-  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
+  await awaitSelector(
+    page,
+    step.selector,
+    step.timeout ?? DEFAULT_SELECTOR_TIMEOUT,
+  )
   if (ctx.cursorEnabled) {
-    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(
+      page,
+      step.selector,
+      ctx.zoomState,
+      ctx.cursorOptions,
+    )
     await getTriggerRipple(ctx)(page, ctx.cursorOptions)
   }
   await suspendZoom(page, ctx.zoomState)
@@ -109,9 +145,18 @@ async function handleFill(
   step: FillStep,
   ctx: ActionContext,
 ): Promise<void> {
-  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
+  await awaitSelector(
+    page,
+    step.selector,
+    step.timeout ?? DEFAULT_SELECTOR_TIMEOUT,
+  )
   if (ctx.cursorEnabled) {
-    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(
+      page,
+      step.selector,
+      ctx.zoomState,
+      ctx.cursorOptions,
+    )
   }
   await suspendZoom(page, ctx.zoomState)
   await page.fill(step.selector, step.text)
@@ -123,50 +168,64 @@ async function handleSelect(
   step: SelectStep,
   ctx: ActionContext,
 ): Promise<void> {
-  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
+  await awaitSelector(
+    page,
+    step.selector,
+    step.timeout ?? DEFAULT_SELECTOR_TIMEOUT,
+  )
   if (ctx.cursorEnabled) {
-    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(
+      page,
+      step.selector,
+      ctx.zoomState,
+      ctx.cursorOptions,
+    )
   }
   await suspendZoom(page, ctx.zoomState)
   await page.selectOption(step.selector, step.value)
   await restoreZoom(page, ctx.zoomState)
 }
 
-async function handleScroll(page: Page, step: ScrollStep, ctx: ActionContext): Promise<void> {
+async function handleScroll(
+  page: Page,
+  step: ScrollStep,
+  ctx: ActionContext,
+): Promise<void> {
   const baseDuration = 600
   const speedMultiplier = step.scrollSpeed ?? 1
   const duration = baseDuration / speedMultiplier
 
   await suspendZoom(page, ctx.zoomState)
-  await page.evaluate(({ x, y, duration }) => {
-    return new Promise<void>((resolve) => {
-      const startX = window.scrollX
-      const startY = window.scrollY
-      const dx = x ?? 0
-      const dy = y ?? 0
-      const start = performance.now()
+  await page.evaluate(
+    ({ x, y, duration }) => {
+      return new Promise<void>((resolve) => {
+        const startX = window.scrollX
+        const startY = window.scrollY
+        const dx = x ?? 0
+        const dy = y ?? 0
+        const start = performance.now()
 
-      function ease(t: number): number {
-        return t < 0.5
-          ? 4 * t * t * t
-          : 1 - Math.pow(-2 * t + 2, 3) / 2
-      }
-
-      function tick(now: number) {
-        const elapsed = now - start
-        const t = Math.min(elapsed / duration, 1)
-        const p = ease(t)
-        window.scrollTo(startX + dx * p, startY + dy * p)
-        if (t < 1) {
-          requestAnimationFrame(tick)
-        } else {
-          resolve()
+        function ease(t: number): number {
+          return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
         }
-      }
 
-      requestAnimationFrame(tick)
-    })
-  }, { x: step.x, y: step.y, duration })
+        function tick(now: number) {
+          const elapsed = now - start
+          const t = Math.min(elapsed / duration, 1)
+          const p = ease(t)
+          window.scrollTo(startX + dx * p, startY + dy * p)
+          if (t < 1) {
+            requestAnimationFrame(tick)
+          } else {
+            resolve()
+          }
+        }
+
+        requestAnimationFrame(tick)
+      })
+    },
+    { x: step.x, y: step.y, duration },
+  )
   await restoreZoom(page, ctx.zoomState)
 }
 
@@ -175,16 +234,29 @@ async function handleHover(
   step: HoverStep,
   ctx: ActionContext,
 ): Promise<void> {
-  await awaitSelector(page, step.selector, step.timeout ?? DEFAULT_SELECTOR_TIMEOUT)
+  await awaitSelector(
+    page,
+    step.selector,
+    step.timeout ?? DEFAULT_SELECTOR_TIMEOUT,
+  )
   if (ctx.cursorEnabled) {
-    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(
+      page,
+      step.selector,
+      ctx.zoomState,
+      ctx.cursorOptions,
+    )
   }
   await suspendZoom(page, ctx.zoomState)
   await page.hover(step.selector)
   await restoreZoom(page, ctx.zoomState)
 }
 
-async function handleKeyboard(page: Page, step: KeyboardStep, _ctx: ActionContext): Promise<void> {
+async function handleKeyboard(
+  page: Page,
+  step: KeyboardStep,
+  _ctx: ActionContext,
+): Promise<void> {
   await page.keyboard.press(step.key)
 }
 
@@ -198,7 +270,11 @@ async function handleNavigate(
   ctx.zoomState.ty = 0
   await page
     .goto(step.url, { waitUntil: 'networkidle', timeout: 10000 })
-    .catch((err) => logError(`  warning: navigate to '${step.url}' did not reach networkidle: ${err.message}`))
+    .catch((err) =>
+      logError(
+        `  warning: navigate to '${step.url}' did not reach networkidle: ${err.message}`,
+      ),
+    )
 }
 
 async function handleScreenshot(
@@ -221,7 +297,12 @@ async function handleZoom(
   const duration = step.duration ?? 600
 
   if (ctx.cursorEnabled && step.selector) {
-    await getMoveCursorTo(ctx)(page, step.selector, ctx.zoomState, ctx.cursorOptions)
+    await getMoveCursorTo(ctx)(
+      page,
+      step.selector,
+      ctx.zoomState,
+      ctx.cursorOptions,
+    )
   }
 
   if (scale === 1 && !step.selector) {
@@ -254,7 +335,8 @@ async function handleZoom(
   }
 
   const vp = page.viewportSize()
-  if (!vp) throw new Error('viewport size not set — cannot compute zoom translation')
+  if (!vp)
+    throw new Error('viewport size not set — cannot compute zoom translation')
   const { width: vw, height: vh } = vp
 
   const tx = vw / 2 / scale - targetX

@@ -1,12 +1,15 @@
 import fs from 'fs'
-import { loadDefinition, loadSetup } from './validation'
 import type { SetupBlock } from './types'
+import { loadDefinition, loadSetup } from './validation'
 
 /**
  * Validate a recording definition and print a summary.
  * Used by both `--dry-run` and the `validate` subcommand.
  */
-export function runValidate(defPath: string, opts: { setup?: string, quiet?: boolean } = {}): void {
+export function runValidate(
+  defPath: string,
+  opts: { setup?: string; quiet?: boolean } = {},
+): void {
   let def
   try {
     def = loadDefinition(defPath)
@@ -68,12 +71,18 @@ export function runValidate(defPath: string, opts: { setup?: string, quiet?: boo
 
   console.log('Definition valid ✓\n')
   console.log(`  URL:        ${def.url}`)
-  console.log(`  Viewport:   ${def.viewport ? `${def.viewport.width}×${def.viewport.height}` : '1280×720 (default)'}`)
+  console.log(
+    `  Viewport:   ${def.viewport ? `${def.viewport.width}×${def.viewport.height}` : '1280×720 (default)'}`,
+  )
   console.log(`  Steps:      ${def.steps.length}`)
   if (hasSetup) {
-    console.log(`  Setup:      ${hasSetup.steps.length} step(s)${hasSetup.url ? ` → ${hasSetup.url}` : ''}`)
+    console.log(
+      `  Setup:      ${hasSetup.steps.length} step(s)${hasSetup.url ? ` → ${hasSetup.url}` : ''}`,
+    )
   }
-  console.log(`  Actions:    ${[...actions.entries()].map(([a, n]) => `${a}(${n})`).join(', ')}`)
+  console.log(
+    `  Actions:    ${[...actions.entries()].map(([a, n]) => `${a}(${n})`).join(', ')}`,
+  )
   if (selectors.size > 0) {
     console.log(`  Selectors:  ${selectors.size} unique`)
     for (const sel of selectors) {
@@ -87,7 +96,9 @@ export function runValidate(defPath: string, opts: { setup?: string, quiet?: boo
     console.log(`  Auth:       ${def.auth.provider}`)
   }
   if (def.cursor !== undefined) {
-    console.log(`  Cursor:     ${typeof def.cursor === 'boolean' ? def.cursor : 'custom'}`)
+    console.log(
+      `  Cursor:     ${typeof def.cursor === 'boolean' ? def.cursor : 'custom'}`,
+    )
   }
   if (def.chrome) {
     console.log(`  Chrome:     enabled`)

@@ -33,8 +33,7 @@ export async function resolveSupabaseAuth(
   const linkData = await generateRes.json()
   // The raw REST API returns hashed_token at the top level;
   // the JS client nests it under properties. Handle both.
-  const hashedToken =
-    linkData.hashed_token ?? linkData.properties?.hashed_token
+  const hashedToken = linkData.hashed_token ?? linkData.properties?.hashed_token
   if (!hashedToken) {
     throw new Error(
       `Supabase generate_link response missing hashed_token. ` +
@@ -57,9 +56,7 @@ export async function resolveSupabaseAuth(
 
   if (!verifyRes.ok) {
     const body = await verifyRes.text()
-    throw new Error(
-      `Supabase verify failed (${verifyRes.status}): ${body}`,
-    )
+    throw new Error(`Supabase verify failed (${verifyRes.status}): ${body}`)
   }
 
   const session = await verifyRes.json()

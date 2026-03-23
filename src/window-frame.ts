@@ -1,5 +1,5 @@
-import type { WindowChromeOptions, BackgroundOptions } from './types'
 import { hexToFFmpeg } from './drawing'
+import type { BackgroundOptions, WindowChromeOptions } from './types'
 
 // ---------------------------------------------------------------------------
 // Pure filter-graph construction for frame overlay
@@ -34,16 +34,27 @@ export interface FrameFilterOutput {
  */
 export function buildFrameFilters(input: FrameFilterInput): FrameFilterOutput {
   const {
-    inputLabel, inputIndexStart, chrome, background,
-    videoWidth, videoHeight,
-    framePngPath, bgPngPath, maskPngPath,
+    inputLabel,
+    inputIndexStart,
+    chrome,
+    background,
+    videoWidth,
+    videoHeight,
+    framePngPath,
+    bgPngPath,
+    maskPngPath,
     outputLabel = 'frame_out',
   } = input
   const hasChrome = !!chrome
   const hasBackground = !!background
 
   if (!hasChrome && !hasBackground) {
-    return { filters: [], extraInputArgs: [], outputLabel: inputLabel, nextInputIndex: inputIndexStart }
+    return {
+      filters: [],
+      extraInputArgs: [],
+      outputLabel: inputLabel,
+      nextInputIndex: inputIndexStart,
+    }
   }
 
   const filters: string[] = []
@@ -96,10 +107,17 @@ export function buildFrameFilters(input: FrameFilterInput): FrameFilterOutput {
   } else {
     // No background — rename last filter's output to the desired label
     const lastFilter = filters[filters.length - 1]
-    filters[filters.length - 1] = lastFilter.replace(/\[[^\]]+\]$/, `[${outputLabel}]`)
+    filters[filters.length - 1] = lastFilter.replace(
+      /\[[^\]]+\]$/,
+      `[${outputLabel}]`,
+    )
     currentLabel = outputLabel
   }
 
-  return { filters, extraInputArgs, outputLabel: currentLabel, nextInputIndex: inputCount }
+  return {
+    filters,
+    extraInputArgs,
+    outputLabel: currentLabel,
+    nextInputIndex: inputCount,
+  }
 }
-

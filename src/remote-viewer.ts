@@ -232,7 +232,11 @@ export function startViewer(
         cdpSend('Page.enable', {})
         cdpSend('Runtime.enable', {})
         cdpSend('Page.startScreencast', {
-          format: 'jpeg', quality: 80, maxWidth: 1920, maxHeight: 1080, everyNthFrame: 1,
+          format: 'jpeg',
+          quality: 80,
+          maxWidth: 1920,
+          maxHeight: 1080,
+          everyNthFrame: 1,
         })
       })
 
@@ -252,7 +256,9 @@ export function startViewer(
             console.log(`[viewer] [${ts()}] First screencast frame received`)
           }
           latestFrame = str
-          cdpSend('Page.screencastFrameAck', { sessionId: msg.params.sessionId })
+          cdpSend('Page.screencastFrameAck', {
+            sessionId: msg.params.sessionId,
+          })
           // Replace previous frame in buffer instead of accumulating stale frames
           if (lastFrameIndex !== null) {
             messageBuffer[lastFrameIndex] = str
@@ -284,7 +290,9 @@ export function startViewer(
         req.on('data', (chunk: Buffer) => (body += chunk))
         req.on('end', () => {
           try {
-            const { events } = JSON.parse(body) as { events: Array<{ id: number; method: string; params: object }> }
+            const { events } = JSON.parse(body) as {
+              events: Array<{ id: number; method: string; params: object }>
+            }
 
             // Forward client events to CDP
             if (events && cdpWs && cdpWs.readyState === WebSocket.OPEN) {
@@ -314,7 +322,9 @@ export function startViewer(
           }
         })
       } else if (req.url === '/' || req.url === '/index.html') {
-        console.log(`[viewer] [${ts()}] Serving HTML page to ${req.socket.remoteAddress}`)
+        console.log(
+          `[viewer] [${ts()}] Serving HTML page to ${req.socket.remoteAddress}`,
+        )
         res.writeHead(200, { 'Content-Type': 'text/html' })
         res.end(VIEWER_HTML)
       } else {

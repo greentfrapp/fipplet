@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildFilterGraph, buildPositionExpr, buildVisibilityExpr } from '../post-process'
+import {
+  buildFilterGraph,
+  buildPositionExpr,
+  buildVisibilityExpr,
+} from '../post-process'
 import type { FilterGraphInput } from '../post-process'
 import type { CursorEvent } from '../types'
 
@@ -16,21 +20,24 @@ function evalExpr(expr: string, t: number): number {
     .replace(/__LT__/g, 'lt')
 
   // Provide `if` and `lt` as JavaScript functions
-  const fn = new Function('if_', 'lt', `
+  const fn = new Function(
+    'if_',
+    'lt',
+    `
     function _eval(expr) {
       return expr;
     }
     // FFmpeg if(cond, then, else)
     const __if = if_;
     const __lt = lt;
-    return ${code
-      .replace(/if\(/g, '__if(')
-      .replace(/lt\(/g, '__lt(')};
-  `)
+    return ${code.replace(/if\(/g, '__if(').replace(/lt\(/g, '__lt(')};
+  `,
+  )
 
   return fn(
-    (cond: number, then_: number, else_: number) => cond !== 0 ? then_ : else_,
-    (a: number, b: number) => a < b ? 1 : 0,
+    (cond: number, then_: number, else_: number) =>
+      cond !== 0 ? then_ : else_,
+    (a: number, b: number) => (a < b ? 1 : 0),
   )
 }
 
@@ -40,7 +47,10 @@ describe('buildPositionExpr', () => {
   })
 
   it('returns the value for a single keyframe', () => {
-    const expr = buildPositionExpr([{ time: 1, value: 42, transitionMs: 350 }], 'x')
+    const expr = buildPositionExpr(
+      [{ time: 1, value: 42, transitionMs: 350 }],
+      'x',
+    )
     expect(expr).toBe('42')
   })
 
@@ -139,7 +149,9 @@ describe('buildFilterGraph', () => {
 
   it('adds scale filter when cursor size differs from base', () => {
     const { filterGraph } = buildFilterGraph({ ...baseInput, cursorSize: 24 })
-    expect(filterGraph).toContain('[1:v]scale=24:24:flags=lanczos[cursor_scaled]')
+    expect(filterGraph).toContain(
+      '[1:v]scale=24:24:flags=lanczos[cursor_scaled]',
+    )
     expect(filterGraph).toContain('[cursor_scaled]')
     expect(filterGraph).not.toContain('[1:v]overlay')
   })
@@ -219,9 +231,7 @@ describe('buildVisibilityExpr', () => {
   })
 
   describe('single hide event', () => {
-    const events: CursorEvent[] = [
-      { time: 2, type: 'hide', x: 0, y: 0 },
-    ]
+    const events: CursorEvent[] = [{ time: 2, type: 'hide', x: 0, y: 0 }]
     const expr = buildVisibilityExpr(events)
 
     it('is visible before the hide', () => {
@@ -268,11 +278,11 @@ describe('buildVisibilityExpr', () => {
     const expr = buildVisibilityExpr(events)
 
     it('toggles visibility correctly across cycles', () => {
-      expect(evalExpr(expr, 0.5)).toBe(1)  // before first hide
-      expect(evalExpr(expr, 1.5)).toBe(0)  // after first hide
-      expect(evalExpr(expr, 2.5)).toBe(1)  // after first show
-      expect(evalExpr(expr, 3.5)).toBe(0)  // after second hide
-      expect(evalExpr(expr, 4.5)).toBe(1)  // after second show
+      expect(evalExpr(expr, 0.5)).toBe(1) // before first hide
+      expect(evalExpr(expr, 1.5)).toBe(0) // after first hide
+      expect(evalExpr(expr, 2.5)).toBe(1) // after first show
+      expect(evalExpr(expr, 3.5)).toBe(0) // after second hide
+      expect(evalExpr(expr, 4.5)).toBe(1) // after second show
     })
   })
 })

@@ -58,12 +58,21 @@ function poll(
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({ events })
     const req = http.request(
-      { hostname: '127.0.0.1', port, path: '/poll', method: 'POST', headers: { 'Content-Type': 'application/json' } },
+      {
+        hostname: '127.0.0.1',
+        port,
+        path: '/poll',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      },
       (res) => {
         let data = ''
         res.on('data', (chunk: Buffer) => (data += chunk))
         res.on('end', () => {
-          resolve({ status: res.statusCode!, messages: JSON.parse(data).messages })
+          resolve({
+            status: res.statusCode!,
+            messages: JSON.parse(data).messages,
+          })
         })
       },
     )
@@ -72,13 +81,18 @@ function poll(
   })
 }
 
-function httpGet(port: number, path: string): Promise<{ status: number; body: string }> {
+function httpGet(
+  port: number,
+  path: string,
+): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
-    http.get(`http://127.0.0.1:${port}${path}`, (res) => {
-      let data = ''
-      res.on('data', (chunk: Buffer) => (data += chunk))
-      res.on('end', () => resolve({ status: res.statusCode!, body: data }))
-    }).on('error', reject)
+    http
+      .get(`http://127.0.0.1:${port}${path}`, (res) => {
+        let data = ''
+        res.on('data', (chunk: Buffer) => (data += chunk))
+        res.on('end', () => resolve({ status: res.statusCode!, body: data }))
+      })
+      .on('error', reject)
   })
 }
 
@@ -152,7 +166,13 @@ describe('startViewer', () => {
 
   it('forwards client events to CDP', async () => {
     const before = mockCdp.received.length
-    await poll(viewerPort, [{ id: 50, method: 'Input.dispatchMouseEvent', params: { type: 'mousePressed', x: 100, y: 200 } }])
+    await poll(viewerPort, [
+      {
+        id: 50,
+        method: 'Input.dispatchMouseEvent',
+        params: { type: 'mousePressed', x: 100, y: 200 },
+      },
+    ])
     await wait(20)
 
     const forwarded = mockCdp.received.slice(before)
@@ -166,12 +186,20 @@ describe('startViewer', () => {
     // Send two frames before polling
     mockCdp.sendToClient({
       method: 'Page.screencastFrame',
-      params: { data: 'frame1data', sessionId: 1, metadata: { deviceWidth: 1280, deviceHeight: 720 } },
+      params: {
+        data: 'frame1data',
+        sessionId: 1,
+        metadata: { deviceWidth: 1280, deviceHeight: 720 },
+      },
     })
     await wait(10)
     mockCdp.sendToClient({
       method: 'Page.screencastFrame',
-      params: { data: 'frame2data', sessionId: 2, metadata: { deviceWidth: 1280, deviceHeight: 720 } },
+      params: {
+        data: 'frame2data',
+        sessionId: 2,
+        metadata: { deviceWidth: 1280, deviceHeight: 720 },
+      },
     })
     await wait(20)
 
@@ -188,7 +216,11 @@ describe('startViewer', () => {
     // Send a frame
     mockCdp.sendToClient({
       method: 'Page.screencastFrame',
-      params: { data: 'initialframe', sessionId: 1, metadata: { deviceWidth: 1280, deviceHeight: 720 } },
+      params: {
+        data: 'initialframe',
+        sessionId: 1,
+        metadata: { deviceWidth: 1280, deviceHeight: 720 },
+      },
     })
     await wait(20)
 
@@ -231,7 +263,12 @@ describe('startViewer', () => {
   it('returns 400 for invalid POST body', async () => {
     const res = await new Promise<{ status: number }>((resolve, reject) => {
       const req = http.request(
-        { hostname: '127.0.0.1', port: viewerPort, path: '/poll', method: 'POST' },
+        {
+          hostname: '127.0.0.1',
+          port: viewerPort,
+          path: '/poll',
+          method: 'POST',
+        },
         (res) => {
           res.resume()
           res.on('end', () => resolve({ status: res.statusCode! }))

@@ -1,17 +1,19 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  initCursorTracker,
   getCursorEvents,
+  hideCursor,
+  initCursorTracker,
   moveCursorTo,
   moveCursorToPoint,
-  triggerRipple,
-  hideCursor,
   showCursor,
+  triggerRipple,
 } from '../cursor'
 import type { ZoomState } from '../types'
 
 /** Minimal Page mock — only the methods cursor.ts actually calls. */
-function mockPage(elementCenter: { x: number; y: number } | null = { x: 100, y: 200 }) {
+function mockPage(
+  elementCenter: { x: number; y: number } | null = { x: 100, y: 200 },
+) {
   return {
     evaluate: vi.fn().mockResolvedValue(elementCenter),
     waitForTimeout: vi.fn().mockResolvedValue(undefined),
@@ -62,7 +64,10 @@ describe('cursor event tracker', () => {
       const page = mockPage({ x: 150, y: 250 })
       await moveCursorTo(page, '//button[@type="submit"]', zoomState())
 
-      expect(page.evaluate).toHaveBeenCalledWith(expect.any(Function), '//button[@type="submit"]')
+      expect(page.evaluate).toHaveBeenCalledWith(
+        expect.any(Function),
+        '//button[@type="submit"]',
+      )
       const events = getCursorEvents()
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({ type: 'move', x: 150, y: 250 })
@@ -93,7 +98,12 @@ describe('cursor event tracker', () => {
 
       const events = getCursorEvents()
       expect(events).toHaveLength(1)
-      expect(events[0]).toMatchObject({ type: 'move', x: 500, y: 600, transitionMs: 100 })
+      expect(events[0]).toMatchObject({
+        type: 'move',
+        x: 500,
+        y: 600,
+        transitionMs: 100,
+      })
     })
   })
 

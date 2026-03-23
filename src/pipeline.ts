@@ -1,19 +1,30 @@
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { chromium, type Browser } from 'playwright-core'
-import type { CursorEvent, CursorStyle, StepTiming, WindowChromeOptions, BackgroundOptions } from './types'
+import { type Browser, chromium } from 'playwright-core'
+import {
+  compositeScreenshot,
+  renderBackground,
+  renderRoundedMask,
+  renderWindowFrame,
+} from './chrome-renderer'
 import { getCursorPng } from './cursors'
 import {
+  type RippleConfig,
+  VP9_FAST_FLAGS,
+  buildFilterGraph,
   buildPositionExpr,
   buildVisibilityExpr,
-  buildFilterGraph,
   runFFmpeg,
-  VP9_FAST_FLAGS,
-  type RippleConfig,
 } from './post-process'
+import type {
+  BackgroundOptions,
+  CursorEvent,
+  CursorStyle,
+  StepTiming,
+  WindowChromeOptions,
+} from './types'
 import { buildFrameFilters } from './window-frame'
-import { renderWindowFrame, renderBackground, renderRoundedMask, compositeScreenshot } from './chrome-renderer'
 
 // ---------------------------------------------------------------------------
 // Pipeline configuration
@@ -67,15 +78,27 @@ export function buildSpeedFilter(
   // Per-step speed — piecewise setpts expression
   const sorted = [...stepTimings].sort((a, b) => a.startTime - b.startTime)
 
-  interface Segment { start: number; end: number; speed: number }
+  interface Segment {
+    start: number
+    end: number
+    speed: number
+  }
   const segments: Segment[] = []
   let cursor = 0
 
   for (const timing of sorted) {
     if (timing.startTime > cursor) {
-      segments.push({ start: cursor, end: timing.startTime, speed: globalSpeed })
+      segments.push({
+        start: cursor,
+        end: timing.startTime,
+        speed: globalSpeed,
+      })
     }
-    segments.push({ start: timing.startTime, end: timing.endTime, speed: timing.speed })
+    segments.push({
+      start: timing.startTime,
+      end: timing.endTime,
+      speed: timing.speed,
+    })
     cursor = timing.endTime
   }
 
@@ -124,7 +147,9 @@ export function buildSpeedFilter(
  * Screenshot compositing (Playwright, not FFmpeg) runs after the video
  * pass if frame options include screenshots.
  */
-export async function runPostProcessPipeline(config: PipelineConfig): Promise<string> {
+export async function runPostProcessPipeline(
+  config: PipelineConfig,
+): Promise<string> {
   const { videoPath, cursor, frame, speed } = config
 
   if (!cursor && !frame && !speed) return videoPath
@@ -163,8 +188,16 @@ export async function runPostProcessPipeline(config: PipelineConfig): Promise<st
         y: e.y,
         transitionMs: e.transitionMs ?? 350,
       }))
-      const xKeyframes = keyframes.map((k) => ({ time: k.time, value: k.x, transitionMs: k.transitionMs }))
-      const yKeyframes = keyframes.map((k) => ({ time: k.time, value: k.y, transitionMs: k.transitionMs }))
+      const xKeyframes = keyframes.map((k) => ({
+        time: k.time,
+        value: k.x,
+        transitionMs: k.transitionMs,
+      }))
+      const yKeyframes = keyframes.map((k) => ({
+        time: k.time,
+        value: k.y,
+        transitionMs: k.transitionMs,
+      }))
       const xExpr = buildPositionExpr(xKeyframes, 'x')
       const yExpr = buildPositionExpr(yKeyframes, 'y')
       const visExpr = buildVisibilityExpr(cursor.events)
@@ -174,8 +207,11 @@ export async function runPostProcessPipeline(config: PipelineConfig): Promise<st
       let rippleConfig: RippleConfig | null = null
       if (rippleEvents.length > 0) {
         const rippleSize = rippleEvents[0].rippleSize ?? 40
-        const rippleColor = rippleEvents[0].rippleColor ?? 'rgba(59, 130, 246, 0.4)'
-        const match = rippleColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/)
+        const rippleColor =
+          rippleEvents[0].rippleColor ?? 'rgba(59, 130, 246, 0.4)'
+        const match = rippleColor.match(
+          /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([0-9.]+))?\)/,
+        )
         rippleConfig = {
           size: rippleSize,
           r: match ? parseInt(match[1]) : 59,
@@ -186,7 +222,7 @@ export async function runPostProcessPipeline(config: PipelineConfig): Promise<st
         }
       }
 
-      const cursorOutputLabel = (frame || speed) ? 'cur_out' : 'pipeline_out'
+      const cursorOutputLabel = frame || speed ? 'cur_out' : 'pipeline_out'
 
       const { filterGraph, extraInputArgs } = buildFilterGraph({
         cursorSize: cursor.size,
@@ -229,39 +265,49 @@ export async function runPostProcessPipeline(config: PipelineConfig): Promise<st
       browser = await chromium.launch({ headless: true })
 
       if (hasChrome) {
-        const urlText = typeof frame.chrome?.url === 'string' ? frame.chrome.url : undefined
-        framePngPath = await renderWindowFrame({
-          width: framedW,
-          height: framedH,
-          titleBarHeight,
-          titleBarColor,
-          trafficLights,
-          borderRadius: hasBackground ? borderRadius : 0,
-          urlText,
-        }, browser)
+        const urlText =
+          typeof frame.chrome?.url === 'string' ? frame.chrome.url : undefined
+        framePngPath = await renderWindowFrame(
+          {
+            width: framedW,
+            height: framedH,
+            titleBarHeight,
+            titleBarColor,
+            trafficLights,
+            borderRadius: hasBackground ? borderRadius : 0,
+            urlText,
+          },
+          browser,
+        )
         tempFiles.push(framePngPath)
       }
 
       if (hasBackground) {
-        bgPngPath = await renderBackground({
-          totalWidth: finalW,
-          totalHeight: finalH,
-          windowWidth: framedW,
-          windowHeight: framedH,
-          padding,
-          borderRadius,
-          background: bgGradient
-            ? { type: 'gradient', from: bgGradient.from, to: bgGradient.to }
-            : { type: 'solid', color: bgColor },
-        }, browser)
+        bgPngPath = await renderBackground(
+          {
+            totalWidth: finalW,
+            totalHeight: finalH,
+            windowWidth: framedW,
+            windowHeight: framedH,
+            padding,
+            borderRadius,
+            background: bgGradient
+              ? { type: 'gradient', from: bgGradient.from, to: bgGradient.to }
+              : { type: 'solid', color: bgColor },
+          },
+          browser,
+        )
         tempFiles.push(bgPngPath)
 
         if (borderRadius > 0) {
-          maskPngPath = await renderRoundedMask({
-            width: framedW,
-            height: framedH,
-            borderRadius,
-          }, browser)
+          maskPngPath = await renderRoundedMask(
+            {
+              width: framedW,
+              height: framedH,
+              borderRadius,
+            },
+            browser,
+          )
           tempFiles.push(maskPngPath)
         }
       }
@@ -287,19 +333,27 @@ export async function runPostProcessPipeline(config: PipelineConfig): Promise<st
       currentLabel = frameOutputLabel
 
       // --- Screenshot compositing (Playwright, not FFmpeg) ---
-      if (frame.screenshots && frame.screenshots.length > 0 && framePngPath && bgPngPath) {
+      if (
+        frame.screenshots &&
+        frame.screenshots.length > 0 &&
+        framePngPath &&
+        bgPngPath
+      ) {
         for (const ssPath of frame.screenshots) {
           if (!fs.existsSync(ssPath)) continue
-          await compositeScreenshot({
-            screenshotPath: ssPath,
-            framePngPath,
-            bgPngPath,
-            totalWidth: finalW,
-            totalHeight: finalH,
-            padding,
-            titleBarHeight,
-            borderRadius,
-          }, browser)
+          await compositeScreenshot(
+            {
+              screenshotPath: ssPath,
+              framePngPath,
+              bgPngPath,
+              totalWidth: finalW,
+              totalHeight: finalH,
+              padding,
+              titleBarHeight,
+              borderRadius,
+            },
+            browser,
+          )
         }
       }
     }
@@ -322,7 +376,10 @@ export async function runPostProcessPipeline(config: PipelineConfig): Promise<st
     // Run single FFmpeg invocation
     // -----------------------------------------------------------------
     const filterGraph = filterSegments.join(';')
-    const filterScriptPath = path.join(os.tmpdir(), `fipplet-pipeline-${Date.now()}.txt`)
+    const filterScriptPath = path.join(
+      os.tmpdir(),
+      `fipplet-pipeline-${Date.now()}.txt`,
+    )
     fs.writeFileSync(filterScriptPath, filterGraph)
     tempFiles.push(filterScriptPath)
 
@@ -331,17 +388,23 @@ export async function runPostProcessPipeline(config: PipelineConfig): Promise<st
 
     await runFFmpeg([
       ...inputArgs,
-      '-filter_complex_script', filterScriptPath,
-      '-map', `[${currentLabel}]`,
+      '-filter_complex_script',
+      filterScriptPath,
+      '-map',
+      `[${currentLabel}]`,
       ...audioArgs,
-      '-c:v', 'libvpx-vp9',
+      '-c:v',
+      'libvpx-vp9',
       ...VP9_FAST_FLAGS,
-      '-y', outputPath,
+      '-y',
+      outputPath,
     ])
   } finally {
     if (browser) await browser.close()
     for (const f of tempFiles) {
-      try { fs.unlinkSync(f) } catch {}
+      try {
+        fs.unlinkSync(f)
+      } catch {}
     }
   }
 

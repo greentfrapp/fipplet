@@ -1,7 +1,7 @@
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { loadDefinition, loadSetup } from './validation'
 
 function minimalDef(overrides: Record<string, unknown> = {}) {
@@ -98,7 +98,12 @@ describe('loadDefinition', () => {
       const def = loadDefinition(
         minimalDef({
           cookies: [
-            { name: 'session', value: '$TEST_TOKEN', domain: '.example.com', path: '/' },
+            {
+              name: 'session',
+              value: '$TEST_TOKEN',
+              domain: '.example.com',
+              path: '/',
+            },
           ],
         }),
       )
@@ -126,7 +131,9 @@ describe('loadDefinition', () => {
 
     it('substitutes env vars with empty string values', () => {
       process.env.TEST_TOKEN = ''
-      const def = loadDefinition(minimalDef({ url: 'https://example.com/$TEST_TOKEN' }))
+      const def = loadDefinition(
+        minimalDef({ url: 'https://example.com/$TEST_TOKEN' }),
+      )
       expect(def.url).toBe('https://example.com/')
     })
 
@@ -152,26 +159,30 @@ describe('loadDefinition', () => {
 
   describe('inline setup block validation', () => {
     it('accepts a definition with a valid setup block', () => {
-      const def = loadDefinition(minimalDef({
-        setup: {
-          url: 'https://example.com/login',
-          steps: [
-            { action: 'fill', selector: '#email', text: 'user@test.com' },
-            { action: 'click', selector: 'button[type=submit]' },
-          ],
-        },
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          setup: {
+            url: 'https://example.com/login',
+            steps: [
+              { action: 'fill', selector: '#email', text: 'user@test.com' },
+              { action: 'click', selector: 'button[type=submit]' },
+            ],
+          },
+        }),
+      )
       expect(def.setup).toBeDefined()
       expect(def.setup!.steps).toHaveLength(2)
       expect(def.setup!.url).toBe('https://example.com/login')
     })
 
     it('accepts a setup block without a url', () => {
-      const def = loadDefinition(minimalDef({
-        setup: {
-          steps: [{ action: 'click', selector: '.dismiss' }],
-        },
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          setup: {
+            steps: [{ action: 'click', selector: '.dismiss' }],
+          },
+        }),
+      )
       expect(def.setup!.url).toBeUndefined()
       expect(def.setup!.steps).toHaveLength(1)
     })
@@ -183,32 +194,38 @@ describe('loadDefinition', () => {
     })
 
     it('throws when setup steps is missing', () => {
-      expect(() =>
-        loadDefinition(minimalDef({ setup: {} })),
-      ).toThrow("Setup block must include a non-empty 'steps' array")
+      expect(() => loadDefinition(minimalDef({ setup: {} }))).toThrow(
+        "Setup block must include a non-empty 'steps' array",
+      )
     })
 
     it('validates setup steps like regular steps', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          setup: { steps: [{ action: 'click' }] },
-        })),
+        loadDefinition(
+          minimalDef({
+            setup: { steps: [{ action: 'click' }] },
+          }),
+        ),
       ).toThrow("Setup step 0 ('click'): missing required 'selector' field")
     })
 
     it('throws for unknown action in setup steps', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          setup: { steps: [{ action: 'bogus' }] },
-        })),
+        loadDefinition(
+          minimalDef({
+            setup: { steps: [{ action: 'bogus' }] },
+          }),
+        ),
       ).toThrow("Setup step 0: unknown action 'bogus'")
     })
 
     it('throws for missing text in setup fill step', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          setup: { steps: [{ action: 'fill', selector: '#input' }] },
-        })),
+        loadDefinition(
+          minimalDef({
+            setup: { steps: [{ action: 'fill', selector: '#input' }] },
+          }),
+        ),
       ).toThrow("Setup step 0 ('fill'): missing required 'text' field")
     })
   })
@@ -235,26 +252,34 @@ describe('loadDefinition', () => {
     it('substitutes env vars in setup step values', () => {
       process.env.SETUP_EMAIL = 'test@example.com'
       process.env.SETUP_PASSWORD = 'secret123'
-      const def = loadDefinition(minimalDef({
-        setup: {
-          steps: [
-            { action: 'fill', selector: '#email', text: '$SETUP_EMAIL' },
-            { action: 'fill', selector: '#password', text: '${SETUP_PASSWORD}' },
-          ],
-        },
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          setup: {
+            steps: [
+              { action: 'fill', selector: '#email', text: '$SETUP_EMAIL' },
+              {
+                action: 'fill',
+                selector: '#password',
+                text: '${SETUP_PASSWORD}',
+              },
+            ],
+          },
+        }),
+      )
       expect(def.setup!.steps[0]).toMatchObject({ text: 'test@example.com' })
       expect(def.setup!.steps[1]).toMatchObject({ text: 'secret123' })
     })
 
     it('substitutes env vars in setup url', () => {
       process.env.SETUP_EMAIL = 'https://login.example.com'
-      const def = loadDefinition(minimalDef({
-        setup: {
-          url: '$SETUP_EMAIL',
-          steps: [{ action: 'wait', ms: 100 }],
-        },
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          setup: {
+            url: '$SETUP_EMAIL',
+            steps: [{ action: 'wait', ms: 100 }],
+          },
+        }),
+      )
       expect(def.setup!.url).toBe('https://login.example.com')
     })
   })
@@ -279,14 +304,16 @@ describe('loadDefinition', () => {
     })
 
     it('accepts a definition with a valid supabase auth block', () => {
-      const def = loadDefinition(minimalDef({
-        auth: {
-          provider: 'supabase',
-          url: 'https://abc123.supabase.co',
-          serviceRoleKey: 'key-123',
-          email: 'demo@example.com',
-        },
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          auth: {
+            provider: 'supabase',
+            url: 'https://abc123.supabase.co',
+            serviceRoleKey: 'key-123',
+            email: 'demo@example.com',
+          },
+        }),
+      )
       expect(def.auth).toBeDefined()
       expect(def.auth!.provider).toBe('supabase')
     })
@@ -299,47 +326,65 @@ describe('loadDefinition', () => {
 
     it('throws for unknown auth provider', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          auth: { provider: 'firebase', url: 'x', key: 'y', email: 'z' },
-        })),
+        loadDefinition(
+          minimalDef({
+            auth: { provider: 'firebase', url: 'x', key: 'y', email: 'z' },
+          }),
+        ),
       ).toThrow("Unknown auth provider: 'firebase'")
     })
 
     it('throws when supabase auth is missing url', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          auth: { provider: 'supabase', serviceRoleKey: 'k', email: 'e' },
-        })),
+        loadDefinition(
+          minimalDef({
+            auth: { provider: 'supabase', serviceRoleKey: 'k', email: 'e' },
+          }),
+        ),
       ).toThrow("Supabase auth: missing 'url' field")
     })
 
     it('throws when supabase auth is missing serviceRoleKey', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          auth: { provider: 'supabase', url: 'https://x.supabase.co', email: 'e' },
-        })),
+        loadDefinition(
+          minimalDef({
+            auth: {
+              provider: 'supabase',
+              url: 'https://x.supabase.co',
+              email: 'e',
+            },
+          }),
+        ),
       ).toThrow("Supabase auth: missing 'serviceRoleKey' field")
     })
 
     it('throws when supabase auth is missing email', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          auth: { provider: 'supabase', url: 'https://x.supabase.co', serviceRoleKey: 'k' },
-        })),
+        loadDefinition(
+          minimalDef({
+            auth: {
+              provider: 'supabase',
+              url: 'https://x.supabase.co',
+              serviceRoleKey: 'k',
+            },
+          }),
+        ),
       ).toThrow("Supabase auth: missing 'email' field")
     })
 
     it('substitutes env vars in auth block fields', () => {
       process.env.TEST_URL = 'https://abc123.supabase.co'
       process.env.TEST_KEY = 'service-key-123'
-      const def = loadDefinition(minimalDef({
-        auth: {
-          provider: 'supabase',
-          url: '$TEST_URL',
-          serviceRoleKey: '${TEST_KEY}',
-          email: 'demo@example.com',
-        },
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          auth: {
+            provider: 'supabase',
+            url: '$TEST_URL',
+            serviceRoleKey: '${TEST_KEY}',
+            email: 'demo@example.com',
+          },
+        }),
+      )
       expect(def.auth!.url).toBe('https://abc123.supabase.co')
       expect((def.auth as any).serviceRoleKey).toBe('service-key-123')
     })
@@ -347,97 +392,128 @@ describe('loadDefinition', () => {
 
   describe('per-step timeout validation', () => {
     it('accepts a valid timeout value', () => {
-      const def = loadDefinition(minimalDef({
-        steps: [{ action: 'click', selector: '#btn', timeout: 3000 }],
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          steps: [{ action: 'click', selector: '#btn', timeout: 3000 }],
+        }),
+      )
       expect(def.steps[0]).toMatchObject({ timeout: 3000 })
     })
 
     it('throws when timeout is zero', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          steps: [{ action: 'click', selector: '#btn', timeout: 0 }],
-        })),
+        loadDefinition(
+          minimalDef({
+            steps: [{ action: 'click', selector: '#btn', timeout: 0 }],
+          }),
+        ),
       ).toThrow("'timeout' must be a number greater than 0")
     })
 
     it('throws when timeout is negative', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          steps: [{ action: 'wait', timeout: -500 }],
-        })),
+        loadDefinition(
+          minimalDef({
+            steps: [{ action: 'wait', timeout: -500 }],
+          }),
+        ),
       ).toThrow("'timeout' must be a number greater than 0")
     })
 
     it('throws when timeout is a string', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          steps: [{ action: 'click', selector: '#btn', timeout: '5s' }],
-        })),
+        loadDefinition(
+          minimalDef({
+            steps: [{ action: 'click', selector: '#btn', timeout: '5s' }],
+          }),
+        ),
       ).toThrow("'timeout' must be a number greater than 0")
     })
   })
 
   describe('waitFor field validation', () => {
     it('accepts a CSS selector as waitFor', () => {
-      const def = loadDefinition(minimalDef({
-        steps: [{ action: 'click', selector: '#btn', waitFor: '.content-loaded' }],
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          steps: [
+            { action: 'click', selector: '#btn', waitFor: '.content-loaded' },
+          ],
+        }),
+      )
       expect(def.steps[0]).toMatchObject({ waitFor: '.content-loaded' })
     })
 
     it('accepts networkidle as waitFor', () => {
-      const def = loadDefinition(minimalDef({
-        steps: [{ action: 'screenshot', waitFor: 'networkidle' }],
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          steps: [{ action: 'screenshot', waitFor: 'networkidle' }],
+        }),
+      )
       expect(def.steps[0]).toMatchObject({ waitFor: 'networkidle' })
     })
 
     it('throws when waitFor is not a string', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          steps: [{ action: 'click', selector: '#btn', waitFor: true }],
-        })),
+        loadDefinition(
+          minimalDef({
+            steps: [{ action: 'click', selector: '#btn', waitFor: true }],
+          }),
+        ),
       ).toThrow("'waitFor' must be a string")
     })
 
     it('throws when waitFor is a number', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          steps: [{ action: 'click', selector: '#btn', waitFor: 5000 }],
-        })),
+        loadDefinition(
+          minimalDef({
+            steps: [{ action: 'click', selector: '#btn', waitFor: 5000 }],
+          }),
+        ),
       ).toThrow("'waitFor' must be a string")
     })
   })
 
   describe('waitForNetwork action validation', () => {
     it('accepts a valid waitForNetwork step', () => {
-      const def = loadDefinition(minimalDef({
-        steps: [{ action: 'waitForNetwork', urlPattern: '/api/users' }],
-      }))
-      expect(def.steps[0]).toMatchObject({ action: 'waitForNetwork', urlPattern: '/api/users' })
+      const def = loadDefinition(
+        minimalDef({
+          steps: [{ action: 'waitForNetwork', urlPattern: '/api/users' }],
+        }),
+      )
+      expect(def.steps[0]).toMatchObject({
+        action: 'waitForNetwork',
+        urlPattern: '/api/users',
+      })
     })
 
     it('throws when urlPattern is missing', () => {
       expect(() =>
-        loadDefinition(minimalDef({
-          steps: [{ action: 'waitForNetwork' }],
-        })),
+        loadDefinition(
+          minimalDef({
+            steps: [{ action: 'waitForNetwork' }],
+          }),
+        ),
       ).toThrow("missing required 'urlPattern' field")
     })
 
     it('accepts waitForNetwork with custom timeout', () => {
-      const def = loadDefinition(minimalDef({
-        steps: [{ action: 'waitForNetwork', urlPattern: '/api', timeout: 15000 }],
-      }))
+      const def = loadDefinition(
+        minimalDef({
+          steps: [
+            { action: 'waitForNetwork', urlPattern: '/api', timeout: 15000 },
+          ],
+        }),
+      )
       expect(def.steps[0]).toMatchObject({ urlPattern: '/api', timeout: 15000 })
     })
 
     it('error includes step snippet for waitForNetwork', () => {
       try {
-        loadDefinition(minimalDef({
-          steps: [{ action: 'waitForNetwork' }],
-        }))
+        loadDefinition(
+          minimalDef({
+            steps: [{ action: 'waitForNetwork' }],
+          }),
+        )
         expect.fail('should have thrown')
       } catch (err) {
         const msg = (err as Error).message
@@ -449,9 +525,9 @@ describe('loadDefinition', () => {
 
   describe('existing validation', () => {
     it('throws when url is missing', () => {
-      expect(() =>
-        loadDefinition({ steps: [{ action: 'wait' }] }),
-      ).toThrow("must include a 'url' field")
+      expect(() => loadDefinition({ steps: [{ action: 'wait' }] })).toThrow(
+        "must include a 'url' field",
+      )
     })
 
     it('throws when steps is empty', () => {
@@ -462,13 +538,19 @@ describe('loadDefinition', () => {
 
     it('throws for unknown action', () => {
       expect(() =>
-        loadDefinition({ url: 'https://example.com', steps: [{ action: 'bogus' }] }),
+        loadDefinition({
+          url: 'https://example.com',
+          steps: [{ action: 'bogus' }],
+        }),
       ).toThrow("unknown action 'bogus'")
     })
 
     it('throws when click is missing selector', () => {
       expect(() =>
-        loadDefinition({ url: 'https://example.com', steps: [{ action: 'click' }] }),
+        loadDefinition({
+          url: 'https://example.com',
+          steps: [{ action: 'click' }],
+        }),
       ).toThrow("missing required 'selector' field")
     })
 
@@ -517,11 +599,14 @@ describe('loadDefinition', () => {
 
     it('parses .jsonc files with comments', () => {
       const filePath = path.join(tmpDir, 'def.jsonc')
-      fs.writeFileSync(filePath, `{
+      fs.writeFileSync(
+        filePath,
+        `{
         // This is a comment
         "url": "https://example.com",
         "steps": [{ "action": "wait", "ms": 100 }]
-      }`)
+      }`,
+      )
       const def = loadDefinition(filePath)
       expect(def.url).toBe('https://example.com')
       expect(def.steps).toHaveLength(1)
@@ -541,12 +626,15 @@ describe('loadDefinition', () => {
 
     it('parses .yaml files', () => {
       const filePath = path.join(tmpDir, 'def.yaml')
-      fs.writeFileSync(filePath, `
+      fs.writeFileSync(
+        filePath,
+        `
 url: https://example.com
 steps:
   - action: wait
     ms: 100
-`)
+`,
+      )
       const def = loadDefinition(filePath)
       expect(def.url).toBe('https://example.com')
       expect(def.steps).toHaveLength(1)
@@ -554,12 +642,15 @@ steps:
 
     it('parses .yml files', () => {
       const filePath = path.join(tmpDir, 'def.yml')
-      fs.writeFileSync(filePath, `
+      fs.writeFileSync(
+        filePath,
+        `
 url: https://example.com
 steps:
   - action: click
     selector: "#btn"
-`)
+`,
+      )
       const def = loadDefinition(filePath)
       expect(def.url).toBe('https://example.com')
       expect(def.steps[0]).toMatchObject({ action: 'click', selector: '#btn' })
@@ -598,15 +689,15 @@ describe('loadSetup', () => {
   })
 
   it('validates step fields', () => {
-    expect(() =>
-      loadSetup({ steps: [{ action: 'click' }] }),
-    ).toThrow("missing required 'selector' field")
+    expect(() => loadSetup({ steps: [{ action: 'click' }] })).toThrow(
+      "missing required 'selector' field",
+    )
   })
 
   it('throws for unknown action', () => {
-    expect(() =>
-      loadSetup({ steps: [{ action: 'nope' }] }),
-    ).toThrow("unknown action 'nope'")
+    expect(() => loadSetup({ steps: [{ action: 'nope' }] })).toThrow(
+      "unknown action 'nope'",
+    )
   })
 
   describe('from file', () => {
@@ -622,10 +713,13 @@ describe('loadSetup', () => {
 
     it('loads a valid setup JSON file', () => {
       const filePath = path.join(tmpDir, 'setup.json')
-      fs.writeFileSync(filePath, JSON.stringify({
-        url: 'https://example.com/login',
-        steps: [{ action: 'wait', ms: 100 }],
-      }))
+      fs.writeFileSync(
+        filePath,
+        JSON.stringify({
+          url: 'https://example.com/login',
+          steps: [{ action: 'wait', ms: 100 }],
+        }),
+      )
       const setup = loadSetup(filePath)
       expect(setup.url).toBe('https://example.com/login')
       expect(setup.steps).toHaveLength(1)
@@ -682,11 +776,16 @@ describe('loadSetup', () => {
 
     it('substitutes env vars when loading from file', () => {
       process.env.SETUP_VAR = 'file-resolved'
-      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-setup-env-'))
+      const tmpDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'fipplet-setup-env-'),
+      )
       const filePath = path.join(tmpDir, 'setup.json')
-      fs.writeFileSync(filePath, JSON.stringify({
-        steps: [{ action: 'fill', selector: '#x', text: '$SETUP_VAR' }],
-      }))
+      fs.writeFileSync(
+        filePath,
+        JSON.stringify({
+          steps: [{ action: 'fill', selector: '#x', text: '$SETUP_VAR' }],
+        }),
+      )
       const setup = loadSetup(filePath)
       expect(setup.steps[0]).toMatchObject({ text: 'file-resolved' })
       fs.rmSync(tmpDir, { recursive: true, force: true })

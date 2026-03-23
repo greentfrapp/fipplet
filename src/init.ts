@@ -1,6 +1,6 @@
+import { confirm, input, select } from '@inquirer/prompts'
 import fs from 'fs'
 import path from 'path'
-import { input, select, confirm } from '@inquirer/prompts'
 
 export async function runInit(): Promise<void> {
   const url = await input({
@@ -37,7 +37,10 @@ export async function runInit(): Promise<void> {
     message: 'Auth method',
     choices: [
       { name: 'None', value: 'none' },
-      { name: 'Storage state (Playwright session file)', value: 'storageState' },
+      {
+        name: 'Storage state (Playwright session file)',
+        value: 'storageState',
+      },
       { name: 'localStorage injection', value: 'localStorage' },
       { name: 'Supabase auth provider', value: 'supabase' },
     ],
@@ -46,7 +49,8 @@ export async function runInit(): Promise<void> {
   const filename = await input({
     message: 'Output filename',
     default: 'recording.json',
-    validate: (val) => val.trim().length > 0 ? true : 'Filename cannot be empty',
+    validate: (val) =>
+      val.trim().length > 0 ? true : 'Filename cannot be empty',
   })
 
   const outPath = path.resolve(filename)
