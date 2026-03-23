@@ -1,0 +1,163 @@
+# Recording Definitions
+
+A recording definition is a JSON file that describes what to record: the target URL, browser configuration, and a sequence of steps to execute. Fipplet also supports JSONC (JSON with comments) and YAML.
+
+## File formats
+
+| Extension | Format |
+|-----------|--------|
+| `.json` | Standard JSON |
+| `.jsonc` | JSON with `//` and `/* */` comments |
+| `.yaml`, `.yml` | YAML |
+
+## Minimal example
+
+Only `url` and `steps` are required:
+
+```json
+{
+  "url": "https://example.com",
+  "steps": [
+    { "action": "wait", "ms": 2000 },
+    { "action": "screenshot" }
+  ]
+}
+```
+
+## Full reference
+
+### Root-level fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `url` | `string` | **required** | Target page URL. Supports `${VAR}` substitution. |
+| `steps` | `Step[]` | **required** | Non-empty array of actions to execute. |
+| `viewport` | `{ width, height }` | `1280×720` | Browser viewport dimensions in pixels. |
+| `colorScheme` | `"light"` \| `"dark"` | `"light"` | Preferred color scheme. |
+| `waitForSelector` | `string` | — | CSS selector to wait for before executing steps. |
+| `speed` | `number` | `1.0` | Global playback speed multiplier (> 0). Values > 1 speed up, < 1 slow down. |
+| `outputFormat` | `"webm"` \| `"mp4"` \| `"gif"` | `"webm"` | Video output format. MP4 and GIF require ffmpeg. |
+| `cursor` | `boolean` \| `CursorOptions` | `true` | Animated cursor overlay. See [Cursor options](#cursor-options). |
+| `chrome` | `boolean` \| `WindowChromeOptions` | `false` | macOS-style window chrome. See [Window chrome](#window-chrome). |
+| `background` | `boolean` \| `BackgroundOptions` | `false` | Background padding and styling. See [Background](#background). |
+| `setup` | `SetupBlock` | — | Steps to run before recording starts. See [Authentication](authentication.md). |
+| `storageState` | `string` | — | Path to a Playwright storage state JSON file. |
+| `cookies` | `Cookie[]` | — | Cookies to inject before navigation. |
+| `localStorage` | `Record<string, string>` | — | localStorage key-value pairs to inject. |
+| `headers` | `Record<string, string>` | — | Extra HTTP headers sent with every request. |
+| `auth` | `AuthProvider` | — | Auth provider configuration. See [Authentication](authentication.md). |
+
+### Cursor options
+
+When `cursor` is `true` or omitted, a default cursor is rendered. Pass an object to customize:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `boolean` | `true` | Enable/disable the cursor. |
+| `style` | `"default"` \| `"pointer"` \| `"crosshair"` | `"default"` | Cursor image style. |
+| `size` | `number` | `24` | Cursor size in pixels. |
+| `color` | `string` | — | Cursor color. |
+| `rippleColor` | `string` | — | Click ripple effect color. |
+| `rippleSize` | `number` | — | Click ripple effect radius. |
+| `transitionMs` | `number` | — | Cursor movement transition duration. |
+
+### Window chrome
+
+Adds a macOS-style title bar with traffic light buttons around the recording.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `boolean` | `true` | Enable/disable window chrome. |
+| `titleBarHeight` | `number` | `38` | Title bar height in pixels. |
+| `titleBarColor` | `string` | `"#e8e8e8"` | Title bar background color. |
+| `trafficLights` | `boolean` | `true` | Show red/yellow/green buttons. |
+| `url` | `boolean` \| `string` | — | Display a URL. `true` uses the recording URL; a string displays that value. |
+
+### Background
+
+Adds padding, rounded corners, and a colored or gradient background around the window.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `boolean` | `true` | Enable/disable background. |
+| `color` | `string` | `"#6366f1"` | Solid background color (hex). |
+| `gradient` | `{ from, to }` | — | Two-color diagonal gradient. Overrides `color`. |
+| `padding` | `number` | `60` | Padding around the window in pixels. |
+| `borderRadius` | `number` | `12` | Corner radius in pixels. |
+
+### Cookies
+
+Each cookie object:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | `string` | yes | Cookie name. |
+| `value` | `string` | yes | Cookie value. |
+| `domain` | `string` | yes | Cookie domain. |
+| `path` | `string` | yes | Cookie path. |
+| `expires` | `number` | no | Expiry as Unix timestamp. |
+| `httpOnly` | `boolean` | no | HTTP-only flag. |
+| `secure` | `boolean` | no | Secure flag. |
+| `sameSite` | `"Strict"` \| `"Lax"` \| `"None"` | no | SameSite policy. |
+
+## Environment variable substitution
+
+String values in the definition support `${VAR}` and `$VAR` syntax. Variables are resolved from `process.env` at load time. Substitution is recursive — it works inside nested objects and arrays.
+
+```json
+{
+  "url": "https://${APP_HOST}/dashboard",
+  "auth": {
+    "provider": "supabase",
+    "url": "${SUPABASE_URL}",
+    "serviceRoleKey": "${SUPABASE_SERVICE_ROLE_KEY}",
+    "email": "${TEST_USER_EMAIL}"
+  },
+  "steps": [...]
+}
+```
+
+If a referenced variable is not set, fipplet exits with an error.
+
+## JSON Schema
+
+A JSON Schema is published with the package at `recording-definition.schema.json`. Point your editor at it for autocomplete and validation:
+
+```json
+{
+  "$schema": "./node_modules/fipplet/recording-definition.schema.json",
+  "url": "https://example.com",
+  "steps": [...]
+}
+```
+
+## Annotated example
+
+```json
+{
+  "url": "https://en.wikipedia.org/wiki/Main_Page",
+  "viewport": { "width": 1280, "height": 720 },
+
+  "cursor": { "style": "pointer" },
+  "chrome": { "url": true },
+  "background": {
+    "gradient": { "from": "#667eea", "to": "#764ba2" },
+    "padding": 60,
+    "borderRadius": 12
+  },
+
+  "speed": 1.5,
+  "outputFormat": "mp4",
+
+  "steps": [
+    { "action": "wait", "ms": 1000 },
+    { "action": "scroll", "y": 300 },
+    { "action": "click", "selector": "#mp-tfa a:first-of-type" },
+    { "action": "wait", "ms": 2000 },
+    { "action": "screenshot", "name": "article" },
+    { "action": "zoom", "selector": "#firstHeading", "scale": 2, "duration": 800 },
+    { "action": "wait", "ms": 1500 },
+    { "action": "zoom", "scale": 1 }
+  ]
+}
+```
