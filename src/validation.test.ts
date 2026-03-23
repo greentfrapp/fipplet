@@ -387,6 +387,85 @@ describe('loadDefinition', () => {
   })
 })
 
+  describe('error context includes JSON snippet', () => {
+    it('includes the step JSON in error messages', () => {
+      try {
+        loadDefinition({
+          url: 'https://example.com',
+          steps: [{ action: 'click' }],
+        })
+        expect.fail('should have thrown')
+      } catch (err) {
+        const msg = (err as Error).message
+        expect(msg).toContain("missing required 'selector' field")
+        expect(msg).toContain('{"action":"click"}')
+      }
+    })
+  })
+
+  describe('JSONC file support', () => {
+    let tmpDir: string
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-jsonc-test-'))
+    })
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+    })
+
+    it('parses .jsonc files with comments', () => {
+      const filePath = path.join(tmpDir, 'def.jsonc')
+      fs.writeFileSync(filePath, `{
+        // This is a comment
+        "url": "https://example.com",
+        "steps": [{ "action": "wait", "ms": 100 }]
+      }`)
+      const def = loadDefinition(filePath)
+      expect(def.url).toBe('https://example.com')
+      expect(def.steps).toHaveLength(1)
+    })
+  })
+
+  describe('YAML file support', () => {
+    let tmpDir: string
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-yaml-test-'))
+    })
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+    })
+
+    it('parses .yaml files', () => {
+      const filePath = path.join(tmpDir, 'def.yaml')
+      fs.writeFileSync(filePath, `
+url: https://example.com
+steps:
+  - action: wait
+    ms: 100
+`)
+      const def = loadDefinition(filePath)
+      expect(def.url).toBe('https://example.com')
+      expect(def.steps).toHaveLength(1)
+    })
+
+    it('parses .yml files', () => {
+      const filePath = path.join(tmpDir, 'def.yml')
+      fs.writeFileSync(filePath, `
+url: https://example.com
+steps:
+  - action: click
+    selector: "#btn"
+`)
+      const def = loadDefinition(filePath)
+      expect(def.url).toBe('https://example.com')
+      expect(def.steps[0]).toMatchObject({ action: 'click', selector: '#btn' })
+    })
+  })
+})
+
 describe('loadSetup', () => {
   it('accepts a valid setup object', () => {
     const setup = loadSetup({

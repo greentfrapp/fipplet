@@ -2,6 +2,8 @@ export { record } from './recorder.js'
 export { login } from './login.js'
 export { loadDefinition, loadSetup } from './validation.js'
 export { resolveAuth } from './providers/index.js'
+export { setLogLevel, getLogLevel } from './logger.js'
+export type { LogLevel } from './logger.js'
 export type {
   RecordingDefinition,
   RecordOptions,

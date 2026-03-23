@@ -1,172 +1,244 @@
+import { Command } from 'commander'
 import { record } from './recorder'
 import { login } from './login'
 import { loadDefinition, loadSetup } from './validation'
+import { setLogLevel } from './logger'
 import type { OutputFormat, SetupBlock } from './types'
 
-const args = process.argv.slice(2)
+declare const __FIPPLET_VERSION__: string
 
-if (args.includes('--help') || args.includes('-h') || args.length === 0) {
-  console.log(`fipplet — programmatic video recordings for web apps
+const program = new Command()
+  .name('fipplet')
+  .description('Programmatic video recordings for web apps')
+  .version(__FIPPLET_VERSION__, '-v, --version')
 
-Usage:
-  fipplet <recording.json> [options]
-  fipplet login <url> --save-state <file>
-
-Commands:
-  login             Open a browser to log in manually, then save session state
-
-Recording options:
-  --output <dir>    Output directory (default: ./fipplet-output)
-  --setup <file>    Setup file (login, dismiss modals, etc.) — runs before recording
-  --format <fmt>    Output format: webm (default), mp4, gif
-  --speed <n>       Playback speed multiplier (e.g. 2 = 2x faster, 0.5 = half speed)
-  --headed          Run browser in headed mode
-  --help, -h        Show this help message
-  --version, -v     Show version
-
-Login options:
-  --save-state <file>  Path to save the exported session state (required)
-  --channel <name>     Browser channel (e.g. "chrome") — use for OAuth providers that block Chromium
-  --cdp <url>          Connect to an existing browser via CDP (avoids automation detection entirely)
-  --remote             Launch headless browser with web-based viewer (for SSH/headless environments)
-  --port <number>      Viewer port for --remote mode (default: 9222)
-
-Examples:
-  fipplet recording.json
-  fipplet recording.json --output ./demo-output
-  fipplet recording.json --setup login.json
-  fipplet recording.json --headed
-  fipplet login https://app.example.com --save-state ./state.json`)
-  process.exit(0)
-}
-
-if (args.includes('--version') || args.includes('-v')) {
-  declare const __FIPPLET_VERSION__: string
-  console.log(__FIPPLET_VERSION__)
-  process.exit(0)
-}
-
-// --- Login subcommand ---
-if (args[0] === 'login') {
-  let loginUrl: string | null = null
-  let saveStatePath: string | null = null
-  let channel: string | undefined
-  let cdpUrl: string | undefined
-  let remote = false
-  let port: number | undefined
-
-  for (let i = 1; i < args.length; i++) {
-    if (args[i] === '--save-state') {
-      saveStatePath = args[++i]
-    } else if (args[i] === '--channel') {
-      channel = args[++i]
-    } else if (args[i] === '--cdp') {
-      cdpUrl = args[++i]
-    } else if (args[i] === '--remote') {
-      remote = true
-    } else if (args[i] === '--port') {
-      port = parseInt(args[++i], 10)
-      if (isNaN(port)) {
-        console.error('Error: --port must be a number')
-        process.exit(1)
-      }
-    } else if (!args[i].startsWith('-')) {
-      loginUrl = args[i]
+// --- Recording command (default) ---
+program
+  .argument('<definition>', 'Path to a recording definition file (.json, .jsonc, .yaml, .yml)')
+  .option('-o, --output <dir>', 'Output directory', './fipplet-output')
+  .option('--setup <file>', 'Setup file (login, dismiss modals, etc.) — runs before recording')
+  .option('--format <fmt>', 'Output format: webm, mp4, gif')
+  .option('--speed <n>', 'Playback speed multiplier')
+  .option('--headed', 'Run browser in headed mode')
+  .option('--dry-run', 'Validate definition and print summary without launching a browser')
+  .option('--verbose', 'Enable detailed output (per-step timing, diagnostics)')
+  .option('--quiet', 'Suppress all output except errors and final output paths')
+  .action(async (defPath: string, opts: {
+    output: string
+    setup?: string
+    format?: string
+    speed?: string
+    headed?: boolean
+    dryRun?: boolean
+    verbose?: boolean
+    quiet?: boolean
+  }) => {
+    // Set log level
+    if (opts.verbose && opts.quiet) {
+      console.error('Error: --verbose and --quiet are mutually exclusive')
+      process.exit(1)
     }
-  }
+    if (opts.verbose) setLogLevel('verbose')
+    if (opts.quiet) setLogLevel('quiet')
 
-  if (!loginUrl) {
-    console.error('Error: no URL specified for login')
-    console.error('Usage: fipplet login <url> --save-state <file>')
-    process.exit(1)
-  }
-
-  if (!saveStatePath) {
-    console.error('Error: --save-state <file> is required')
-    console.error('Usage: fipplet login <url> --save-state <file>')
-    process.exit(1)
-  }
-
-  if (remote && cdpUrl) {
-    console.error('Error: --remote and --cdp are mutually exclusive')
-    process.exit(1)
-  }
-
-  login({ url: loginUrl, saveState: saveStatePath, channel, cdpUrl, remote, port }).catch((err) => {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: ${msg}`)
-    process.exit(1)
-  })
-} else {
-  // --- Recording command ---
-  let defPath: string | null = null
-  let outputDir = './fipplet-output'
-  let setupPath: string | null = null
-  let headless = true
-  let outputFormat: OutputFormat | undefined
-  let speed: number | undefined
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--output' || args[i] === '-o') {
-      outputDir = args[++i]
-    } else if (args[i] === '--setup') {
-      setupPath = args[++i]
-    } else if (args[i] === '--format') {
-      const fmt = args[++i]
-      if (fmt !== 'webm' && fmt !== 'mp4' && fmt !== 'gif') {
-        console.error(`Error: --format must be one of: webm, mp4, gif (got '${fmt}')`)
+    // Validate --format
+    let outputFormat: OutputFormat | undefined
+    if (opts.format) {
+      if (opts.format !== 'webm' && opts.format !== 'mp4' && opts.format !== 'gif') {
+        console.error(`Error: --format must be one of: webm, mp4, gif (got '${opts.format}')`)
         process.exit(1)
       }
-      outputFormat = fmt
-    } else if (args[i] === '--speed') {
-      speed = parseFloat(args[++i])
+      outputFormat = opts.format
+    }
+
+    // Validate --speed
+    let speed: number | undefined
+    if (opts.speed) {
+      speed = parseFloat(opts.speed)
       if (isNaN(speed) || speed <= 0) {
         console.error('Error: --speed must be a number greater than 0')
         process.exit(1)
       }
-    } else if (args[i] === '--headed') {
-      headless = false
-    } else if (!args[i].startsWith('-')) {
-      defPath = args[i]
     }
-  }
 
-  if (!defPath) {
-    console.error('Error: no recording definition file specified')
-    console.error('Run `fipplet --help` for usage')
-    process.exit(1)
-  }
+    // Load and validate definition
+    let def
+    try {
+      def = loadDefinition(defPath)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`Error: ${msg}`)
+      process.exit(1)
+    }
 
-  async function main() {
-    const def = loadDefinition(defPath!)
-
-    // Load external setup file if provided (takes precedence over inline setup)
+    // Load external setup file if provided
     let setup: SetupBlock | undefined
-    if (setupPath) {
-      setup = loadSetup(setupPath)
+    if (opts.setup) {
+      try {
+        setup = loadSetup(opts.setup)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`Error: ${msg}`)
+        process.exit(1)
+      }
     }
 
+    // --- Dry run: print summary and exit ---
+    if (opts.dryRun) {
+      const hasSetup = setup ?? def.setup
+      const selectors = new Set<string>()
+      const actions = new Map<string, number>()
+
+      for (const step of def.steps) {
+        actions.set(step.action, (actions.get(step.action) ?? 0) + 1)
+        if ('selector' in step && step.selector) {
+          selectors.add(step.selector as string)
+        }
+      }
+
+      if (hasSetup) {
+        for (const step of hasSetup.steps) {
+          if ('selector' in step && step.selector) {
+            selectors.add(step.selector as string)
+          }
+        }
+      }
+
+      // Collect env vars referenced in the original file
+      const envVarsUsed = new Set<string>()
+      try {
+        const fs = await import('fs')
+        const raw = fs.readFileSync(defPath, 'utf-8')
+        const envPattern = /\$\{([^}]+)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g
+        let match
+        while ((match = envPattern.exec(raw)) !== null) {
+          const name = match[1] ?? match[2]
+          // Skip JSON Schema $schema references
+          if (name === 'schema') continue
+          envVarsUsed.add(name)
+        }
+      } catch {
+        // ignore — env var scanning is best-effort
+      }
+
+      console.log('Definition valid ✓\n')
+      console.log(`  URL:        ${def.url}`)
+      console.log(`  Viewport:   ${def.viewport ? `${def.viewport.width}×${def.viewport.height}` : '1280×720 (default)'}`)
+      console.log(`  Steps:      ${def.steps.length}`)
+      if (hasSetup) {
+        console.log(`  Setup:      ${hasSetup.steps.length} step(s)${hasSetup.url ? ` → ${hasSetup.url}` : ''}`)
+      }
+      console.log(`  Actions:    ${[...actions.entries()].map(([a, n]) => `${a}(${n})`).join(', ')}`)
+      if (selectors.size > 0) {
+        console.log(`  Selectors:  ${selectors.size} unique`)
+        for (const sel of selectors) {
+          console.log(`              ${sel}`)
+        }
+      }
+      if (envVarsUsed.size > 0) {
+        console.log(`  Env vars:   ${[...envVarsUsed].join(', ')}`)
+      }
+      if (def.auth) {
+        console.log(`  Auth:       ${def.auth.provider}`)
+      }
+      if (def.cursor !== undefined) {
+        console.log(`  Cursor:     ${typeof def.cursor === 'boolean' ? def.cursor : 'custom'}`)
+      }
+      if (def.chrome) {
+        console.log(`  Chrome:     enabled`)
+      }
+      if (def.background) {
+        console.log(`  Background: enabled`)
+      }
+      if (def.speed) {
+        console.log(`  Speed:      ${def.speed}×`)
+      }
+      if (def.outputFormat) {
+        console.log(`  Format:     ${def.outputFormat}`)
+      }
+
+      process.exit(0)
+    }
+
+    // --- Normal recording ---
     const hasSetup = setup ?? def.setup
-    if (hasSetup) {
-      console.log(`fipplet: ${hasSetup.steps.length} setup steps + ${def.steps.length} recording steps → ${def.url}\n`)
-    } else {
-      console.log(`fipplet: ${def.steps.length} steps → ${def.url}\n`)
+    if (!opts.quiet) {
+      if (hasSetup) {
+        console.log(`fipplet: ${hasSetup.steps.length} setup steps + ${def.steps.length} recording steps → ${def.url}\n`)
+      } else {
+        console.log(`fipplet: ${def.steps.length} steps → ${def.url}\n`)
+      }
     }
 
-    const result = await record(defPath!, { outputDir, headless, setup, outputFormat, speed })
+    try {
+      const result = await record(defPath, {
+        outputDir: opts.output,
+        headless: !opts.headed,
+        setup,
+        outputFormat,
+        speed,
+      })
 
-    console.log('\nDone!')
-    if (result.video) {
-      console.log(`  Video: ${result.video}`)
+      if (!opts.quiet) {
+        console.log('\nDone!')
+      }
+      if (result.video) {
+        console.log(`  Video: ${result.video}`)
+      }
+      if (result.screenshots.length > 0) {
+        console.log(`  Screenshots: ${result.screenshots.length} file(s)`)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`Error: ${msg}`)
+      process.exit(1)
     }
-    if (result.screenshots.length > 0) {
-      console.log(`  Screenshots: ${result.screenshots.length} file(s)`)
-    }
-  }
-
-  main().catch((err) => {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: ${msg}`)
-    process.exit(1)
   })
-}
+
+// --- Login subcommand ---
+program
+  .command('login <url>')
+  .description('Open a browser to log in manually, then save session state')
+  .requiredOption('--save-state <file>', 'Path to save the exported session state')
+  .option('--channel <name>', 'Browser channel (e.g. "chrome") — use for OAuth providers that block Chromium')
+  .option('--cdp <url>', 'Connect to an existing browser via CDP')
+  .option('--remote', 'Launch headless browser with web-based viewer')
+  .option('--port <number>', 'Viewer port for --remote mode (default: 9222)')
+  .action(async (url: string, opts: {
+    saveState: string
+    channel?: string
+    cdp?: string
+    remote?: boolean
+    port?: string
+  }) => {
+    if (opts.remote && opts.cdp) {
+      console.error('Error: --remote and --cdp are mutually exclusive')
+      process.exit(1)
+    }
+
+    let port: number | undefined
+    if (opts.port) {
+      port = parseInt(opts.port, 10)
+      if (isNaN(port)) {
+        console.error('Error: --port must be a number')
+        process.exit(1)
+      }
+    }
+
+    try {
+      await login({
+        url,
+        saveState: opts.saveState,
+        channel: opts.channel,
+        cdpUrl: opts.cdp,
+        remote: opts.remote,
+        port,
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`Error: ${msg}`)
+      process.exit(1)
+    }
+  })
+
+program.parse()

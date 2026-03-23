@@ -18,6 +18,7 @@ import { resolveAuth } from './providers'
 import { loadDefinition } from './validation'
 import { timestamp } from './utils'
 import { createZoomState } from './zoom'
+import { log, logVerbose, logError } from './logger'
 
 export async function record(
   input: RecordingDefinition | string,
@@ -27,7 +28,7 @@ export async function record(
 
   // Resolve auth provider → merge into definition
   if (def.auth) {
-    process.stderr.write('  resolving auth...\n')
+    log('  resolving auth...')
     const authResult = await resolveAuth(def.auth)
 
     if (authResult.localStorage) {
@@ -39,7 +40,7 @@ export async function record(
     if (authResult.headers) {
       def.headers = { ...def.headers, ...authResult.headers }
     }
-    process.stderr.write('  auth resolved.\n')
+    log('  auth resolved.')
   }
 
   const outputDir = options.outputDir ?? './fipplet-output'
@@ -60,13 +61,13 @@ export async function record(
     storageState = JSON.parse(fs.readFileSync(statePath, 'utf-8'))
   }
 
-  process.stderr.write('  launching browser...\n')
+  log('  launching browser...')
   const browser = await chromium.launch({ headless })
 
   // --- Setup phase (no video) ---
   let setupScroll: { x: number; y: number } | undefined
   if (setup) {
-    process.stderr.write('  running setup...\n')
+    log('  running setup...')
 
     const setupContextOptions: Record<string, unknown> = {
       viewport,
@@ -106,20 +107,20 @@ export async function record(
       }, def.localStorage)
       await setupPage
         .reload({ waitUntil: 'load', timeout: 15000 })
-        .catch((err) => process.stderr.write(`  warning: reload did not reach load: ${err.message}\n`))
+        .catch((err) => logError(`  warning: reload did not reach load: ${err.message}`))
     }
 
     // Execute setup steps
     const setupCtx: ActionContext = { outputDir, zoomState: createZoomState(), cursorEnabled: false }
     for (const [i, step] of setup.steps.entries()) {
       const label = step.action + ('selector' in step ? ` ${step.selector}` : '')
-      process.stderr.write(`  [setup ${i + 1}/${setup.steps.length}] ${label}\n`)
+      log(`  [setup ${i + 1}/${setup.steps.length}] ${label}`)
 
       try {
         await ACTIONS[step.action](setupPage, step, setupCtx)
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
-        process.stderr.write(`  setup step ${i + 1} failed: ${msg}\n`)
+        logError(`  setup step ${i + 1} failed: ${msg}`)
       }
 
       if (step.action !== 'wait') {
@@ -136,7 +137,7 @@ export async function record(
     // Export session state and close setup context
     storageState = await setupContext.storageState()
     await setupContext.close()
-    process.stderr.write('  setup complete.\n')
+    log('  setup complete.')
   }
 
   // --- Recording phase (with video) ---
@@ -200,7 +201,7 @@ export async function record(
   if (!setup && def.localStorage && Object.keys(def.localStorage).length > 0) {
     await page
       .goto(def.url, { waitUntil: 'commit', timeout: 15000 })
-      .catch((err) => process.stderr.write(`  warning: initial navigation failed: ${err.message}\n`))
+      .catch((err) => logError(`  warning: initial navigation failed: ${err.message}`))
     await page.evaluate((entries: Record<string, string>) => {
       for (const [key, value] of Object.entries(entries)) {
         localStorage.setItem(key, value)
@@ -208,7 +209,7 @@ export async function record(
     }, def.localStorage)
     await page
       .reload({ waitUntil: 'load', timeout: 15000 })
-      .catch((err) => process.stderr.write(`  warning: reload did not reach load: ${err.message}\n`))
+      .catch((err) => logError(`  warning: reload did not reach load: ${err.message}`))
   } else {
     try {
       await page.goto(def.url, { waitUntil: 'load', timeout: 15000 })
@@ -230,7 +231,7 @@ export async function record(
   if (def.waitForSelector) {
     await page
       .waitForSelector(def.waitForSelector, { timeout: 10000 })
-      .catch((err) => process.stderr.write(`  warning: waitForSelector '${def.waitForSelector}' failed: ${err.message}\n`))
+      .catch((err) => logError(`  warning: waitForSelector '${def.waitForSelector}' failed: ${err.message}`))
   }
 
   // Normalize cursor options — enabled by default
@@ -252,9 +253,9 @@ export async function record(
 
   for (const [i, step] of def.steps.entries()) {
     const label = step.action + ('selector' in step ? ` ${step.selector}` : '')
-    process.stderr.write(`  [${i + 1}/${def.steps.length}] ${label}\n`)
 
     const stepStart = (Date.now() - stepTimerStart) / 1000
+    const stepWallStart = Date.now()
 
     try {
       const result = await ACTIONS[step.action](page, step, ctx)
@@ -263,7 +264,7 @@ export async function record(
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      process.stderr.write(`  step ${i + 1} failed: ${msg}\n`)
+      logError(`  step ${i + 1} failed: ${msg}`)
     }
 
     if (step.action !== 'wait') {
@@ -271,6 +272,9 @@ export async function record(
     }
 
     const stepEnd = (Date.now() - stepTimerStart) / 1000
+    const elapsed = ((Date.now() - stepWallStart) / 1000).toFixed(1)
+    log(`  [${i + 1}/${def.steps.length}] ${label} (${elapsed}s)`)
+
     stepTimings.push({
       stepIndex: i,
       startTime: stepStart,
@@ -278,6 +282,9 @@ export async function record(
       speed: step.speed ?? globalSpeed,
     })
   }
+
+  const totalElapsed = ((Date.now() - stepTimerStart) / 1000).toFixed(1)
+  log(`  steps completed in ${totalElapsed}s`)
 
   // Final screenshot
   const finalPath = path.join(outputDir, `final-${timestamp()}.png`)
@@ -309,7 +316,7 @@ export async function record(
     const cursorEvents = getCursorEvents()
     cursorEventsPath = path.join(outputDir, `${baseName}-cursor.json`)
     fs.writeFileSync(cursorEventsPath, JSON.stringify(cursorEvents, null, 2))
-    process.stderr.write(`  cursor events: ${cursorEvents.length} events → ${cursorEventsPath}\n`)
+    logVerbose(`  cursor events: ${cursorEvents.length} events → ${cursorEventsPath}`)
     if (cursorEvents.length > 0) {
       cursorEventsForPipeline = cursorEvents
     }
@@ -335,7 +342,7 @@ export async function record(
   const needsPipeline = cursorEventsForPipeline || hasChrome || hasBackground || needsSpeed
 
   if (needsPipeline && videoPath) {
-    process.stderr.write('  post-processing...\n')
+    log('  post-processing...')
     try {
       const processedPath = await runPostProcessPipeline({
         videoPath,
@@ -353,26 +360,26 @@ export async function record(
         fs.unlinkSync(videoPath)
         fs.renameSync(processedPath, videoPath)
       }
-      process.stderr.write('  post-processing complete.\n')
+      log('  post-processing complete.')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      process.stderr.write(`  warning: post-processing failed: ${msg}\n`)
+      logError(`  warning: post-processing failed: ${msg}`)
     }
   }
 
   // Convert output format if not WebM
   const outputFormat: OutputFormat = options.outputFormat ?? def.outputFormat ?? 'webm'
   if (outputFormat !== 'webm' && videoPath) {
-    process.stderr.write(`  converting to ${outputFormat}...\n`)
+    log(`  converting to ${outputFormat}...`)
     try {
       const converter = outputFormat === 'mp4' ? convertToMp4 : convertToGif
       const convertedPath = await converter(videoPath)
       fs.unlinkSync(videoPath)
       videoPath = convertedPath
-      process.stderr.write(`  conversion to ${outputFormat} complete.\n`)
+      log(`  conversion to ${outputFormat} complete.`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      process.stderr.write(`  warning: format conversion failed: ${msg}\n`)
+      logError(`  warning: format conversion failed: ${msg}`)
     }
   }
 

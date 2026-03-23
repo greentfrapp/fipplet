@@ -1,0 +1,367 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://fipplet.dev/recording-definition.schema.json",
+  "title": "Fipplet Recording Definition",
+  "description": "A recording definition for fipplet — programmatic video recordings for web apps.",
+  "type": "object",
+  "required": ["url", "steps"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference (ignored at runtime)."
+    },
+    "url": {
+      "type": "string",
+      "description": "The URL to navigate to for recording. Supports ${VAR} and $VAR environment variable substitution."
+    },
+    "viewport": {
+      "$ref": "#/$defs/Viewport"
+    },
+    "colorScheme": {
+      "type": "string",
+      "enum": ["light", "dark"],
+      "description": "Color scheme to emulate. Default: 'light'."
+    },
+    "waitForSelector": {
+      "type": "string",
+      "description": "CSS selector to wait for before starting steps."
+    },
+    "storageState": {
+      "type": "string",
+      "description": "Path to a Playwright storage state JSON file."
+    },
+    "cookies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Cookie" },
+      "description": "Cookies to inject before recording."
+    },
+    "localStorage": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "localStorage key-value pairs to inject before recording."
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Extra HTTP headers to send with every request."
+    },
+    "auth": {
+      "$ref": "#/$defs/AuthProvider"
+    },
+    "cursor": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "$ref": "#/$defs/CursorOptions" }
+      ],
+      "description": "Cursor overlay configuration. true/false to enable/disable, or an options object. Default: true."
+    },
+    "chrome": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "$ref": "#/$defs/WindowChromeOptions" }
+      ],
+      "description": "macOS-style window chrome (title bar with traffic light buttons). Default: false."
+    },
+    "background": {
+      "oneOf": [
+        { "type": "boolean" },
+        { "$ref": "#/$defs/BackgroundOptions" }
+      ],
+      "description": "Background, padding, and rounded corners around the recording. Default: false."
+    },
+    "speed": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Global playback speed multiplier. Default: 1.0."
+    },
+    "outputFormat": {
+      "type": "string",
+      "enum": ["webm", "mp4", "gif"],
+      "description": "Output video format. Default: 'webm'."
+    },
+    "setup": {
+      "$ref": "#/$defs/SetupBlock"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Step" },
+      "description": "Recording steps to execute sequentially."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Viewport": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false,
+      "description": "Browser viewport dimensions."
+    },
+    "Cookie": {
+      "type": "object",
+      "required": ["name", "value", "domain", "path"],
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "type": "string" },
+        "domain": { "type": "string" },
+        "path": { "type": "string" },
+        "expires": { "type": "number" },
+        "httpOnly": { "type": "boolean" },
+        "secure": { "type": "boolean" },
+        "sameSite": { "type": "string", "enum": ["Strict", "Lax", "None"] }
+      },
+      "additionalProperties": false
+    },
+    "AuthProvider": {
+      "type": "object",
+      "description": "Authentication provider configuration.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["provider", "url", "serviceRoleKey", "email"],
+          "properties": {
+            "provider": { "type": "string", "const": "supabase" },
+            "url": { "type": "string", "description": "Supabase project URL." },
+            "serviceRoleKey": { "type": "string", "description": "Supabase service role key." },
+            "email": { "type": "string", "description": "Email of the user to authenticate as." }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "CursorOptions": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "description": "Enable cursor overlay. Default: true." },
+        "style": { "type": "string", "enum": ["default", "pointer", "crosshair"], "description": "Cursor image style. Default: 'default'." },
+        "size": { "type": "number", "minimum": 1, "description": "Cursor size in pixels." },
+        "color": { "type": "string", "description": "Cursor color." },
+        "rippleColor": { "type": "string", "description": "Click ripple color." },
+        "rippleSize": { "type": "number", "description": "Click ripple size in pixels." },
+        "transitionMs": { "type": "number", "description": "Cursor movement transition duration in milliseconds." }
+      },
+      "additionalProperties": false
+    },
+    "WindowChromeOptions": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "description": "Enable window chrome. Default: true when specified." },
+        "titleBarHeight": { "type": "number", "description": "Title bar height in pixels. Default: 38." },
+        "titleBarColor": { "type": "string", "description": "Title bar color as hex string. Default: '#e8e8e8'." },
+        "trafficLights": { "type": "boolean", "description": "Show traffic light buttons. Default: true." },
+        "url": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "string" }
+          ],
+          "description": "Display a URL in the title bar. true = use recording URL, or pass a custom string."
+        }
+      },
+      "additionalProperties": false
+    },
+    "BackgroundOptions": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "description": "Enable background. Default: true when specified." },
+        "color": { "type": "string", "description": "Solid background color as hex string. Default: '#6366f1'." },
+        "gradient": {
+          "type": "object",
+          "required": ["from", "to"],
+          "properties": {
+            "from": { "type": "string" },
+            "to": { "type": "string" }
+          },
+          "additionalProperties": false,
+          "description": "Two-color diagonal gradient (overrides color)."
+        },
+        "padding": { "type": "number", "description": "Padding around the window in pixels. Default: 60." },
+        "borderRadius": { "type": "number", "description": "Corner radius in pixels. Default: 12." }
+      },
+      "additionalProperties": false
+    },
+    "SetupBlock": {
+      "type": "object",
+      "required": ["steps"],
+      "properties": {
+        "url": { "type": "string", "description": "URL to navigate to for setup. Defaults to the recording URL." },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Step" },
+          "description": "Setup steps to execute before recording."
+        }
+      },
+      "additionalProperties": false
+    },
+    "BaseStepProperties": {
+      "type": "object",
+      "properties": {
+        "pauseAfter": { "type": "number", "description": "Pause in milliseconds after this step. Default: 500." },
+        "speed": { "type": "number", "exclusiveMinimum": 0, "description": "Playback speed multiplier for this step." }
+      }
+    },
+    "Step": {
+      "oneOf": [
+        { "$ref": "#/$defs/WaitStep" },
+        { "$ref": "#/$defs/ClickStep" },
+        { "$ref": "#/$defs/TypeStep" },
+        { "$ref": "#/$defs/ClearStep" },
+        { "$ref": "#/$defs/FillStep" },
+        { "$ref": "#/$defs/SelectStep" },
+        { "$ref": "#/$defs/ScrollStep" },
+        { "$ref": "#/$defs/HoverStep" },
+        { "$ref": "#/$defs/KeyboardStep" },
+        { "$ref": "#/$defs/NavigateStep" },
+        { "$ref": "#/$defs/ScreenshotStep" },
+        { "$ref": "#/$defs/ZoomStep" }
+      ]
+    },
+    "WaitStep": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "type": "string", "const": "wait" },
+        "ms": { "type": "number", "minimum": 0, "description": "Duration to wait in milliseconds. Default: 1000." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "ClickStep": {
+      "type": "object",
+      "required": ["action", "selector"],
+      "properties": {
+        "action": { "type": "string", "const": "click" },
+        "selector": { "type": "string", "description": "CSS selector of the element to click." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "TypeStep": {
+      "type": "object",
+      "required": ["action", "selector", "text"],
+      "properties": {
+        "action": { "type": "string", "const": "type" },
+        "selector": { "type": "string", "description": "CSS selector of the element to type into." },
+        "text": { "type": "string", "description": "Text to type." },
+        "delay": { "type": "number", "minimum": 0, "description": "Delay between keystrokes in milliseconds. Default: 80." },
+        "clear": { "type": "boolean", "description": "Clear the field before typing." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "ClearStep": {
+      "type": "object",
+      "required": ["action", "selector"],
+      "properties": {
+        "action": { "type": "string", "const": "clear" },
+        "selector": { "type": "string", "description": "CSS selector of the element to clear." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "FillStep": {
+      "type": "object",
+      "required": ["action", "selector", "text"],
+      "properties": {
+        "action": { "type": "string", "const": "fill" },
+        "selector": { "type": "string", "description": "CSS selector of the element to fill." },
+        "text": { "type": "string", "description": "Text to fill." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "SelectStep": {
+      "type": "object",
+      "required": ["action", "selector", "value"],
+      "properties": {
+        "action": { "type": "string", "const": "select" },
+        "selector": { "type": "string", "description": "CSS selector of the select element." },
+        "value": { "type": "string", "description": "Value to select." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "ScrollStep": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "type": "string", "const": "scroll" },
+        "x": { "type": "number", "description": "Horizontal scroll delta in pixels." },
+        "y": { "type": "number", "description": "Vertical scroll delta in pixels." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "HoverStep": {
+      "type": "object",
+      "required": ["action", "selector"],
+      "properties": {
+        "action": { "type": "string", "const": "hover" },
+        "selector": { "type": "string", "description": "CSS selector of the element to hover over." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "KeyboardStep": {
+      "type": "object",
+      "required": ["action", "key"],
+      "properties": {
+        "action": { "type": "string", "const": "keyboard" },
+        "key": { "type": "string", "description": "Key to press (e.g., 'Enter', 'Escape', 'Tab')." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "NavigateStep": {
+      "type": "object",
+      "required": ["action", "url"],
+      "properties": {
+        "action": { "type": "string", "const": "navigate" },
+        "url": { "type": "string", "description": "URL to navigate to." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "ScreenshotStep": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "type": "string", "const": "screenshot" },
+        "name": { "type": "string", "description": "Screenshot filename (without extension)." },
+        "fullPage": { "type": "boolean", "description": "Capture the full page. Default: false." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    },
+    "ZoomStep": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "type": "string", "const": "zoom" },
+        "selector": { "type": "string", "description": "CSS selector to zoom into (centers on the element)." },
+        "scale": { "type": "number", "description": "Zoom scale. Default: 2. Set to 1 to reset." },
+        "x": { "type": "number", "description": "X coordinate to zoom into (if no selector)." },
+        "y": { "type": "number", "description": "Y coordinate to zoom into (if no selector)." },
+        "duration": { "type": "number", "description": "Zoom animation duration in milliseconds. Default: 600." },
+        "pauseAfter": { "$ref": "#/$defs/BaseStepProperties/properties/pauseAfter" },
+        "speed": { "$ref": "#/$defs/BaseStepProperties/properties/speed" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

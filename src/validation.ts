@@ -1,4 +1,7 @@
 import fs from 'fs'
+import path from 'path'
+import { parse as parseJsonc } from 'jsonc-parser'
+import { parse as parseYaml } from 'yaml'
 import { ACTIONS } from './actions'
 import type { RecordingDefinition, SetupBlock, Step } from './types'
 
@@ -32,6 +35,31 @@ function substituteDeep<T>(obj: T): T {
   return obj
 }
 
+/** Parse a file as JSON (with comments), YAML, or plain JSON based on extension. */
+function parseFile(filePath: string, raw: string): unknown {
+  const ext = path.extname(filePath).toLowerCase()
+  if (ext === '.yaml' || ext === '.yml') {
+    return parseYaml(raw)
+  }
+  // .jsonc files use the JSONC parser (strips comments before parsing)
+  if (ext === '.jsonc') {
+    const errors: import('jsonc-parser').ParseError[] = []
+    const result = parseJsonc(raw, errors)
+    if (errors.length > 0) {
+      throw new SyntaxError(`JSONC parse error at offset ${errors[0].offset}`)
+    }
+    return result
+  }
+  // .json and other extensions — use strict JSON.parse for clear error messages
+  return JSON.parse(raw)
+}
+
+function formatStepSnippet(step: Record<string, unknown>): string {
+  const compact = JSON.stringify(step)
+  if (compact.length <= 120) return compact
+  return compact.slice(0, 117) + '...'
+}
+
 export function loadDefinition(input: string | object): RecordingDefinition {
   let def: RecordingDefinition
 
@@ -44,10 +72,10 @@ export function loadDefinition(input: string | object): RecordingDefinition {
       throw new Error(`Failed to read recording definition '${input}': ${msg}`)
     }
     try {
-      def = JSON.parse(raw)
+      def = parseFile(input, raw) as RecordingDefinition
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`Failed to parse recording definition '${input}' as JSON: ${msg}`)
+      throw new Error(`Failed to parse recording definition '${input}': ${msg}`)
     }
   } else {
     def = input as RecordingDefinition
@@ -115,26 +143,28 @@ function validateSteps(steps: Step[], prefix: string): void {
   const textRequired = new Set(['type', 'fill'])
 
   for (const [i, step] of steps.entries()) {
+    const snippet = formatStepSnippet(step as unknown as Record<string, unknown>)
+
     if (!step.action) {
-      throw new Error(`${prefix} ${i} missing 'action' field`)
+      throw new Error(`${prefix} ${i} missing 'action' field\n  → ${snippet}`)
     }
     if (!ACTIONS[step.action]) {
-      throw new Error(`${prefix} ${i}: unknown action '${step.action}'`)
+      throw new Error(`${prefix} ${i}: unknown action '${step.action}'\n  → ${snippet}`)
     }
     if (selectorRequired.has(step.action) && !('selector' in step && step.selector)) {
-      throw new Error(`${prefix} ${i} ('${step.action}'): missing required 'selector' field`)
+      throw new Error(`${prefix} ${i} ('${step.action}'): missing required 'selector' field\n  → ${snippet}`)
     }
     if (textRequired.has(step.action) && !('text' in step && step.text !== undefined)) {
-      throw new Error(`${prefix} ${i} ('${step.action}'): missing required 'text' field`)
+      throw new Error(`${prefix} ${i} ('${step.action}'): missing required 'text' field\n  → ${snippet}`)
     }
     if (step.action === 'keyboard' && !('key' in step && step.key)) {
-      throw new Error(`${prefix} ${i} ('keyboard'): missing required 'key' field`)
+      throw new Error(`${prefix} ${i} ('keyboard'): missing required 'key' field\n  → ${snippet}`)
     }
     if (step.action === 'navigate' && !('url' in step && step.url)) {
-      throw new Error(`${prefix} ${i} ('navigate'): missing required 'url' field`)
+      throw new Error(`${prefix} ${i} ('navigate'): missing required 'url' field\n  → ${snippet}`)
     }
     if (step.speed !== undefined && (typeof step.speed !== 'number' || step.speed <= 0)) {
-      throw new Error(`${prefix} ${i}: 'speed' must be a number greater than 0`)
+      throw new Error(`${prefix} ${i}: 'speed' must be a number greater than 0\n  → ${snippet}`)
     }
   }
 }
@@ -151,10 +181,10 @@ export function loadSetup(input: string | object): SetupBlock {
       throw new Error(`Failed to read setup file '${input}': ${msg}`)
     }
     try {
-      setup = JSON.parse(raw)
+      setup = parseFile(input, raw) as SetupBlock
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`Failed to parse setup file '${input}' as JSON: ${msg}`)
+      throw new Error(`Failed to parse setup file '${input}': ${msg}`)
     }
   } else {
     setup = input as SetupBlock
