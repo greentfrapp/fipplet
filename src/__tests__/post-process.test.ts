@@ -118,8 +118,16 @@ describe('buildFilterGraph', () => {
     yExpr: '200',
     visExpr: '1',
     rippleEvents: [],
-    rippleClipPath: null,
-    rippleDurationMs: 500,
+    rippleConfig: null,
+  }
+
+  const defaultRippleConfig = {
+    size: 40,
+    r: 59,
+    g: 130,
+    b: 246,
+    baseAlpha: 0.4,
+    durationMs: 500,
   }
 
   it('uses cursor directly when at base size (48)', () => {
@@ -140,19 +148,22 @@ describe('buildFilterGraph', () => {
     const { filterGraph, extraInputArgs } = buildFilterGraph(baseInput)
     expect(extraInputArgs).toEqual([])
     expect(filterGraph).toContain('[final_out]')
-    expect(filterGraph).not.toContain('ripple')
+    expect(filterGraph).not.toContain('ripple_src')
   })
 
   it('adds one ripple overlay for a single ripple event', () => {
     const input: FilterGraphInput = {
       ...baseInput,
       rippleEvents: [{ x: 300, y: 400, time: 2.5, rippleSize: 40 }],
-      rippleClipPath: '/tmp/ripple.webm',
+      rippleConfig: defaultRippleConfig,
     }
     const { filterGraph, extraInputArgs } = buildFilterGraph(input)
-    expect(extraInputArgs).toEqual(['-i', '/tmp/ripple.webm'])
+    // Inline lavfi source — no extra input files
+    expect(extraInputArgs).toEqual([])
     expect(filterGraph).toContain('[final_out]')
-    expect(filterGraph).toContain('[2:v]')
+    // Ripple source generated inline
+    expect(filterGraph).toContain('[ripple_src]')
+    expect(filterGraph).toContain('[rip0]')
   })
 
   it('chains multiple ripple overlays with intermediate labels', () => {
@@ -163,29 +174,26 @@ describe('buildFilterGraph', () => {
         { x: 300, y: 400, time: 3.0, rippleSize: 40 },
         { x: 500, y: 600, time: 5.0, rippleSize: 40 },
       ],
-      rippleClipPath: '/tmp/ripple.webm',
+      rippleConfig: defaultRippleConfig,
     }
     const { filterGraph, extraInputArgs } = buildFilterGraph(input)
-    expect(extraInputArgs).toEqual([
-      '-i', '/tmp/ripple.webm',
-      '-i', '/tmp/ripple.webm',
-      '-i', '/tmp/ripple.webm',
-    ])
+    // Inline lavfi source — no extra input files
+    expect(extraInputArgs).toEqual([])
     expect(filterGraph).toContain('[ripple_0]')
     expect(filterGraph).toContain('[ripple_1]')
     expect(filterGraph).toContain('[final_out]')
-    // Should have input indices 2, 3, 4
-    expect(filterGraph).toContain('[2:v]')
-    expect(filterGraph).toContain('[3:v]')
-    expect(filterGraph).toContain('[4:v]')
+    // Should split ripple source into 3 streams
+    expect(filterGraph).toContain('split=3')
+    expect(filterGraph).toContain('[rip0]')
+    expect(filterGraph).toContain('[rip1]')
+    expect(filterGraph).toContain('[rip2]')
   })
 
   it('encodes ripple position and timing correctly', () => {
     const input: FilterGraphInput = {
       ...baseInput,
       rippleEvents: [{ x: 150, y: 250, time: 2.0, rippleSize: 40 }],
-      rippleClipPath: '/tmp/ripple.webm',
-      rippleDurationMs: 500,
+      rippleConfig: defaultRippleConfig,
     }
     const { filterGraph } = buildFilterGraph(input)
     // x = 150 - 40 = 110, y = 250 - 40 = 210

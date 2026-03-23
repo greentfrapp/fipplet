@@ -33,10 +33,11 @@ describe('loadDefinition', () => {
           { action: 'navigate', url: 'https://other.com' },
           { action: 'screenshot', name: 'snap' },
           { action: 'zoom', scale: 2 },
+          { action: 'waitForNetwork', urlPattern: '/api/data' },
         ],
       }
       const result = loadDefinition(def)
-      expect(result.steps).toHaveLength(12)
+      expect(result.steps).toHaveLength(13)
     })
 
     it('throws when url is missing', () => {
@@ -125,6 +126,89 @@ describe('loadDefinition', () => {
         steps: [{ action: 'navigate' }],
       }),
     ).toThrow("missing required 'url' field")
+  })
+
+  describe('waitForNetwork action', () => {
+    it('accepts a valid waitForNetwork step', () => {
+      const result = loadDefinition({
+        url: 'https://example.com',
+        steps: [{ action: 'waitForNetwork', urlPattern: '/api/data' }],
+      })
+      expect(result.steps).toHaveLength(1)
+    })
+
+    it('throws when waitForNetwork is missing urlPattern', () => {
+      expect(() =>
+        loadDefinition({
+          url: 'https://example.com',
+          steps: [{ action: 'waitForNetwork' }],
+        }),
+      ).toThrow("missing required 'urlPattern' field")
+    })
+  })
+
+  describe('per-step timeout validation', () => {
+    it('accepts a step with a valid timeout', () => {
+      const result = loadDefinition({
+        url: 'https://example.com',
+        steps: [{ action: 'click', selector: '#btn', timeout: 10000 }],
+      })
+      expect(result.steps[0]).toMatchObject({ timeout: 10000 })
+    })
+
+    it('throws when timeout is zero', () => {
+      expect(() =>
+        loadDefinition({
+          url: 'https://example.com',
+          steps: [{ action: 'click', selector: '#btn', timeout: 0 }],
+        }),
+      ).toThrow("'timeout' must be a number greater than 0")
+    })
+
+    it('throws when timeout is negative', () => {
+      expect(() =>
+        loadDefinition({
+          url: 'https://example.com',
+          steps: [{ action: 'click', selector: '#btn', timeout: -1 }],
+        }),
+      ).toThrow("'timeout' must be a number greater than 0")
+    })
+
+    it('throws when timeout is not a number', () => {
+      expect(() =>
+        loadDefinition({
+          url: 'https://example.com',
+          steps: [{ action: 'click', selector: '#btn', timeout: 'fast' }],
+        }),
+      ).toThrow("'timeout' must be a number greater than 0")
+    })
+  })
+
+  describe('waitFor field validation', () => {
+    it('accepts a step with a selector waitFor', () => {
+      const result = loadDefinition({
+        url: 'https://example.com',
+        steps: [{ action: 'click', selector: '#btn', waitFor: '.loaded' }],
+      })
+      expect(result.steps[0]).toMatchObject({ waitFor: '.loaded' })
+    })
+
+    it('accepts a step with networkidle waitFor', () => {
+      const result = loadDefinition({
+        url: 'https://example.com',
+        steps: [{ action: 'screenshot', waitFor: 'networkidle' }],
+      })
+      expect(result.steps[0]).toMatchObject({ waitFor: 'networkidle' })
+    })
+
+    it('throws when waitFor is not a string', () => {
+      expect(() =>
+        loadDefinition({
+          url: 'https://example.com',
+          steps: [{ action: 'click', selector: '#btn', waitFor: 123 }],
+        }),
+      ).toThrow("'waitFor' must be a string")
+    })
   })
 
   describe('from file path', () => {

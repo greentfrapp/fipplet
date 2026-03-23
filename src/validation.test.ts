@@ -345,6 +345,108 @@ describe('loadDefinition', () => {
     })
   })
 
+  describe('per-step timeout validation', () => {
+    it('accepts a valid timeout value', () => {
+      const def = loadDefinition(minimalDef({
+        steps: [{ action: 'click', selector: '#btn', timeout: 3000 }],
+      }))
+      expect(def.steps[0]).toMatchObject({ timeout: 3000 })
+    })
+
+    it('throws when timeout is zero', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          steps: [{ action: 'click', selector: '#btn', timeout: 0 }],
+        })),
+      ).toThrow("'timeout' must be a number greater than 0")
+    })
+
+    it('throws when timeout is negative', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          steps: [{ action: 'wait', timeout: -500 }],
+        })),
+      ).toThrow("'timeout' must be a number greater than 0")
+    })
+
+    it('throws when timeout is a string', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          steps: [{ action: 'click', selector: '#btn', timeout: '5s' }],
+        })),
+      ).toThrow("'timeout' must be a number greater than 0")
+    })
+  })
+
+  describe('waitFor field validation', () => {
+    it('accepts a CSS selector as waitFor', () => {
+      const def = loadDefinition(minimalDef({
+        steps: [{ action: 'click', selector: '#btn', waitFor: '.content-loaded' }],
+      }))
+      expect(def.steps[0]).toMatchObject({ waitFor: '.content-loaded' })
+    })
+
+    it('accepts networkidle as waitFor', () => {
+      const def = loadDefinition(minimalDef({
+        steps: [{ action: 'screenshot', waitFor: 'networkidle' }],
+      }))
+      expect(def.steps[0]).toMatchObject({ waitFor: 'networkidle' })
+    })
+
+    it('throws when waitFor is not a string', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          steps: [{ action: 'click', selector: '#btn', waitFor: true }],
+        })),
+      ).toThrow("'waitFor' must be a string")
+    })
+
+    it('throws when waitFor is a number', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          steps: [{ action: 'click', selector: '#btn', waitFor: 5000 }],
+        })),
+      ).toThrow("'waitFor' must be a string")
+    })
+  })
+
+  describe('waitForNetwork action validation', () => {
+    it('accepts a valid waitForNetwork step', () => {
+      const def = loadDefinition(minimalDef({
+        steps: [{ action: 'waitForNetwork', urlPattern: '/api/users' }],
+      }))
+      expect(def.steps[0]).toMatchObject({ action: 'waitForNetwork', urlPattern: '/api/users' })
+    })
+
+    it('throws when urlPattern is missing', () => {
+      expect(() =>
+        loadDefinition(minimalDef({
+          steps: [{ action: 'waitForNetwork' }],
+        })),
+      ).toThrow("missing required 'urlPattern' field")
+    })
+
+    it('accepts waitForNetwork with custom timeout', () => {
+      const def = loadDefinition(minimalDef({
+        steps: [{ action: 'waitForNetwork', urlPattern: '/api', timeout: 15000 }],
+      }))
+      expect(def.steps[0]).toMatchObject({ urlPattern: '/api', timeout: 15000 })
+    })
+
+    it('error includes step snippet for waitForNetwork', () => {
+      try {
+        loadDefinition(minimalDef({
+          steps: [{ action: 'waitForNetwork' }],
+        }))
+        expect.fail('should have thrown')
+      } catch (err) {
+        const msg = (err as Error).message
+        expect(msg).toContain("missing required 'urlPattern' field")
+        expect(msg).toContain('"waitForNetwork"')
+      }
+    })
+  })
+
   describe('existing validation', () => {
     it('throws when url is missing', () => {
       expect(() =>
@@ -385,7 +487,6 @@ describe('loadDefinition', () => {
       expect(def.steps).toHaveLength(1)
     })
   })
-})
 
   describe('error context includes JSON snippet', () => {
     it('includes the step JSON in error messages', () => {
