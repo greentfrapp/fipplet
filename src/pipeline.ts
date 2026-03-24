@@ -313,7 +313,7 @@ export async function runPostProcessPipeline(
       const bgColor = frame.background?.color ?? '#6366f1'
       const bgGradient = frame.background?.gradient
       const padding = (frame.background?.padding ?? 60) * frameScale
-      const borderRadius = (frame.background?.borderRadius ?? 10) * frameScale
+      const borderRadius = (frame.background?.borderRadius ?? 12) * frameScale
 
       const framedW = frame.videoWidth
       const framedH = frame.videoHeight + (hasChrome ? titleBarHeight : 0)
