@@ -46,6 +46,7 @@ export interface PipelineConfig {
     videoWidth: number
     videoHeight: number
     screenshots?: string[]
+    scale?: number
   }
   speed?: {
     stepTimings: StepTiming[]
@@ -304,14 +305,15 @@ export async function runPostProcessPipeline(
     if (frame) {
       const hasChrome = !!frame.chrome
       const hasBackground = !!frame.background
+      const frameScale = frame.scale ?? 1
 
-      const titleBarHeight = frame.chrome?.titleBarHeight ?? 38
+      const titleBarHeight = (frame.chrome?.titleBarHeight ?? 38) * frameScale
       const titleBarColor = frame.chrome?.titleBarColor ?? '#e8e8e8'
       const trafficLights = frame.chrome?.trafficLights ?? true
       const bgColor = frame.background?.color ?? '#6366f1'
       const bgGradient = frame.background?.gradient
-      const padding = frame.background?.padding ?? 60
-      const borderRadius = frame.background?.borderRadius ?? 10
+      const padding = (frame.background?.padding ?? 60) * frameScale
+      const borderRadius = (frame.background?.borderRadius ?? 10) * frameScale
 
       const framedW = frame.videoWidth
       const framedH = frame.videoHeight + (hasChrome ? titleBarHeight : 0)
@@ -334,6 +336,7 @@ export async function runPostProcessPipeline(
             trafficLights,
             borderRadius: hasBackground ? borderRadius : 0,
             urlText,
+            deviceScaleFactor: frameScale,
           },
           browser,
         )
@@ -352,6 +355,7 @@ export async function runPostProcessPipeline(
             background: bgGradient
               ? { type: 'gradient', from: bgGradient.from, to: bgGradient.to }
               : { type: 'solid', color: bgColor },
+            deviceScaleFactor: frameScale,
           },
           browser,
         )
@@ -363,6 +367,7 @@ export async function runPostProcessPipeline(
               width: framedW,
               height: framedH,
               borderRadius,
+              deviceScaleFactor: frameScale,
             },
             browser,
           )

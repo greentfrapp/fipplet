@@ -14,6 +14,7 @@ export interface WindowFrameRenderConfig {
   trafficLights: boolean
   borderRadius: number
   urlText?: string
+  deviceScaleFactor?: number
 }
 
 export interface BackgroundRenderConfig {
@@ -26,6 +27,7 @@ export interface BackgroundRenderConfig {
   background:
     | { type: 'solid'; color: string }
     | { type: 'gradient'; from: string; to: string }
+  deviceScaleFactor?: number
 }
 
 /**
@@ -44,6 +46,7 @@ export async function renderWindowFrame(
     trafficLights,
     borderRadius,
     urlText,
+    deviceScaleFactor,
   } = config
 
   const isHttps = urlText?.startsWith('https') ?? false
@@ -94,7 +97,10 @@ export async function renderWindowFrame(
     .replace('{{TRAFFIC_LIGHTS}}', trafficLightsHtml)
     .replace('{{ADDRESS_BAR}}', addressBarHtml)
 
-  const page = await browser.newPage({ viewport: { width, height } })
+  const page = await browser.newPage({
+    viewport: { width, height },
+    deviceScaleFactor: deviceScaleFactor ?? 1,
+  })
   await page.setContent(html, { waitUntil: 'load' })
   const pngPath = path.join(os.tmpdir(), `fipplet-frame-${Date.now()}.png`)
   await page.screenshot({ path: pngPath, omitBackground: true })
@@ -136,6 +142,7 @@ export async function renderBackground(
 
   const page = await browser.newPage({
     viewport: { width: totalWidth, height: totalHeight },
+    deviceScaleFactor: config.deviceScaleFactor ?? 1,
   })
   await page.setContent(html, { waitUntil: 'load' })
   const pngPath = path.join(os.tmpdir(), `fipplet-bg-${Date.now()}.png`)
@@ -148,6 +155,7 @@ export interface RoundedMaskConfig {
   width: number
   height: number
   borderRadius: number
+  deviceScaleFactor?: number
 }
 
 /**
@@ -168,7 +176,10 @@ export async function renderRoundedMask(
   .mask { width: ${width}px; height: ${height}px; border-radius: ${borderRadius}px; background: white; }
 </style></head><body><div class="mask"></div></body></html>`
 
-  const page = await browser.newPage({ viewport: { width, height } })
+  const page = await browser.newPage({
+    viewport: { width, height },
+    deviceScaleFactor: config.deviceScaleFactor ?? 1,
+  })
   await page.setContent(html, { waitUntil: 'load' })
   const pngPath = path.join(os.tmpdir(), `fipplet-mask-${Date.now()}.png`)
   await page.screenshot({ path: pngPath })

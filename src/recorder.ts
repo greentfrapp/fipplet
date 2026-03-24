@@ -54,6 +54,7 @@ export async function record(
   fs.mkdirSync(outputDir, { recursive: true })
 
   const viewport = def.viewport ?? { width: 1280, height: 720 }
+  const scale = options.scale ?? def.scale ?? 1
   const zoomState = createZoomState()
   const screenshots: string[] = []
 
@@ -75,6 +76,7 @@ export async function record(
 
     const setupContextOptions: Record<string, unknown> = {
       viewport,
+      deviceScaleFactor: scale,
       colorScheme: def.colorScheme ?? 'light',
     }
 
@@ -124,6 +126,7 @@ export async function record(
       outputDir,
       zoomState: createZoomState(),
       cursorEnabled: false,
+      scale,
     }
     for (const [i, step] of setup.steps.entries()) {
       const label =
@@ -157,10 +160,11 @@ export async function record(
   // --- Recording phase (with video) ---
   const contextOptions: Record<string, unknown> = {
     viewport,
+    deviceScaleFactor: scale,
     colorScheme: def.colorScheme ?? 'light',
     recordVideo: {
       dir: outputDir,
-      size: viewport,
+      size: { width: viewport.width * scale, height: viewport.height * scale },
     },
   }
 
@@ -276,7 +280,7 @@ export async function record(
       : {}
     : undefined
 
-  const cursorTracker = cursorEnabled ? createCursorTracker() : undefined
+  const cursorTracker = cursorEnabled ? createCursorTracker(scale) : undefined
 
   // Execute steps
   const ctx: ActionContext = {
@@ -285,6 +289,7 @@ export async function record(
     cursorEnabled,
     cursorOptions,
     cursorTracker,
+    scale,
   }
   const globalSpeed = options.speed ?? def.speed ?? 1.0
   const stepTimings: StepTiming[] = []
@@ -418,7 +423,7 @@ export async function record(
           ? {
               events: cursorEventsForPipeline,
               defaultStyle: cursorOptions?.style ?? 'default',
-              size: cursorOptions?.size ?? 24,
+              size: (cursorOptions?.size ?? 24) * scale,
             }
           : undefined,
         frame:
@@ -426,9 +431,10 @@ export async function record(
             ? {
                 chrome: chromeOpts,
                 background: bgOpts,
-                videoWidth: viewport.width,
-                videoHeight: viewport.height,
+                videoWidth: viewport.width * scale,
+                videoHeight: viewport.height * scale,
                 screenshots,
+                scale,
               }
             : undefined,
         speed: needsSpeed ? { stepTimings, globalSpeed } : undefined,

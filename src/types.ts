@@ -175,6 +175,8 @@ export interface BackgroundOptions {
 export interface RecordingDefinition {
   url: string
   viewport?: Viewport
+  /** Device scale factor (1 = standard, 2 = Retina/HiDPI). Default: 1. */
+  scale?: number
   colorScheme?: 'light' | 'dark'
   waitForSelector?: string
   storageState?: string
@@ -198,6 +200,8 @@ export interface RecordOptions {
   headless?: boolean
   setup?: SetupBlock
   speed?: number
+  /** Device scale factor override (1 = standard, 2 = Retina/HiDPI). */
+  scale?: number
   outputFormat?: OutputFormat
   /** Keep intermediate files (cursor JSON, etc.) instead of cleaning up. */
   keepIntermediates?: boolean
@@ -276,4 +280,6 @@ export interface ActionContext {
   cursorEnabled: boolean
   cursorOptions?: CursorOptions
   cursorTracker?: CursorTracker
+  /** Device scale factor. Default: 1. */
+  scale: number
 }

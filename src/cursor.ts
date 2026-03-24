@@ -18,9 +18,11 @@ export class CursorTrackerImpl implements CursorTracker {
   private events: CursorEvent[] = []
   private startTime = 0
   private cursorPos = { x: 0, y: 0 }
+  private scale: number
 
-  constructor() {
+  constructor(scale: number = 1) {
     this.startTime = Date.now()
+    this.scale = scale
   }
 
   private elapsed(): number {
@@ -100,13 +102,17 @@ export class CursorTrackerImpl implements CursorTracker {
 
     if (!result) return
 
-    this.cursorPos = { x: result.x, y: result.y }
+    // Scale from CSS pixels to video pixels
+    const x = result.x * this.scale
+    const y = result.y * this.scale
+
+    this.cursorPos = { x, y }
 
     this.events.push({
       time: this.elapsed(),
       type: 'move',
-      x: result.x,
-      y: result.y,
+      x,
+      y,
       transitionMs,
       cursorStyle: result.cursorStyle as CursorStyle,
     })
@@ -126,13 +132,17 @@ export class CursorTrackerImpl implements CursorTracker {
   ): Promise<void> {
     const transitionMs = options.transitionMs ?? 350
 
-    this.cursorPos = { x, y }
+    // Scale from CSS pixels to video pixels
+    const sx = x * this.scale
+    const sy = y * this.scale
+
+    this.cursorPos = { x: sx, y: sy }
 
     this.events.push({
       time: this.elapsed(),
       type: 'move',
-      x,
-      y,
+      x: sx,
+      y: sy,
       transitionMs,
     })
 
@@ -148,7 +158,7 @@ export class CursorTrackerImpl implements CursorTracker {
       type: 'ripple',
       x: this.cursorPos.x,
       y: this.cursorPos.y,
-      rippleSize: options.rippleSize ?? 40,
+      rippleSize: (options.rippleSize ?? 40) * this.scale,
       rippleColor: options.rippleColor ?? 'rgba(59, 130, 246, 0.4)',
     })
   }
@@ -200,8 +210,8 @@ export class CursorTrackerImpl implements CursorTracker {
 }
 
 /** Create a new cursor tracker instance. */
-export function createCursorTracker(): CursorTrackerImpl {
-  return new CursorTrackerImpl()
+export function createCursorTracker(scale: number = 1): CursorTrackerImpl {
+  return new CursorTrackerImpl(scale)
 }
 
 // ---------------------------------------------------------------------------
