@@ -14,7 +14,7 @@
     }
   },
   "bin": {
-    "fipplet": "./dist/cli.cjs"
+    "fipplet": "dist/cli.cjs"
   },
   "files": [
     "dist",
@@ -42,7 +42,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/greentfrapp/fipplet.git"
+    "url": "git+https://github.com/greentfrapp/fipplet.git"
   },
   "homepage": "https://github.com/greentfrapp/fipplet#readme",
   "bugs": {
