@@ -11,6 +11,9 @@
  * Output:
  *   Videos and screenshots are attached to the Playwright HTML report.
  *   Open it with: pnpm exec playwright show-report
+ *
+ * Tip: If you already have custom Playwright fixtures, see playwright-composable.test.ts
+ * for how to merge fipplet into your existing test.extend() setup.
  */
 
 import { test, expect } from 'fipplet/playwright'
