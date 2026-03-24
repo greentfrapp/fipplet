@@ -170,3 +170,62 @@ Keep secrets out of your definition files:
 ```bash
 APP_HOST=staging.example.com AUTH_TOKEN=eyJ... npx fipplet recording.json
 ```
+
+## Recording a Playwright test
+
+Use the fipplet fixture to record videos from existing test flows:
+
+```js
+import { test, expect } from 'fipplet/playwright'
+
+test.use({
+  fippletOptions: {
+    chrome: { url: true },
+    background: { gradient: { from: '#667eea', to: '#764ba2' } },
+  },
+})
+
+test('sign-up flow', async ({ fippletPage }) => {
+  await fippletPage.navigate('https://app.example.com/signup')
+  await fippletPage.type('#name', 'Jane Smith', { delay: 60 })
+  await fippletPage.type('#email', 'jane@example.com', { delay: 60 })
+  await fippletPage.fill('#password', 's3cure-password')
+  await fippletPage.screenshot('form-filled')
+  await fippletPage.click('button[type=submit]')
+  await fippletPage.wait(2000)
+  await fippletPage.screenshot('success')
+  // Video is saved and attached to the test report automatically
+})
+```
+
+## Using recordPage in a script
+
+For programmatic recording outside of Playwright Test:
+
+```js
+import { chromium } from 'playwright-core'
+import { recordPage } from 'fipplet'
+
+const browser = await chromium.launch()
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 720 },
+  recordVideo: { dir: './output', size: { width: 1280, height: 720 } },
+})
+const page = await context.newPage()
+await page.goto('https://app.example.com')
+
+const recorder = await recordPage(page, {
+  outputDir: './output',
+  chrome: true,
+  background: { color: '#6366f1', padding: 60, borderRadius: 12 },
+})
+
+await recorder.click('.demo-button')
+await recorder.wait(1000)
+await recorder.screenshot('demo')
+
+const result = await recorder.stop()
+console.log(result.video) // path to processed video
+
+await browser.close()
+```

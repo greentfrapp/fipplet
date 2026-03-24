@@ -81,10 +81,41 @@ console.log(result.video)       // path to .webm file
 console.log(result.screenshots) // array of .png paths
 ```
 
+## Recording from Playwright tests
+
+If you already have a Playwright test suite, you can record videos directly from your tests using the fipplet fixture:
+
+```js
+import { test, expect } from 'fipplet/playwright'
+
+test('onboarding flow', async ({ fippletPage }) => {
+  await fippletPage.navigate('https://myapp.com')
+  await fippletPage.click('.get-started')
+  await fippletPage.type('#name', 'Jane Smith')
+  await fippletPage.screenshot('form-filled')
+  // Video is saved and attached to the test report automatically
+})
+```
+
+For manual control without the fixture, use `recordPage()` directly:
+
+```js
+import { recordPage } from 'fipplet'
+
+// page must belong to a context created with recordVideo
+const recorder = await recordPage(page, { chrome: true })
+await recorder.click('.button')
+const result = await recorder.stop()
+console.log(result.video)
+```
+
+See the [Playwright Integration](playwright.md) guide for full details.
+
 ## Next steps
 
 - [Recording Definitions](recording-definitions.md) — full reference for the JSON format
 - [Actions](actions.md) — all 13 step actions with examples
 - [Authentication](authentication.md) — recording authenticated apps
 - [CLI Reference](cli.md) — all commands and flags
+- [Playwright Integration](playwright.md) — test fixture and `recordPage()` API
 - [Examples](examples.md) — common recording patterns

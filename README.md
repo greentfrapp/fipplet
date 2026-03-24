@@ -59,6 +59,37 @@ console.log(result.video)       // path to .webm file
 console.log(result.screenshots) // array of .png paths
 ```
 
+### Playwright test fixture
+
+Already have a Playwright test suite? Record polished videos from your existing tests:
+
+```js
+import { test, expect } from 'fipplet/playwright'
+
+test('product demo', async ({ fippletPage }) => {
+  await fippletPage.navigate('https://myapp.com')
+  await fippletPage.click('.login-button')
+  await fippletPage.type('#email', 'user@example.com')
+  await fippletPage.screenshot('login-form')
+  // Video is saved and attached to the test report automatically
+})
+```
+
+### recordPage API
+
+For manual control over recording within any Playwright script:
+
+```js
+import { recordPage } from 'fipplet'
+
+// page must belong to a context created with recordVideo
+const recorder = await recordPage(page, { scale: 2, chrome: true })
+await recorder.click('.button')
+await recorder.type('#search', 'hello')
+const result = await recorder.stop() // finalizes video + post-processing
+console.log(result.video)
+```
+
 ## Features
 
 - **13 actions** — click, type, fill, clear, select, scroll, hover, keyboard, navigate, screenshot, zoom, wait, waitForNetwork
@@ -66,6 +97,8 @@ console.log(result.screenshots) // array of .png paths
 - **Window chrome** — macOS-style title bar with traffic lights
 - **Background styling** — padding, rounded corners, solid or gradient backgrounds
 - **Multiple auth methods** — setup blocks, localStorage/cookies injection, storage state files, interactive login, Supabase provider
+- **Retina/HiDPI** — `scale` option for 2× resolution recording
+- **Playwright integration** — test fixture and `recordPage()` API for existing test suites
 - **Output formats** — WebM (default), MP4, GIF
 - **Speed control** — global and per-step playback speed
 - **Environment variables** — `${VAR}` substitution in definitions
@@ -80,6 +113,7 @@ console.log(result.screenshots) // array of .png paths
 | [Actions](docs/actions.md) | All 13 step actions with examples |
 | [Authentication](docs/authentication.md) | Recording authenticated apps |
 | [CLI Reference](docs/cli.md) | All commands and flags |
+| [Playwright Integration](docs/playwright.md) | Test fixture and `recordPage()` API |
 | [Examples](docs/examples.md) | Common recording patterns |
 
 ## License

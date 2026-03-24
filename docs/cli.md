@@ -22,6 +22,7 @@ Run a recording from a definition file.
 | `--setup <file>` | Setup file — runs before recording (login, dismiss modals, etc.) |
 | `--format <fmt>` | Output format: `webm`, `mp4`, or `gif` (overrides definition) |
 | `--speed <n>` | Playback speed multiplier (overrides definition) |
+| `--scale <n>` | Device scale factor: `1` = standard, `2` = Retina/HiDPI (overrides definition) |
 | `--headed` | Run browser in headed mode (visible window) |
 | `--dry-run` | Validate definition and print summary without recording |
 | `--verbose` | Detailed output (per-step timing, diagnostics) |
