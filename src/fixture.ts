@@ -2,7 +2,7 @@ import { test as base } from '@playwright/test'
 import { recordPage } from './record-page.js'
 import type { PageRecorder, RecordPageOptions } from './record-page.js'
 
-type FippletFixtures = {
+export type FippletFixtures = {
   fippletPage: PageRecorder
   fippletOptions: RecordPageOptions & {
     viewport?: { width: number; height: number }
@@ -10,7 +10,18 @@ type FippletFixtures = {
   }
 }
 
-export const test = base.extend<FippletFixtures>({
+/**
+ * Raw fixtures object — compose into your own test.extend() alongside
+ * other custom fixtures (auth, database, etc.):
+ *
+ *   import { test as base } from '@playwright/test'
+ *   import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
+ *
+ *   const test = base.extend<FippletFixtures>(fippletFixtures)
+ */
+export const fippletFixtures: Parameters<
+  typeof base.extend<FippletFixtures>
+>[0] = {
   fippletOptions: [{}, { option: true }],
 
   fippletPage: async ({ browser, fippletOptions }, use, testInfo) => {
@@ -57,7 +68,10 @@ export const test = base.extend<FippletFixtures>({
       // Partial video on failure — swallow error
     }
   },
-})
+}
+
+/** Pre-composed test for the simple case: `import { test } from 'fipplet/playwright'` */
+export const test = base.extend<FippletFixtures>(fippletFixtures)
 
 export { expect } from '@playwright/test'
 export type { PageRecorder, RecordPageOptions } from './record-page.js'

@@ -65,7 +65,7 @@ export function buildFrameFilters(input: FrameFilterInput): FrameFilterOutput {
   const titleBarHeight = chrome?.titleBarHeight ?? 38
   const titleBarColor = chrome?.titleBarColor ?? '#e8e8e8'
   const padding = background?.padding ?? 60
-  const borderRadius = background?.borderRadius ?? 10
+  const borderRadius = background?.borderRadius ?? 12
 
   // --- Title bar + frame overlay ---
   if (hasChrome && framePngPath) {
