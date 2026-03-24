@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { chromium } from 'playwright-core'
+
 import { ACTIONS } from './actions'
 import { createCursorTracker } from './cursor'
 import { log, logError, logVerbose } from './logger'
@@ -65,6 +65,7 @@ export async function record(
   }
 
   log('  launching browser...')
+  const { chromium } = await import('playwright-core')
   const browser = await chromium.launch({ headless })
 
   // --- Setup phase (no video) ---

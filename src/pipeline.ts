@@ -2,7 +2,7 @@ import { execFile } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { type Browser, chromium } from 'playwright-core'
+import type { Browser } from 'playwright-core'
 import {
   compositeScreenshot,
   renderBackground,
@@ -319,6 +319,7 @@ export async function runPostProcessPipeline(
       const finalH = hasBackground ? framedH + padding * 2 : framedH
 
       // Launch browser to render frame PNGs
+      const { chromium } = await import('playwright-core')
       browser = await chromium.launch({ headless: true })
 
       if (hasChrome) {

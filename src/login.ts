@@ -3,7 +3,7 @@ import http from 'http'
 import net from 'net'
 import os from 'os'
 import path from 'path'
-import { chromium } from 'playwright-core'
+
 import { startViewer } from './remote-viewer.js'
 import type { Viewport } from './types'
 
@@ -18,6 +18,7 @@ export interface LoginOptions {
 }
 
 export async function login(options: LoginOptions): Promise<void> {
+  const { chromium } = await import('playwright-core')
   const {
     url,
     saveState,

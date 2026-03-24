@@ -1,10 +1,7 @@
-import { defineConfig, type Options } from "tsup";
+import { defineConfig } from "tsup";
 import pkg from "./package.json";
-import module from "node:module";
 import nodePath from "node:path";
 import nodeFs from "node:fs";
-
-const nodeBuiltins = module.builtinModules.flatMap((m) => [m, `node:${m}`]);
 
 /**
  * esbuild plugin that copies .png imports to the output directory
@@ -27,37 +24,6 @@ const resolvePngAssets: import("esbuild").Plugin = {
   },
 };
 
-const bundlePlaywright: Partial<Options> = {
-  noExternal: ["playwright-core"],
-  external: ["chromium-bidi", "ws", ...nodeBuiltins],
-  platform: "node",
-  esbuildPlugins: [
-    resolvePngAssets,
-    {
-      name: "patch-playwright-coredir",
-      setup(build) {
-        // playwright-core's nodePlatform.js does:
-        //   require.resolve("../../../package.json")
-        // to find its install root. When bundled, this path is wrong.
-        // Replace it with __dirname so coreDir points to dist/.
-        build.onLoad({ filter: /nodePlatform\.js$/ }, async (args) => {
-          const fs = await import("node:fs");
-          let contents = fs.readFileSync(args.path, "utf8");
-          contents = contents.replace(
-            /import_path\.default\.dirname\(require\.resolve\("\.\.\/\.\.\/\.\.\/package\.json"\)\)/,
-            "__dirname"
-          );
-          return { contents, loader: "js" };
-        });
-      },
-    },
-  ],
-};
-
-const assetLoaders: Partial<Options> = {
-  loader: { ".svg": "text", ".html": "text" },
-};
-
 export default defineConfig([
   {
     entry: ["src/index.ts"],
@@ -66,8 +32,10 @@ export default defineConfig([
     clean: true,
     splitting: false,
     minify: true,
-    ...bundlePlaywright,
-    ...assetLoaders,
+    platform: "node",
+    external: ["playwright-core"],
+    esbuildPlugins: [resolvePngAssets],
+    loader: { ".svg": "text", ".html": "text" },
   },
   {
     entry: ["src/cli.ts"],
@@ -75,8 +43,10 @@ export default defineConfig([
     banner: { js: "#!/usr/bin/env node" },
     splitting: false,
     minify: true,
-    ...bundlePlaywright,
-    ...assetLoaders,
+    platform: "node",
+    external: ["playwright-core"],
+    esbuildPlugins: [resolvePngAssets],
+    loader: { ".svg": "text", ".html": "text" },
     define: {
       __FIPPLET_VERSION__: JSON.stringify(pkg.version),
     },
