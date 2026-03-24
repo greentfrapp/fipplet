@@ -30,6 +30,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:examples": "playwright test --config examples/playwright.config.ts",
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'",
     "prepublishOnly": "tsup"
