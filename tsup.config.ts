@@ -5,7 +5,10 @@ import nodeFs from "node:fs";
 
 /**
  * esbuild plugin that copies .png imports to the output directory
- * and replaces the import with `path.join(__dirname, "<filename>")`.
+ * and resolves the import to the co-located file at runtime.
+ *
+ * Uses import.meta.url (ESM) with __dirname fallback (CJS) so the
+ * generated code works in both module systems.
  */
 const resolvePngAssets: import("esbuild").Plugin = {
   name: "resolve-png-assets",
@@ -16,8 +19,11 @@ const resolvePngAssets: import("esbuild").Plugin = {
       const dest = nodePath.resolve(outdir, basename);
       nodeFs.mkdirSync(nodePath.dirname(dest), { recursive: true });
       nodeFs.copyFileSync(args.path, dest);
+      // Resolve to the co-located PNG at runtime using only __dirname + string concat.
+      // Avoids require("path") which breaks in ESM (esbuild wraps it in a throwing shim).
+      // The PNG is always in the same directory as the output JS, so join is just __dirname + "/" + name.
       return {
-        contents: `module.exports = require("path").join(__dirname, ${JSON.stringify(basename)});`,
+        contents: `module.exports = __dirname + "/" + ${JSON.stringify(basename)};`,
         loader: "js",
       };
     });
