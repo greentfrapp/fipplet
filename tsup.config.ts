@@ -51,4 +51,15 @@ export default defineConfig([
       __FIPPLET_VERSION__: JSON.stringify(pkg.version),
     },
   },
+  {
+    entry: ["src/fixture.ts"],
+    format: ["esm", "cjs"],
+    dts: true,
+    splitting: false,
+    minify: true,
+    platform: "node",
+    external: ["playwright-core", "@playwright/test"],
+    esbuildPlugins: [resolvePngAssets],
+    loader: { ".svg": "text", ".html": "text" },
+  },
 ]);

@@ -44,3 +44,5 @@ export type {
   CursorTracker,
 } from './types.js'
 export type { LoginOptions } from './login.js'
+export { recordPage } from './record-page.js'
+export type { PageRecorder, RecordPageOptions } from './record-page.js'

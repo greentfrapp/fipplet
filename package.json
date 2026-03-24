@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./playwright": {
+      "types": "./dist/fixture.d.ts",
+      "import": "./dist/fixture.js",
+      "require": "./dist/fixture.cjs"
     }
   },
   "bin": {
@@ -52,10 +57,15 @@
     "node": ">=18"
   },
   "peerDependencies": {
-    "playwright-core": ">=1.51.0"
+    "playwright-core": ">=1.51.0",
+    "@playwright/test": ">=1.51.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": { "optional": true }
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@playwright/test": "^1.58.2",
     "@types/node": "^25.5.0",
     "@types/ws": "^8.18.1",
     "playwright-core": "^1.58.2",

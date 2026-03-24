@@ -53,7 +53,7 @@ function action<S extends Step>(
 const DEFAULT_SELECTOR_TIMEOUT = 5000
 
 /** Wait for a selector to become visible, retrying until timeout. */
-async function awaitSelector(
+export async function awaitSelector(
   page: Page,
   selector: string,
   timeout: number,
@@ -62,7 +62,7 @@ async function awaitSelector(
 }
 
 /** Get the screen-space center of an element (includes CSS transform effects). */
-async function getScreenCenter(
+export async function getScreenCenter(
   page: Page,
   selector: string,
 ): Promise<{ x: number; y: number } | null> {
@@ -75,7 +75,7 @@ async function getScreenCenter(
 }
 
 /** Focus an element without changing zoom. Works at any zoom level. */
-async function focusElement(page: Page, selector: string): Promise<void> {
+export async function focusElement(page: Page, selector: string): Promise<void> {
   await page.evaluate((sel: string) => {
     const el = document.querySelector(sel) as HTMLElement | null
     el?.focus()
