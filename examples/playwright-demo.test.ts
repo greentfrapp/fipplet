@@ -41,7 +41,7 @@ test('Wikipedia — browse and read an article', async ({ fippletPage }) => {
   await fippletPage.wait(500)
 
   // Click the first link in the featured article
-  await fippletPage.click('#mp-tfa a:first-of-type')
+  await fippletPage.click('#mp-tfa-img a')
   await fippletPage.wait(2000)
   await fippletPage.screenshot('article')
 
@@ -75,9 +75,11 @@ test('Wikipedia — search for a topic', async ({ fippletPage }) => {
 
   // Click the search input and type a query
   await fippletPage.click('#searchInput')
-  await fippletPage.type('#searchInput', 'Playwright browser automation', {
-    delay: 50,
-  })
+  await fippletPage.type(
+    '#searchform input[name="search"]',
+    'Playwright browser automation',
+    { delay: 50 },
+  )
   await fippletPage.wait(1000)
   await fippletPage.screenshot('search-typed')
 
