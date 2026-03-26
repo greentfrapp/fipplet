@@ -1,31 +1,31 @@
 # Playwright Integration
 
-Fipplet integrates with Playwright in three ways:
+Testreel integrates with Playwright in three ways:
 
-1. **`page` fixture** (`fipplet/playwright`) — drop-in recording for existing tests. Your test body stays unchanged — just use a different `test` function and fipplet records video automatically
-2. **`fippletPage` fixture** (`fipplet/playwright`) — advanced recording with animated cursor, zoom, smooth scroll, and other visual effects via the `PageRecorder` API
-3. **`recordPage()` API** (`fipplet`) — wrap any existing Playwright `Page` with cursor tracking and post-processing in a custom script
+1. **`page` fixture** (`testreel/playwright`) — drop-in recording for existing tests. Your test body stays unchanged — just use a different `test` function and testreel records video automatically
+2. **`testreelPage` fixture** (`testreel/playwright`) — advanced recording with animated cursor, zoom, smooth scroll, and other visual effects via the `PageRecorder` API
+3. **`recordPage()` API** (`testreel`) — wrap any existing Playwright `Page` with cursor tracking and post-processing in a custom script
 
 ## Test fixture
 
 ### Setup
 
-Install fipplet alongside your existing Playwright setup:
+Install testreel alongside your existing Playwright setup:
 
 ```bash
-npm install fipplet
+npm install testreel
 ```
 
 ### Basic usage
 
-Compose fipplet's fixtures into your test and swap `test` for `recorded` on any test you want to capture:
+Compose testreel's fixtures into your test and swap `test` for `recorded` on any test you want to capture:
 
 ```js
 import { test, expect } from '@playwright/test'
-import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
+import { testreelFixtures, type TestreelFixtures } from 'testreel/playwright'
 
-const recorded = test.extend<FippletFixtures>({
-  ...fippletFixtures,
+const recorded = test.extend<TestreelFixtures>({
+  ...testreelFixtures,
 })
 
 // This test is unchanged — no recording
@@ -49,20 +49,20 @@ The `page` fixture creates a recording-enabled browser context that preserves yo
 
 ### Advanced: PageRecorder
 
-For polished demo recordings with animated cursor, zoom effects, and smooth scrolling, use the `fippletPage` fixture instead:
+For polished demo recordings with animated cursor, zoom effects, and smooth scrolling, use the `testreelPage` fixture instead:
 
 ```js
-recorded('polished demo', async ({ fippletPage }) => {
-  await fippletPage.navigate('https://myapp.com')
-  await fippletPage.click('.feature-button')
-  await fippletPage.zoom({ selector: '.hero', scale: 2.5, duration: 800 })
-  await fippletPage.wait(1500)
-  await fippletPage.screenshot('zoomed')
-  await fippletPage.zoom({ scale: 1, duration: 600 })
+recorded('polished demo', async ({ testreelPage }) => {
+  await testreelPage.navigate('https://myapp.com')
+  await testreelPage.click('.feature-button')
+  await testreelPage.zoom({ selector: '.hero', scale: 2.5, duration: 800 })
+  await testreelPage.wait(1500)
+  await testreelPage.screenshot('zoomed')
+  await testreelPage.zoom({ scale: 1, duration: 600 })
 })
 ```
 
-The `fippletPage` object provides these methods:
+The `testreelPage` object provides these methods:
 
 | Method | Description |
 |--------|-------------|
@@ -82,7 +82,7 @@ All selector-based actions include cursor movement and click ripple effects by d
 
 ### Configuring options
 
-Pass options via `playwright.config.ts` using the `fippletOptions` fixture:
+Pass options via `playwright.config.ts` using the `testreelOptions` fixture:
 
 ```js
 // playwright.config.ts
@@ -90,7 +90,7 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   use: {
-    fippletOptions: {
+    testreelOptions: {
       viewport: { width: 1280, height: 720 },
       scale: 2,
       chrome: { url: true },
@@ -110,7 +110,7 @@ Or override per-test:
 
 ```js
 recorded.use({
-  fippletOptions: {
+  testreelOptions: {
     scale: 1,
     chrome: false,
     background: false,
@@ -132,7 +132,7 @@ For scripts outside of Playwright Test, or when you need full control over the b
 
 ```js
 import { chromium } from 'playwright-core'
-import { recordPage } from 'fipplet'
+import { recordPage } from 'testreel'
 
 const browser = await chromium.launch()
 const context = await browser.newContext({
@@ -174,7 +174,7 @@ Calling `stop()` twice throws an error.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `outputDir` | `string` | `'./fipplet-output'` | Directory for output files |
+| `outputDir` | `string` | `'./testreel-output'` | Directory for output files |
 | `cursor` | `boolean \| CursorOptions` | `true` | Animated cursor overlay |
 | `chrome` | `boolean \| WindowChromeOptions` | `false` | macOS-style window chrome |
 | `background` | `boolean \| BackgroundOptions` | `false` | Background padding and styling |

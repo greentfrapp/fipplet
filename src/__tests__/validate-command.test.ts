@@ -7,7 +7,7 @@ import { runValidate } from '../validate-command'
 let tmpDir: string
 
 beforeEach(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-validate-'))
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'testreel-validate-'))
 })
 
 afterEach(() => {

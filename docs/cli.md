@@ -3,7 +3,7 @@
 ## Recording (default command)
 
 ```
-fipplet <definition> [options]
+testreel <definition> [options]
 ```
 
 Run a recording from a definition file.
@@ -18,7 +18,7 @@ Run a recording from a definition file.
 
 | Flag | Description |
 |------|-------------|
-| `-o, --output <dir>` | Output directory (default: `./fipplet-output`) |
+| `-o, --output <dir>` | Output directory (default: `./testreel-output`) |
 | `--setup <file>` | Setup file — runs before recording (login, dismiss modals, etc.) |
 | `--format <fmt>` | Output format: `webm`, `mp4`, or `gif` (overrides definition) |
 | `--speed <n>` | Playback speed multiplier (overrides definition) |
@@ -35,28 +35,28 @@ Run a recording from a definition file.
 
 ```bash
 # Basic recording
-npx fipplet recording.json
+npx testreel recording.json
 
 # Custom output directory
-npx fipplet recording.json --output ./demo-videos
+npx testreel recording.json --output ./demo-videos
 
 # Debug with visible browser
-npx fipplet recording.json --headed
+npx testreel recording.json --headed
 
 # Fast recording, GIF output
-npx fipplet recording.json --speed 2 --format gif
+npx testreel recording.json --speed 2 --format gif
 
 # Separate setup file for login
-npx fipplet recording.json --setup login.json
+npx testreel recording.json --setup login.json
 
 # Validate only
-npx fipplet recording.json --dry-run
+npx testreel recording.json --dry-run
 ```
 
 ## validate
 
 ```
-fipplet validate <file> [options]
+testreel validate <file> [options]
 ```
 
 Validate a recording definition and print a summary. Exits with code 0 if valid, 1 if invalid.
@@ -69,27 +69,27 @@ Validate a recording definition and print a summary. Exits with code 0 if valid,
 | `--quiet` | Exit silently on success, print errors on failure |
 
 ```bash
-npx fipplet validate recording.json
-npx fipplet validate recording.json --setup login.json
-npx fipplet validate recording.json --quiet && echo "OK"
+npx testreel validate recording.json
+npx testreel validate recording.json --setup login.json
+npx testreel validate recording.json --quiet && echo "OK"
 ```
 
 ## init
 
 ```
-fipplet init
+testreel init
 ```
 
 Interactively create a new recording definition. Prompts for URL, viewport, and basic steps, then writes a JSON file.
 
 ```bash
-npx fipplet init
+npx testreel init
 ```
 
 ## login
 
 ```
-fipplet login <url> --save-state <file> [options]
+testreel login <url> --save-state <file> [options]
 ```
 
 Open a browser to log in manually, then save the session state for use in recordings.
@@ -116,16 +116,16 @@ Open a browser to log in manually, then save the session state for use in record
 
 ```bash
 # Standard interactive login
-npx fipplet login https://app.example.com --save-state ./state.json
+npx testreel login https://app.example.com --save-state ./state.json
 
 # Use Chrome for Google OAuth
-npx fipplet login https://app.example.com --save-state ./state.json --channel chrome
+npx testreel login https://app.example.com --save-state ./state.json --channel chrome
 
 # Connect to existing browser
-npx fipplet login https://app.example.com --save-state ./state.json --cdp http://localhost:9222
+npx testreel login https://app.example.com --save-state ./state.json --cdp http://localhost:9222
 
 # Headless with web viewer (for remote machines)
-npx fipplet login https://app.example.com --save-state ./state.json --remote --port 8080
+npx testreel login https://app.example.com --save-state ./state.json --remote --port 8080
 ```
 
 Then use the saved state in a recording:

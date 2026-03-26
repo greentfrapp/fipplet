@@ -260,7 +260,7 @@ describe('loadDefinition', () => {
     let tmpDir: string
 
     beforeEach(() => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-test-'))
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'testreel-test-'))
     })
 
     afterEach(() => {

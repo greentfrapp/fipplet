@@ -95,7 +95,7 @@ export async function login(options: LoginOptions): Promise<void> {
       'Opening browser — log in manually, then close the browser window.\n',
     )
 
-    tempProfileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-login-'))
+    tempProfileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'testreel-login-'))
     context = await chromium.launchPersistentContext(tempProfileDir, {
       headless: false,
       channel,

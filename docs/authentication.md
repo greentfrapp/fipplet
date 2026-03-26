@@ -1,6 +1,6 @@
 # Authentication
 
-Most web apps require authentication. Fipplet supports several approaches so your recordings start in a logged-in state without capturing the login flow on video.
+Most web apps require authentication. Testreel supports several approaches so your recordings start in a logged-in state without capturing the login flow on video.
 
 ## Setup block (recommended)
 
@@ -33,7 +33,7 @@ Setup also preserves scroll position — if your setup scrolls to a specific sec
 You can also provide setup in a separate file via the CLI:
 
 ```bash
-npx fipplet recording.json --setup login-steps.json
+npx testreel recording.json --setup login-steps.json
 ```
 
 ## localStorage injection
@@ -50,7 +50,7 @@ For apps that store auth tokens in localStorage (e.g., Supabase, Firebase):
 }
 ```
 
-Fipplet navigates to the URL, injects the entries, then reloads to let the app pick up the session.
+Testreel navigates to the URL, injects the entries, then reloads to let the app pick up the session.
 
 ## Cookies
 
@@ -69,23 +69,23 @@ Fipplet navigates to the URL, injects the entries, then reloads to let the app p
 }
 ```
 
-## Interactive login (`fipplet login`)
+## Interactive login (`testreel login`)
 
 For OAuth flows or other logins that are hard to automate, use the `login` subcommand. It opens a real browser, lets you log in manually, and exports the session state to a JSON file.
 
 ```bash
 # Open a browser, log in, then close the window to save
-npx fipplet login https://app.example.com --save-state ./state.json
+npx testreel login https://app.example.com --save-state ./state.json
 
 # Use Chrome instead of Chromium (needed for Google OAuth and other
 # providers that block automation-controlled browsers)
-npx fipplet login https://app.example.com --save-state ./state.json --channel chrome
+npx testreel login https://app.example.com --save-state ./state.json --channel chrome
 
 # Connect to an already-running browser via CDP
-npx fipplet login https://app.example.com --save-state ./state.json --cdp http://localhost:9222
+npx testreel login https://app.example.com --save-state ./state.json --cdp http://localhost:9222
 
 # Headless login with a web-based viewer (useful on remote/CI machines)
-npx fipplet login https://app.example.com --save-state ./state.json --remote
+npx testreel login https://app.example.com --save-state ./state.json --remote
 ```
 
 Then reference the saved state in your recording definition:
@@ -126,7 +126,7 @@ For APIs or apps that accept auth headers (e.g., Bearer tokens):
 
 ## Supabase auth provider
 
-For Supabase-based apps, fipplet can generate a session automatically using a service role key:
+For Supabase-based apps, testreel can generate a session automatically using a service role key:
 
 ```json
 {

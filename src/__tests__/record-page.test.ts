@@ -94,10 +94,10 @@ describe('recordPage initialization', () => {
     })
   })
 
-  it('defaults outputDir to ./fipplet-output', async () => {
+  it('defaults outputDir to ./testreel-output', async () => {
     const page = mockPage()
     await recordPage(page)
-    expect(fs.mkdirSync).toHaveBeenCalledWith('./fipplet-output', {
+    expect(fs.mkdirSync).toHaveBeenCalledWith('./testreel-output', {
       recursive: true,
     })
   })

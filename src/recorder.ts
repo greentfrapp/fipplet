@@ -46,7 +46,7 @@ export async function record(
     log('  auth resolved.')
   }
 
-  const outputDir = options.outputDir ?? './fipplet-output'
+  const outputDir = options.outputDir ?? './testreel-output'
   const headless = options.headless ?? true
   // CLI --setup takes precedence over inline setup block
   const setup = options.setup ?? def.setup
@@ -204,7 +204,7 @@ export async function record(
       ) {
         let body = await response.text()
         const hideStyle =
-          '<style id="__fipplet-hide">html{visibility:hidden!important}</style>'
+          '<style id="__testreel-hide">html{visibility:hidden!important}</style>'
         // Inject right after <head> if present, otherwise prepend
         if (body.includes('<head>')) {
           body = body.replace('<head>', '<head>' + hideStyle)
@@ -253,7 +253,7 @@ export async function record(
     await page.unrouteAll({ behavior: 'wait' })
     await page.evaluate(({ x, y }) => {
       window.scrollTo(x, y)
-      const hideStyle = document.getElementById('__fipplet-hide')
+      const hideStyle = document.getElementById('__testreel-hide')
       if (hideStyle) hideStyle.remove()
     }, setupScroll!)
   }

@@ -88,7 +88,7 @@ export async function recordPage(
   }
 
   const scale = options.scale ?? 1
-  const outputDir = options.outputDir ?? './fipplet-output'
+  const outputDir = options.outputDir ?? './testreel-output'
   fs.mkdirSync(outputDir, { recursive: true })
 
   // Normalize cursor config

@@ -441,7 +441,7 @@ export async function runPostProcessPipeline(
     const filterGraph = filterSegments.join(';')
     const filterScriptPath = path.join(
       os.tmpdir(),
-      `fipplet-pipeline-${Date.now()}.txt`,
+      `testreel-pipeline-${Date.now()}.txt`,
     )
     fs.writeFileSync(filterScriptPath, filterGraph)
     tempFiles.push(filterScriptPath)

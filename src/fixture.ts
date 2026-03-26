@@ -3,10 +3,10 @@ import type { Page } from 'playwright-core'
 import { recordPage } from './record-page.js'
 import type { PageRecorder, RecordPageOptions } from './record-page.js'
 
-export type FippletFixtures = {
+export type TestreelFixtures = {
   page: Page
-  fippletPage: PageRecorder
-  fippletOptions: RecordPageOptions & {
+  testreelPage: PageRecorder
+  testreelOptions: RecordPageOptions & {
     viewport?: { width: number; height: number }
     deviceScaleFactor?: number
   }
@@ -17,21 +17,21 @@ export type FippletFixtures = {
  * other custom fixtures (auth, database, etc.):
  *
  *   import { test as base } from '@playwright/test'
- *   import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
+ *   import { testreelFixtures, type TestreelFixtures } from 'testreel/playwright'
  *
- *   const test = base.extend<FippletFixtures>(fippletFixtures)
+ *   const test = base.extend<TestreelFixtures>(testreelFixtures)
  */
-export const fippletFixtures: Parameters<
-  typeof base.extend<FippletFixtures>
+export const testreelFixtures: Parameters<
+  typeof base.extend<TestreelFixtures>
 >[0] = {
-  fippletOptions: [{}, { option: true }],
+  testreelOptions: [{}, { option: true }],
 
-  page: async ({ browser, fippletOptions }, use, testInfo) => {
+  page: async ({ browser, testreelOptions }, use, testInfo) => {
     const projectUse = testInfo.project.use
     const viewport =
-      fippletOptions.viewport ?? projectUse.viewport ?? { width: 1280, height: 720 }
+      testreelOptions.viewport ?? projectUse.viewport ?? { width: 1280, height: 720 }
     const scale =
-      fippletOptions.deviceScaleFactor ?? projectUse.deviceScaleFactor ?? 1
+      testreelOptions.deviceScaleFactor ?? projectUse.deviceScaleFactor ?? 1
 
     const context = await browser.newContext({
       ...projectUse.contextOptions,
@@ -58,17 +58,17 @@ export const fippletFixtures: Parameters<
     const video = page.video()
     await context.close()
     if (video) {
-      await testInfo.attach('fipplet-video', {
+      await testInfo.attach('testreel-video', {
         path: await video.path(),
         contentType: 'video/webm',
       })
     }
   },
 
-  fippletPage: async ({ browser, fippletOptions }, use, testInfo) => {
-    const viewport = fippletOptions.viewport ?? { width: 1280, height: 720 }
+  testreelPage: async ({ browser, testreelOptions }, use, testInfo) => {
+    const viewport = testreelOptions.viewport ?? { width: 1280, height: 720 }
     const scale =
-      fippletOptions.scale ?? fippletOptions.deviceScaleFactor ?? 1
+      testreelOptions.scale ?? testreelOptions.deviceScaleFactor ?? 1
 
     const context = await browser.newContext({
       viewport,
@@ -85,7 +85,7 @@ export const fippletFixtures: Parameters<
     const recorder = await recordPage(page, {
       outputDir: testInfo.outputDir,
       scale,
-      ...fippletOptions,
+      ...testreelOptions,
     })
 
     await use(recorder)
@@ -94,13 +94,13 @@ export const fippletFixtures: Parameters<
     try {
       const result = await recorder.stop()
       if (result.video) {
-        await testInfo.attach('fipplet-video', {
+        await testInfo.attach('testreel-video', {
           path: result.video,
           contentType: 'video/webm',
         })
       }
       for (const s of result.screenshots) {
-        await testInfo.attach('fipplet-screenshot', {
+        await testInfo.attach('testreel-screenshot', {
           path: s,
           contentType: 'image/png',
         })
@@ -111,8 +111,8 @@ export const fippletFixtures: Parameters<
   },
 }
 
-/** Pre-composed test for the simple case: `import { test } from 'fipplet/playwright'` */
-export const test = base.extend<FippletFixtures>(fippletFixtures)
+/** Pre-composed test for the simple case: `import { test } from 'testreel/playwright'` */
+export const test = base.extend<TestreelFixtures>(testreelFixtures)
 
 export { expect } from '@playwright/test'
 export type { PageRecorder, RecordPageOptions } from './record-page.js'

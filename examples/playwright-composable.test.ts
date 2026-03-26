@@ -1,8 +1,8 @@
 /**
- * Advanced fixture example — use fipplet's PageRecorder for cursor animation,
+ * Advanced fixture example — use testreel's PageRecorder for cursor animation,
  * zoom, and other recording-specific features alongside your own custom fixtures.
  *
- * The `fippletPage` fixture provides a PageRecorder with methods like zoom(),
+ * The `testreelPage` fixture provides a PageRecorder with methods like zoom(),
  * scroll() with smooth easing, and animated cursor tracking. Use this when you
  * need polished demo recordings with visual effects beyond plain video capture.
  *
@@ -14,9 +14,9 @@
 
 import { test as base, expect } from '@playwright/test'
 import {
-  fippletFixtures,
-  type FippletFixtures,
-} from 'fipplet/playwright'
+  testreelFixtures,
+  type TestreelFixtures,
+} from 'testreel/playwright'
 
 // ── Your own custom fixtures ────────────────────────────────────────────
 type MyFixtures = {
@@ -24,9 +24,9 @@ type MyFixtures = {
   greeting: string
 }
 
-const test = base.extend<FippletFixtures & MyFixtures>({
-  // Spread fipplet's fixtures in
-  ...fippletFixtures,
+const test = base.extend<TestreelFixtures & MyFixtures>({
+  // Spread testreel's fixtures in
+  ...testreelFixtures,
 
   // Your own fixtures alongside
   greeting: async ({}, use) => {
@@ -34,9 +34,9 @@ const test = base.extend<FippletFixtures & MyFixtures>({
   },
 })
 
-// ── Configure fipplet options ───────────────────────────────────────────
+// ── Configure testreel options ───────────────────────────────────────────
 test.use({
-  fippletOptions: {
+  testreelOptions: {
     viewport: { width: 1280, height: 720 },
     chrome: { url: true },
     background: {
@@ -50,32 +50,32 @@ test.use({
 // ── Tests ───────────────────────────────────────────────────────────────
 
 test('PageRecorder — cursor animation and zoom', async ({
-  fippletPage,
+  testreelPage,
   greeting,
 }) => {
-  // Custom fixture works alongside fipplet
+  // Custom fixture works alongside testreel
   expect(greeting).toBe('Hello from a custom fixture!')
 
-  // fippletPage provides recording-specific methods with cursor tracking
-  await fippletPage.navigate('https://en.wikipedia.org/wiki/Main_Page')
-  await fippletPage.wait(1000)
-  await fippletPage.screenshot('composable-homepage')
+  // PageRecorder provides recording-specific methods with cursor tracking
+  await testreelPage.navigate('https://en.wikipedia.org/wiki/Main_Page')
+  await testreelPage.wait(1000)
+  await testreelPage.screenshot('composable-homepage')
 
   // Zoom into the main heading with animated transition
-  await fippletPage.zoom({
+  await testreelPage.zoom({
     selector: '#mp-welcome',
     scale: 2.5,
     duration: 800,
   })
-  await fippletPage.wait(1500)
-  await fippletPage.screenshot('zoomed-heading')
+  await testreelPage.wait(1500)
+  await testreelPage.screenshot('zoomed-heading')
 
   // Zoom back out
-  await fippletPage.zoom({ scale: 1, duration: 600 })
-  await fippletPage.wait(500)
+  await testreelPage.zoom({ scale: 1, duration: 600 })
+  await testreelPage.wait(500)
 
   // Smooth scroll with easing
-  await fippletPage.scroll({ y: 400 })
-  await fippletPage.wait(500)
-  await fippletPage.screenshot('composable-scrolled')
+  await testreelPage.scroll({ y: 400 })
+  await testreelPage.wait(500)
+  await testreelPage.screenshot('composable-scrolled')
 })
