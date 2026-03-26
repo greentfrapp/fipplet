@@ -61,23 +61,27 @@ console.log(result.screenshots) // array of .png paths
 
 ### Playwright test fixture
 
-Already have a Playwright test suite? Record polished videos from your existing tests:
+Already have a Playwright test suite? Add recording to any test — just change `test` to `recorded`:
 
 ```js
-import { test as base } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
 
-const test = base.extend<FippletFixtures>({
+const recorded = test.extend<FippletFixtures>({
   ...fippletFixtures,
-  // add your own fixtures alongside
 })
 
-test('product demo', async ({ fippletPage }) => {
-  await fippletPage.navigate('https://myapp.com')
-  await fippletPage.click('.login-button')
-  await fippletPage.type('#email', 'user@example.com')
-  await fippletPage.screenshot('login-form')
-  // Video is saved and attached to the test report automatically
+// This test is unchanged — no recording
+test('health check', async ({ page }) => {
+  await page.goto('/health')
+  await expect(page.locator('.status')).toHaveText('OK')
+})
+
+// Just swap test → recorded — video is attached to the test report automatically
+recorded('product demo', async ({ page }) => {
+  await page.goto('https://myapp.com')
+  await page.click('.login-button')
+  await page.fill('#email', 'user@example.com')
 })
 ```
 

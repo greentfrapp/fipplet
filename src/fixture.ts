@@ -1,8 +1,10 @@
 import { test as base } from '@playwright/test'
+import type { Page } from 'playwright-core'
 import { recordPage } from './record-page.js'
 import type { PageRecorder, RecordPageOptions } from './record-page.js'
 
 export type FippletFixtures = {
+  page: Page
   fippletPage: PageRecorder
   fippletOptions: RecordPageOptions & {
     viewport?: { width: number; height: number }
@@ -23,6 +25,45 @@ export const fippletFixtures: Parameters<
   typeof base.extend<FippletFixtures>
 >[0] = {
   fippletOptions: [{}, { option: true }],
+
+  page: async ({ browser, fippletOptions }, use, testInfo) => {
+    const projectUse = testInfo.project.use
+    const viewport =
+      fippletOptions.viewport ?? projectUse.viewport ?? { width: 1280, height: 720 }
+    const scale =
+      fippletOptions.deviceScaleFactor ?? projectUse.deviceScaleFactor ?? 1
+
+    const context = await browser.newContext({
+      ...projectUse.contextOptions,
+      storageState: projectUse.storageState,
+      locale: projectUse.locale,
+      extraHTTPHeaders: projectUse.extraHTTPHeaders,
+      geolocation: projectUse.geolocation,
+      permissions: projectUse.permissions,
+      viewport,
+      deviceScaleFactor: scale,
+      recordVideo: {
+        dir: testInfo.outputDir,
+        size: {
+          width: viewport.width * scale,
+          height: viewport.height * scale,
+        },
+      },
+    })
+
+    const page = await context.newPage()
+    await use(page)
+
+    // Finalize video and attach to test report
+    const video = page.video()
+    await context.close()
+    if (video) {
+      await testInfo.attach('fipplet-video', {
+        path: await video.path(),
+        contentType: 'video/webm',
+      })
+    }
+  },
 
   fippletPage: async ({ browser, fippletOptions }, use, testInfo) => {
     const viewport = fippletOptions.viewport ?? { width: 1280, height: 720 }
