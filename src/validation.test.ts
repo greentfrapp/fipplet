@@ -13,7 +13,7 @@ function minimalDef(overrides: Record<string, unknown> = {}) {
 }
 
 function writeTempJson(obj: unknown): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-test-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'testreel-test-'))
   const file = path.join(dir, 'def.json')
   fs.writeFileSync(file, JSON.stringify(obj))
   return file
@@ -590,7 +590,7 @@ describe('loadDefinition', () => {
     let tmpDir: string
 
     beforeEach(() => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-jsonc-test-'))
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'testreel-jsonc-test-'))
     })
 
     afterEach(() => {
@@ -617,7 +617,7 @@ describe('loadDefinition', () => {
     let tmpDir: string
 
     beforeEach(() => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-yaml-test-'))
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'testreel-yaml-test-'))
     })
 
     afterEach(() => {
@@ -704,7 +704,7 @@ describe('loadSetup', () => {
     let tmpDir: string
 
     beforeEach(() => {
-      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-setup-test-'))
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'testreel-setup-test-'))
     })
 
     afterEach(() => {
@@ -777,7 +777,7 @@ describe('loadSetup', () => {
     it('substitutes env vars when loading from file', () => {
       process.env.SETUP_VAR = 'file-resolved'
       const tmpDir = fs.mkdtempSync(
-        path.join(os.tmpdir(), 'fipplet-setup-env-'),
+        path.join(os.tmpdir(), 'testreel-setup-env-'),
       )
       const filePath = path.join(tmpDir, 'setup.json')
       fs.writeFileSync(

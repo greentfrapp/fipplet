@@ -1,8 +1,8 @@
 /**
- * Sample Playwright test that produces polished screen recordings using fipplet.
+ * Sample Playwright test that produces polished screen recordings using testreel.
  *
- * Run from the fipplet package directory:
- *   cd fipplet
+ * Run from the testreel package directory:
+ *   cd testreel
  *   pnpm exec playwright test --config examples/playwright.config.ts
  *
  * Or via the package script:
@@ -15,19 +15,19 @@
  * This example uses the drop-in `page` fixture — your existing Playwright tests
  * work unchanged, just swap `test` for `recorded`. For advanced features like
  * cursor animation and zoom, see playwright-composable.test.ts which uses
- * the `fippletPage` (PageRecorder) fixture.
+ * the `testreelPage` (PageRecorder) fixture.
  */
 
 import { test, expect } from '@playwright/test'
-import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
+import { testreelFixtures, type TestreelFixtures } from 'testreel/playwright'
 
-const recorded = test.extend<FippletFixtures>({
-  ...fippletFixtures,
+const recorded = test.extend<TestreelFixtures>({
+  ...testreelFixtures,
 })
 
 // ── Global options for all recorded tests in this file ─────────────────
 recorded.use({
-  fippletOptions: {
+  testreelOptions: {
     viewport: { width: 1280, height: 720 },
   },
 })

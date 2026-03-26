@@ -1,11 +1,11 @@
-# fipplet
+# testreel
 
 Programmatic video recordings for web apps. Define interactions in JSON or reuse existing Playwright test suites, get polished screen recordings out.
 
 ## Install
 
 ```bash
-npm install fipplet playwright
+npm install testreel playwright
 npx playwright install chromium
 ```
 
@@ -30,27 +30,27 @@ Create a recording definition (`recording.json`):
 Run it:
 
 ```bash
-npx fipplet recording.json
+npx testreel recording.json
 ```
 
-Output goes to `./fipplet-output/` — a WebM video (or MP4 or GIF), PNG screenshots, and an `output.json` manifest.
+Output goes to `./testreel-output/` — a WebM video, PNG screenshots, and an `output.json` manifest.
 
 ### CLI
 
 ```bash
-npx fipplet recording.json                       # basic recording
-npx fipplet recording.json --headed              # open live browser for debugging
-npx fipplet recording.json --format gif          # GIF output
-npx fipplet recording.json --setup login.json    # separate setup file
-npx fipplet validate recording.json              # validate without recording
-npx fipplet login https://app.com --save-state state.json  # interactive login
-npx fipplet init                                 # create a definition interactively
+npx testreel recording.json                       # basic recording
+npx testreel recording.json --headed              # visible browser
+npx testreel recording.json --format gif          # GIF output
+npx testreel recording.json --setup login.json    # separate setup file
+npx testreel validate recording.json              # validate without recording
+npx testreel login https://app.com --save-state state.json  # interactive login
+npx testreel init                                 # create a definition interactively
 ```
 
 ### API
 
 ```js
-import { record, loadDefinition } from 'fipplet'
+import { record, loadDefinition } from 'testreel'
 
 const def = loadDefinition('recording.json')
 const result = await record(def, { outputDir: './output' })
@@ -65,10 +65,10 @@ Already have a Playwright test suite? Add recording to any test — just change 
 
 ```js
 import { test, expect } from '@playwright/test'
-import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
+import { testreelFixtures, type TestreelFixtures } from 'testreel/playwright'
 
-const recorded = test.extend<FippletFixtures>({
-  ...fippletFixtures,
+const recorded = test.extend<TestreelFixtures>({
+  ...testreelFixtures,
 })
 
 // This test is unchanged — no recording
@@ -90,7 +90,7 @@ recorded('product demo', async ({ page }) => {
 For manual control over recording within any Playwright script:
 
 ```js
-import { recordPage } from 'fipplet'
+import { recordPage } from 'testreel'
 
 // page must belong to a context created with recordVideo
 const recorder = await recordPage(page, { scale: 2, chrome: true })

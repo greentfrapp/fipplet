@@ -168,23 +168,23 @@ Keep secrets out of your definition files:
 ```
 
 ```bash
-APP_HOST=staging.example.com AUTH_TOKEN=eyJ... npx fipplet recording.json
+APP_HOST=staging.example.com AUTH_TOKEN=eyJ... npx testreel recording.json
 ```
 
 ## Recording a Playwright test
 
-Add recording to existing tests — compose fipplet's fixtures and swap `test` for `recorded`:
+Add recording to existing tests — compose testreel's fixtures and swap `test` for `recorded`:
 
 ```js
 import { test } from '@playwright/test'
-import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
+import { testreelFixtures, type TestreelFixtures } from 'testreel/playwright'
 
-const recorded = test.extend<FippletFixtures>({
-  ...fippletFixtures,
+const recorded = test.extend<TestreelFixtures>({
+  ...testreelFixtures,
 })
 
 recorded.use({
-  fippletOptions: {
+  testreelOptions: {
     chrome: { url: true },
     background: { gradient: { from: '#667eea', to: '#764ba2' } },
   },
@@ -207,7 +207,7 @@ For programmatic recording outside of Playwright Test:
 
 ```js
 import { chromium } from 'playwright-core'
-import { recordPage } from 'fipplet'
+import { recordPage } from 'testreel'
 
 const browser = await chromium.launch()
 const context = await browser.newContext({

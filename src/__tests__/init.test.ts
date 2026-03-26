@@ -19,7 +19,7 @@ let tmpDir: string
 let origCwd: string
 
 beforeEach(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fipplet-init-'))
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'testreel-init-'))
   origCwd = process.cwd()
   process.chdir(tmpDir)
 })
@@ -67,7 +67,7 @@ describe('runInit', () => {
 
     const def = JSON.parse(fs.readFileSync(outPath, 'utf-8'))
     expect(def.$schema).toBe(
-      'https://fipplet.dev/recording-definition.schema.json',
+      'https://testreel.dev/recording-definition.schema.json',
     )
     expect(def.url).toBe('https://example.com')
     expect(def.viewport).toEqual({ width: 1280, height: 720 })

@@ -1,6 +1,6 @@
 # Recording Definitions
 
-A recording definition is a JSON file that describes what to record: the target URL, browser configuration, and a sequence of steps to execute. Fipplet also supports JSONC (JSON with comments) and YAML.
+A recording definition is a JSON file that describes what to record: the target URL, browser configuration, and a sequence of steps to execute. Testreel also supports JSONC (JSON with comments) and YAML.
 
 ## File formats
 
@@ -118,7 +118,7 @@ String values in the definition support `${VAR}` and `$VAR` syntax. Variables ar
 }
 ```
 
-If a referenced variable is not set, fipplet exits with an error.
+If a referenced variable is not set, testreel exits with an error.
 
 ## JSON Schema
 
@@ -126,7 +126,7 @@ A JSON Schema is published with the package at `recording-definition.schema.json
 
 ```json
 {
-  "$schema": "./node_modules/fipplet/recording-definition.schema.json",
+  "$schema": "./node_modules/testreel/recording-definition.schema.json",
   "url": "https://example.com",
   "steps": [...]
 }

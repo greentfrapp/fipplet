@@ -497,7 +497,7 @@ export async function convertToGif(inputPath: string): Promise<string> {
   const outputPath = path.join(dir, `${base}.gif`)
   const palettePath = path.join(
     os.tmpdir(),
-    `fipplet-palette-${Date.now()}.png`,
+    `testreel-palette-${Date.now()}.png`,
   )
 
   try {

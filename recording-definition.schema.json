@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://fipplet.dev/recording-definition.schema.json",
-  "title": "Fipplet Recording Definition",
-  "description": "A recording definition for fipplet — programmatic video recordings for web apps.",
+  "$id": "https://testreel.dev/recording-definition.schema.json",
+  "title": "Testreel Recording Definition",
+  "description": "A recording definition for testreel — programmatic video recordings for web apps.",
   "type": "object",
   "required": ["url", "steps"],
   "properties": {

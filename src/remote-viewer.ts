@@ -5,7 +5,7 @@ const VIEWER_HTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>Fipplet Remote Viewer</title>
+<title>Testreel Remote Viewer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #1a1a1a; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, sans-serif; }

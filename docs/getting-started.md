@@ -3,10 +3,10 @@
 ## Install
 
 ```bash
-npm install fipplet playwright
+npm install testreel playwright
 ```
 
-Fipplet uses Playwright to drive a real Chromium browser. After installing, make sure Chromium is available:
+Testreel uses Playwright to drive a real Chromium browser. After installing, make sure Chromium is available:
 
 ```bash
 npx playwright install chromium
@@ -33,10 +33,10 @@ Create a file called `recording.json`:
 Run it:
 
 ```bash
-npx fipplet recording.json
+npx testreel recording.json
 ```
 
-Fipplet will launch a headless browser, navigate to the URL, execute each step, and write the output to `./fipplet-output/`.
+Testreel will launch a headless browser, navigate to the URL, execute each step, and write the output to `./testreel-output/`.
 
 ## What gets produced
 
@@ -54,7 +54,7 @@ After a recording completes, the output directory contains:
 To watch the recording happen in a visible browser window:
 
 ```bash
-npx fipplet recording.json --headed
+npx testreel recording.json --headed
 ```
 
 ## Validate without recording
@@ -62,17 +62,17 @@ npx fipplet recording.json --headed
 Check that your definition is valid without launching a browser:
 
 ```bash
-npx fipplet recording.json --dry-run
+npx testreel recording.json --dry-run
 # or
-npx fipplet validate recording.json
+npx testreel validate recording.json
 ```
 
 ## Using the API
 
-Fipplet can also be used as a library:
+Testreel can also be used as a library:
 
 ```js
-import { record, loadDefinition } from 'fipplet'
+import { record, loadDefinition } from 'testreel'
 
 const def = loadDefinition('recording.json')
 const result = await record(def, { outputDir: './output' })
@@ -83,14 +83,14 @@ console.log(result.screenshots) // array of .png paths
 
 ## Recording from Playwright tests
 
-If you already have a Playwright test suite, you can add video recording with minimal changes — just compose fipplet's fixtures and swap `test` for `recorded`:
+If you already have a Playwright test suite, you can add video recording with minimal changes — just compose testreel's fixtures and swap `test` for `recorded`:
 
 ```js
 import { test } from '@playwright/test'
-import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
+import { testreelFixtures, type TestreelFixtures } from 'testreel/playwright'
 
-const recorded = test.extend<FippletFixtures>({
-  ...fippletFixtures,
+const recorded = test.extend<TestreelFixtures>({
+  ...testreelFixtures,
 })
 
 recorded('onboarding flow', async ({ page }) => {
@@ -104,7 +104,7 @@ recorded('onboarding flow', async ({ page }) => {
 For manual control without the fixture, use `recordPage()` directly:
 
 ```js
-import { recordPage } from 'fipplet'
+import { recordPage } from 'testreel'
 
 // page must belong to a context created with recordVideo
 const recorder = await recordPage(page, { chrome: true })

@@ -6,12 +6,12 @@ import type { OutputFormat, SetupBlock } from './types'
 import { runValidate } from './validate-command'
 import { loadDefinition, loadSetup } from './validation'
 
-declare const __FIPPLET_VERSION__: string
+declare const __TESTREEL_VERSION__: string
 
 const program = new Command()
-  .name('fipplet')
+  .name('testreel')
   .description('Programmatic video recordings for web apps')
-  .version(__FIPPLET_VERSION__, '-v, --version')
+  .version(__TESTREEL_VERSION__, '-v, --version')
   .enablePositionalOptions()
 
 // --- Recording command (default) ---
@@ -20,7 +20,7 @@ program
     '<definition>',
     'Path to a recording definition file (.json, .jsonc, .yaml, .yml)',
   )
-  .option('-o, --output <dir>', 'Output directory', './fipplet-output')
+  .option('-o, --output <dir>', 'Output directory', './testreel-output')
   .option(
     '--setup <file>',
     'Setup file (login, dismiss modals, etc.) — runs before recording',
@@ -132,10 +132,10 @@ program
       if (!opts.quiet) {
         if (hasSetup) {
           console.log(
-            `fipplet: ${hasSetup.steps.length} setup steps + ${def.steps.length} recording steps → ${def.url}\n`,
+            `testreel: ${hasSetup.steps.length} setup steps + ${def.steps.length} recording steps → ${def.url}\n`,
           )
         } else {
-          console.log(`fipplet: ${def.steps.length} steps → ${def.url}\n`)
+          console.log(`testreel: ${def.steps.length} steps → ${def.url}\n`)
         }
       }
 

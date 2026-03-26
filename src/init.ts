@@ -67,7 +67,7 @@ export async function runInit(): Promise<void> {
   }
 
   const definition: Record<string, unknown> = {
-    $schema: 'https://fipplet.dev/recording-definition.schema.json',
+    $schema: 'https://testreel.dev/recording-definition.schema.json',
     url,
     viewport: {
       width: parseInt(widthStr, 10),

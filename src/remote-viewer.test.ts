@@ -121,7 +121,7 @@ describe('startViewer', () => {
   it('serves HTML on GET /', async () => {
     const res = await httpGet(viewerPort, '/')
     expect(res.status).toBe(200)
-    expect(res.body).toContain('Fipplet Remote Viewer')
+    expect(res.body).toContain('Testreel Remote Viewer')
     expect(res.body).toContain('poll')
   })
 

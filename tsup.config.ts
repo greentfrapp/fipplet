@@ -55,7 +55,7 @@ export default defineConfig([
     esbuildPlugins: [resolvePngAssets],
     loader: { ".svg": "text", ".html": "text" },
     define: {
-      __FIPPLET_VERSION__: JSON.stringify(pkg.version),
+      __TESTREEL_VERSION__: JSON.stringify(pkg.version),
     },
   },
   {

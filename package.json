@@ -1,5 +1,5 @@
 {
-  "name": "fipplet",
+  "name": "testreel",
   "version": "0.1.0",
   "description": "Programmatic video infrastructure for web apps",
   "type": "module",
@@ -19,7 +19,7 @@
     }
   },
   "bin": {
-    "fipplet": "dist/cli.cjs"
+    "testreel": "dist/cli.cjs"
   },
   "files": [
     "dist",
@@ -48,11 +48,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/greentfrapp/fipplet.git"
+    "url": "git+https://github.com/greentfrapp/testreel.git"
   },
-  "homepage": "https://github.com/greentfrapp/fipplet#readme",
+  "homepage": "https://github.com/greentfrapp/testreel#readme",
   "bugs": {
-    "url": "https://github.com/greentfrapp/fipplet/issues"
+    "url": "https://github.com/greentfrapp/testreel/issues"
   },
   "engines": {
     "node": ">=18"

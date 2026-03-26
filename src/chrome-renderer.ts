@@ -102,7 +102,7 @@ export async function renderWindowFrame(
     deviceScaleFactor: deviceScaleFactor ?? 1,
   })
   await page.setContent(html, { waitUntil: 'load' })
-  const pngPath = path.join(os.tmpdir(), `fipplet-frame-${Date.now()}.png`)
+  const pngPath = path.join(os.tmpdir(), `testreel-frame-${Date.now()}.png`)
   await page.screenshot({ path: pngPath, omitBackground: true })
   await page.close()
   return pngPath
@@ -145,7 +145,7 @@ export async function renderBackground(
     deviceScaleFactor: config.deviceScaleFactor ?? 1,
   })
   await page.setContent(html, { waitUntil: 'load' })
-  const pngPath = path.join(os.tmpdir(), `fipplet-bg-${Date.now()}.png`)
+  const pngPath = path.join(os.tmpdir(), `testreel-bg-${Date.now()}.png`)
   await page.screenshot({ path: pngPath })
   await page.close()
   return pngPath
@@ -181,7 +181,7 @@ export async function renderRoundedMask(
     deviceScaleFactor: config.deviceScaleFactor ?? 1,
   })
   await page.setContent(html, { waitUntil: 'load' })
-  const pngPath = path.join(os.tmpdir(), `fipplet-mask-${Date.now()}.png`)
+  const pngPath = path.join(os.tmpdir(), `testreel-mask-${Date.now()}.png`)
   await page.screenshot({ path: pngPath })
   await page.close()
   return pngPath

@@ -51,7 +51,7 @@ Type text into an element character-by-character, producing realistic keystrokes
 | `clear` | `boolean` | no | `false` | Select all and replace existing content before typing. |
 
 ```json
-{ "action": "type", "selector": "#search", "text": "fipplet", "delay": 50 }
+{ "action": "type", "selector": "#search", "text": "testreel", "delay": 50 }
 ```
 
 ## fill

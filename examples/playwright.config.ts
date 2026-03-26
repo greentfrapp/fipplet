@@ -1,5 +1,5 @@
 /**
- * Minimal Playwright config for running fipplet example tests.
+ * Minimal Playwright config for running testreel example tests.
  *
  * Run:
  *   npx playwright test --config examples/playwright.config.ts
