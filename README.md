@@ -64,7 +64,13 @@ console.log(result.screenshots) // array of .png paths
 Already have a Playwright test suite? Record polished videos from your existing tests:
 
 ```js
-import { test, expect } from 'fipplet/playwright'
+import { test as base } from '@playwright/test'
+import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
+
+const test = base.extend<FippletFixtures>({
+  ...fippletFixtures,
+  // add your own fixtures alongside
+})
 
 test('product demo', async ({ fippletPage }) => {
   await fippletPage.navigate('https://myapp.com')
