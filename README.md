@@ -1,6 +1,6 @@
 # fipplet
 
-Programmatic video recordings for web apps. Define interactions in JSON, get polished screen recordings out.
+Programmatic video recordings for web apps. Define interactions in JSON or reuse existing Playwright test suites, get polished screen recordings out.
 
 ## Install
 
@@ -33,13 +33,13 @@ Run it:
 npx fipplet recording.json
 ```
 
-Output goes to `./fipplet-output/` — a WebM video, PNG screenshots, and an `output.json` manifest.
+Output goes to `./fipplet-output/` — a WebM video (or MP4 or GIF), PNG screenshots, and an `output.json` manifest.
 
 ### CLI
 
 ```bash
 npx fipplet recording.json                       # basic recording
-npx fipplet recording.json --headed              # visible browser
+npx fipplet recording.json --headed              # open live browser for debugging
 npx fipplet recording.json --format gif          # GIF output
 npx fipplet recording.json --setup login.json    # separate setup file
 npx fipplet validate recording.json              # validate without recording
