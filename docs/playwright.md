@@ -1,11 +1,10 @@
 # Playwright Integration
 
-Fipplet integrates with Playwright in two ways:
+Fipplet integrates with Playwright in three ways:
 
-1. **Test fixture** (`fipplet/playwright`) — drop-in replacement for Playwright's `test` that automatically records polished videos from your test runs
-2. **`recordPage()` API** (`fipplet`) — wrap any existing Playwright `Page` with cursor tracking and post-processing
-
-Use the **fixture** when you want automatic setup/teardown and test report integration. Use **`recordPage()`** when you need manual control or want to integrate into a custom script.
+1. **`page` fixture** (`fipplet/playwright`) — drop-in recording for existing tests. Your test body stays unchanged — just use a different `test` function and fipplet records video automatically
+2. **`fippletPage` fixture** (`fipplet/playwright`) — advanced recording with animated cursor, zoom, smooth scroll, and other visual effects via the `PageRecorder` API
+3. **`recordPage()` API** (`fipplet`) — wrap any existing Playwright `Page` with cursor tracking and post-processing in a custom script
 
 ## Test fixture
 
@@ -19,28 +18,67 @@ npm install fipplet
 
 ### Basic usage
 
-Import `test` and `expect` from `fipplet/playwright` instead of `@playwright/test`:
+Compose fipplet's fixtures into your test and swap `test` for `recorded` on any test you want to capture:
 
 ```js
-import { test, expect } from 'fipplet/playwright'
+import { test, expect } from '@playwright/test'
+import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
 
-test('product demo', async ({ fippletPage }) => {
-  await fippletPage.navigate('https://myapp.com')
-  await fippletPage.click('.sign-up')
-  await fippletPage.type('#email', 'user@example.com', { delay: 60 })
-  await fippletPage.fill('#password', 's3cure-password')
-  await fippletPage.screenshot('form-filled')
-  await fippletPage.click('button[type=submit]')
-  await fippletPage.wait(2000)
+const recorded = test.extend<FippletFixtures>({
+  ...fippletFixtures,
+})
+
+// This test is unchanged — no recording
+test('health check', async ({ page }) => {
+  await page.goto('/health')
+  await expect(page.locator('.status')).toHaveText('OK')
+})
+
+// Just swap test → recorded — video is attached to the test report automatically
+recorded('product demo', async ({ page }) => {
+  await page.goto('https://myapp.com')
+  await page.click('.sign-up')
+  await page.fill('#email', 'user@example.com')
+  await page.fill('#password', 's3cure-password')
+  await page.click('button[type=submit]')
+  await page.waitForTimeout(2000)
 })
 ```
 
-The fixture creates a browser context with video recording, wraps the page with cursor tracking, and on teardown:
+The `page` fixture creates a recording-enabled browser context that preserves your project's Playwright config (storageState, locale, extraHTTPHeaders, etc.). On teardown it finalizes the video and attaches it to the test report.
 
-1. Takes a final screenshot
-2. Closes the context (finalizes the video)
-3. Runs post-processing (cursor overlay, chrome, background)
-4. Attaches the video and screenshots to the test report
+### Advanced: PageRecorder
+
+For polished demo recordings with animated cursor, zoom effects, and smooth scrolling, use the `fippletPage` fixture instead:
+
+```js
+recorded('polished demo', async ({ fippletPage }) => {
+  await fippletPage.navigate('https://myapp.com')
+  await fippletPage.click('.feature-button')
+  await fippletPage.zoom({ selector: '.hero', scale: 2.5, duration: 800 })
+  await fippletPage.wait(1500)
+  await fippletPage.screenshot('zoomed')
+  await fippletPage.zoom({ scale: 1, duration: 600 })
+})
+```
+
+The `fippletPage` object provides these methods:
+
+| Method | Description |
+|--------|-------------|
+| `click(selector, options?)` | Click an element with animated cursor. Options: `{ timeout }` |
+| `type(selector, text, options?)` | Type text with animated cursor. Options: `{ delay, clear, timeout }` |
+| `fill(selector, text, options?)` | Set an input's value directly. Options: `{ timeout }` |
+| `hover(selector, options?)` | Hover with animated cursor. Options: `{ timeout }` |
+| `scroll(options?)` | Smooth scroll with easing. Options: `{ x, y, scrollSpeed }` |
+| `zoom(options)` | Zoom to a target. Options: `{ selector, scale, x, y, duration }` |
+| `screenshot(name?)` | Take a named screenshot |
+| `keyboard(key)` | Press a keyboard key |
+| `navigate(url)` | Navigate to a URL |
+| `wait(ms?)` | Wait for a duration (default: 1000ms) |
+| `stop()` | Stop recording and run post-processing (called automatically by the fixture) |
+
+All selector-based actions include cursor movement and click ripple effects by default.
 
 ### Configuring options
 
@@ -71,7 +109,7 @@ export default defineConfig({
 Or override per-test:
 
 ```js
-test.use({
+recorded.use({
   fippletOptions: {
     scale: 1,
     chrome: false,
@@ -79,30 +117,10 @@ test.use({
   },
 })
 
-test('lightweight recording', async ({ fippletPage }) => {
+recorded('lightweight recording', async ({ page }) => {
   // ...
 })
 ```
-
-### Available actions
-
-The `fippletPage` object provides these methods:
-
-| Method | Description |
-|--------|-------------|
-| `click(selector, options?)` | Click an element. Options: `{ timeout }` |
-| `type(selector, text, options?)` | Type text into an element. Options: `{ delay, clear, timeout }` |
-| `fill(selector, text, options?)` | Set an input's value directly. Options: `{ timeout }` |
-| `hover(selector, options?)` | Hover over an element. Options: `{ timeout }` |
-| `scroll(options?)` | Smooth scroll. Options: `{ x, y, scrollSpeed }` |
-| `zoom(options)` | Zoom to a target. Options: `{ selector, scale, x, y, duration }` |
-| `screenshot(name?)` | Take a named screenshot |
-| `keyboard(key)` | Press a keyboard key |
-| `navigate(url)` | Navigate to a URL |
-| `wait(ms?)` | Wait for a duration (default: 1000ms) |
-| `stop()` | Stop recording and run post-processing (called automatically by the fixture) |
-
-All selector-based actions include cursor movement and click ripple effects by default.
 
 ### Test failures
 

@@ -1,9 +1,12 @@
 /**
- * Composable fixture example — use fipplet alongside your own custom fixtures.
+ * Advanced fixture example — use fipplet's PageRecorder for cursor animation,
+ * zoom, and other recording-specific features alongside your own custom fixtures.
  *
- * Instead of importing `test` from `fipplet/playwright`, this example shows
- * how to merge fipplet's fixtures into your own extended test. This is ideal
- * when your project already has custom fixtures (auth, database, feature flags, etc.).
+ * The `fippletPage` fixture provides a PageRecorder with methods like zoom(),
+ * scroll() with smooth easing, and animated cursor tracking. Use this when you
+ * need polished demo recordings with visual effects beyond plain video capture.
+ *
+ * For basic video recording with standard Playwright APIs, see playwright-demo.test.ts.
  *
  * Run:
  *   pnpm exec playwright test --config examples/playwright.config.ts playwright-composable
@@ -31,7 +34,7 @@ const test = base.extend<FippletFixtures & MyFixtures>({
   },
 })
 
-// ── Configure fipplet options (same API as the simple import) ───────────
+// ── Configure fipplet options ───────────────────────────────────────────
 test.use({
   fippletOptions: {
     viewport: { width: 1280, height: 720 },
@@ -46,18 +49,32 @@ test.use({
 
 // ── Tests ───────────────────────────────────────────────────────────────
 
-test('composable fixtures — fipplet + custom', async ({
+test('PageRecorder — cursor animation and zoom', async ({
   fippletPage,
   greeting,
 }) => {
   // Custom fixture works alongside fipplet
   expect(greeting).toBe('Hello from a custom fixture!')
 
-  // fippletPage works exactly the same as the simple import
+  // fippletPage provides recording-specific methods with cursor tracking
   await fippletPage.navigate('https://en.wikipedia.org/wiki/Main_Page')
   await fippletPage.wait(1000)
   await fippletPage.screenshot('composable-homepage')
 
+  // Zoom into the main heading with animated transition
+  await fippletPage.zoom({
+    selector: '#mp-welcome',
+    scale: 2.5,
+    duration: 800,
+  })
+  await fippletPage.wait(1500)
+  await fippletPage.screenshot('zoomed-heading')
+
+  // Zoom back out
+  await fippletPage.zoom({ scale: 1, duration: 600 })
+  await fippletPage.wait(500)
+
+  // Smooth scroll with easing
   await fippletPage.scroll({ y: 400 })
   await fippletPage.wait(500)
   await fippletPage.screenshot('composable-scrolled')

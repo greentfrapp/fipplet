@@ -173,27 +173,30 @@ APP_HOST=staging.example.com AUTH_TOKEN=eyJ... npx fipplet recording.json
 
 ## Recording a Playwright test
 
-Use the fipplet fixture to record videos from existing test flows:
+Add recording to existing tests — compose fipplet's fixtures and swap `test` for `recorded`:
 
 ```js
-import { test, expect } from 'fipplet/playwright'
+import { test } from '@playwright/test'
+import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
 
-test.use({
+const recorded = test.extend<FippletFixtures>({
+  ...fippletFixtures,
+})
+
+recorded.use({
   fippletOptions: {
     chrome: { url: true },
     background: { gradient: { from: '#667eea', to: '#764ba2' } },
   },
 })
 
-test('sign-up flow', async ({ fippletPage }) => {
-  await fippletPage.navigate('https://app.example.com/signup')
-  await fippletPage.type('#name', 'Jane Smith', { delay: 60 })
-  await fippletPage.type('#email', 'jane@example.com', { delay: 60 })
-  await fippletPage.fill('#password', 's3cure-password')
-  await fippletPage.screenshot('form-filled')
-  await fippletPage.click('button[type=submit]')
-  await fippletPage.wait(2000)
-  await fippletPage.screenshot('success')
+recorded('sign-up flow', async ({ page }) => {
+  await page.goto('https://app.example.com/signup')
+  await page.fill('#name', 'Jane Smith')
+  await page.fill('#email', 'jane@example.com')
+  await page.fill('#password', 's3cure-password')
+  await page.click('button[type=submit]')
+  await page.waitForTimeout(2000)
   // Video is saved and attached to the test report automatically
 })
 ```

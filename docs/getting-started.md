@@ -83,16 +83,20 @@ console.log(result.screenshots) // array of .png paths
 
 ## Recording from Playwright tests
 
-If you already have a Playwright test suite, you can record videos directly from your tests using the fipplet fixture:
+If you already have a Playwright test suite, you can add video recording with minimal changes — just compose fipplet's fixtures and swap `test` for `recorded`:
 
 ```js
-import { test, expect } from 'fipplet/playwright'
+import { test } from '@playwright/test'
+import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
 
-test('onboarding flow', async ({ fippletPage }) => {
-  await fippletPage.navigate('https://myapp.com')
-  await fippletPage.click('.get-started')
-  await fippletPage.type('#name', 'Jane Smith')
-  await fippletPage.screenshot('form-filled')
+const recorded = test.extend<FippletFixtures>({
+  ...fippletFixtures,
+})
+
+recorded('onboarding flow', async ({ page }) => {
+  await page.goto('https://myapp.com')
+  await page.click('.get-started')
+  await page.fill('#name', 'Jane Smith')
   // Video is saved and attached to the test report automatically
 })
 ```

@@ -12,82 +12,56 @@
  *   Videos and screenshots are attached to the Playwright HTML report.
  *   Open it with: pnpm exec playwright show-report
  *
- * Tip: If you already have custom Playwright fixtures, see playwright-composable.test.ts
- * for how to merge fipplet into your existing test.extend() setup.
+ * This example uses the drop-in `page` fixture — your existing Playwright tests
+ * work unchanged, just swap `test` for `recorded`. For advanced features like
+ * cursor animation and zoom, see playwright-composable.test.ts which uses
+ * the `fippletPage` (PageRecorder) fixture.
  */
 
-import { test, expect } from 'fipplet/playwright'
+import { test, expect } from '@playwright/test'
+import { fippletFixtures, type FippletFixtures } from 'fipplet/playwright'
 
-// ── Global options for all tests in this file ──────────────────────────
-test.use({
+const recorded = test.extend<FippletFixtures>({
+  ...fippletFixtures,
+})
+
+// ── Global options for all recorded tests in this file ─────────────────
+recorded.use({
   fippletOptions: {
     viewport: { width: 1280, height: 720 },
-    chrome: { url: true },
-    background: {
-      gradient: { from: '#667eea', to: '#764ba2' },
-      padding: 60,
-      borderRadius: 12,
-    },
   },
 })
 
 // ── Tests ──────────────────────────────────────────────────────────────
 
-test('Wikipedia — browse and read an article', async ({ fippletPage }) => {
+recorded('Wikipedia — browse and read an article', async ({ page }) => {
   // Navigate to Wikipedia
-  await fippletPage.navigate('https://en.wikipedia.org/wiki/Main_Page')
-  await fippletPage.wait(1000)
-  await fippletPage.screenshot('homepage')
+  await page.goto('https://en.wikipedia.org/wiki/Main_Page')
+  await page.waitForTimeout(1000)
 
   // Scroll down to the "From today's featured article" section
-  await fippletPage.scroll({ y: 400 })
-  await fippletPage.wait(500)
+  await page.evaluate(() => window.scrollBy(0, 400))
+  await page.waitForTimeout(500)
 
   // Click the first link in the featured article
-  await fippletPage.click('#mp-tfa-img a')
-  await fippletPage.wait(2000)
-  await fippletPage.screenshot('article')
+  await page.click('#mp-tfa-img a')
+  await page.waitForTimeout(2000)
 
   // Scroll through the article
-  await fippletPage.scroll({ y: 500 })
-  await fippletPage.wait(1000)
-  await fippletPage.screenshot('article-scrolled')
+  await page.evaluate(() => window.scrollBy(0, 500))
+  await page.waitForTimeout(1000)
 })
 
-test('Wikipedia — zoom into a heading', async ({ fippletPage }) => {
-  await fippletPage.navigate('https://en.wikipedia.org/wiki/Main_Page')
-  await fippletPage.wait(1000)
-
-  // Zoom into the main heading
-  await fippletPage.zoom({
-    selector: '#mp-welcome',
-    scale: 2.5,
-    duration: 800,
-  })
-  await fippletPage.wait(1500)
-  await fippletPage.screenshot('zoomed-heading')
-
-  // Zoom back out
-  await fippletPage.zoom({ scale: 1, duration: 600 })
-  await fippletPage.wait(500)
-})
-
-test('Wikipedia — search for a topic', async ({ fippletPage }) => {
-  await fippletPage.navigate('https://en.wikipedia.org/wiki/Main_Page')
-  await fippletPage.wait(1000)
+recorded('Wikipedia — search for a topic', async ({ page }) => {
+  await page.goto('https://en.wikipedia.org/wiki/Main_Page')
+  await page.waitForTimeout(1000)
 
   // Click the search input and type a query
-  await fippletPage.click('#searchInput')
-  await fippletPage.type(
-    '#searchform input[name="search"]',
-    'Playwright browser automation',
-    { delay: 50 },
-  )
-  await fippletPage.wait(1000)
-  await fippletPage.screenshot('search-typed')
+  await page.click('#searchInput')
+  await page.fill('#searchform input[name="search"]', 'Playwright browser automation')
+  await page.waitForTimeout(1000)
 
   // Submit the search
-  await fippletPage.keyboard('Enter')
-  await fippletPage.wait(2000)
-  await fippletPage.screenshot('search-results')
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(2000)
 })
