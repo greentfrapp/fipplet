@@ -16,6 +16,11 @@ Install testreel alongside your existing Playwright setup:
 npm install testreel
 ```
 
+The `testreel/playwright` entry point exports two things you'll use together:
+
+- **`testreelFixtures`** (lowercase) — the fixtures object to spread into `test.extend()`
+- **`TestreelFixtures`** (PascalCase) — the TypeScript type for the generic parameter
+
 ### Basic usage
 
 Compose testreel's fixtures into your test and swap `test` for `recorded` on any test you want to capture:
@@ -46,6 +51,51 @@ recorded('product demo', async ({ page }) => {
 ```
 
 The `page` fixture creates a recording-enabled browser context that preserves your project's Playwright config (storageState, locale, extraHTTPHeaders, etc.). On teardown it finalizes the video and attaches it to the test report.
+
+Recordings are captured regardless of test outcome — if a test fails, the partial video is still attached to the report for debugging.
+
+### Composing with custom fixtures
+
+Most real projects already have custom fixtures (auth, database, feature flags, etc.). Spread `testreelFixtures` alongside your own:
+
+```ts
+import { test as base, expect } from '@playwright/test'
+import { testreelFixtures, type TestreelFixtures } from 'testreel/playwright'
+
+type AuthFixtures = {
+  authedPage: Page
+}
+
+// Combine testreel fixtures with your own
+const test = base.extend<TestreelFixtures & AuthFixtures>({
+  ...testreelFixtures,
+
+  authedPage: async ({ page, storageState }, use) => {
+    // Your auth setup — `page` is already testreel's recording-enabled page
+    await page.goto('/login')
+    await page.fill('#email', 'test@example.com')
+    await page.click('button[type=submit]')
+    await use(page)
+  },
+})
+
+const recorded = test
+
+recorded('dashboard walkthrough', async ({ authedPage, testreelPage }) => {
+  // authedPage is the recording-enabled page with your auth applied
+  await testreelPage.click('.nav-dashboard')
+  await testreelPage.screenshot('dashboard')
+
+  // For standard Playwright assertions, use testreelPage.page
+  await expect(testreelPage.page).toHaveURL('/dashboard')
+})
+```
+
+**How `page`, `testreelPage`, and custom fixtures interact:**
+
+- **`page`** — testreel overrides Playwright's default `page` to enable video recording. Any fixture that depends on `page` (like `authedPage` above) automatically gets the recording-enabled page.
+- **`testreelPage`** — wraps `page` with the `PageRecorder` API for visual effects (animated cursor, zoom, smooth scroll). Access the underlying Playwright `Page` via `testreelPage.page` for assertions like `expect(page).toHaveURL(...)`.
+- **Custom fixtures** — work exactly as before. Because they receive testreel's `page`, their actions are included in the recording.
 
 ### Advanced: PageRecorder
 
@@ -122,9 +172,20 @@ recorded('lightweight recording', async ({ page }) => {
 })
 ```
 
-### Test failures
+### Performance
 
-If a test fails, the fixture still finalizes whatever video has been captured. The partial recording is attached to the test report, which is useful for debugging.
+Recording adds overhead in two areas:
+
+- **During the test** — an extra browser context with video capture enabled. This is lightweight but not free.
+- **After the test** — FFmpeg post-processing runs on teardown to overlay the cursor, add window chrome, apply background styling, and adjust playback speed. Processing time scales with video length and the number of enabled effects.
+
+For most projects, record selectively — key user flows or demo-worthy tests — rather than the entire suite. You can disable expensive effects per-test with `testreelOptions`:
+
+```js
+recorded.use({
+  testreelOptions: { cursor: false, chrome: false, background: false },
+})
+```
 
 ## recordPage API
 
