@@ -1,6 +1,6 @@
 {
   "name": "testreel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Programmatic video infrastructure for web apps",
   "type": "module",
   "main": "./dist/index.cjs",
