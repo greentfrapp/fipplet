@@ -56,32 +56,30 @@ export const testreelFixtures: Parameters<
 
     // Finalize video and attach to test report
     const video = page.video()
-    await context.close()
+    try {
+      await context.close()
+    } catch {
+      // Context may already be closed by testreelPage.stop()
+    }
     if (video) {
-      await testInfo.attach('testreel-video', {
-        path: await video.path(),
-        contentType: 'video/webm',
-      })
+      try {
+        await testInfo.attach('testreel-video', {
+          path: await video.path(),
+          contentType: 'video/webm',
+        })
+      } catch {
+        // Video may have been handled by testreelPage
+      }
     }
   },
 
-  testreelPage: async ({ browser, testreelOptions }, use, testInfo) => {
-    const viewport = testreelOptions.viewport ?? { width: 1280, height: 720 }
+  testreelPage: async ({ page, testreelOptions }, use, testInfo) => {
     const scale =
-      testreelOptions.scale ?? testreelOptions.deviceScaleFactor ?? 1
+      testreelOptions.scale ??
+      testreelOptions.deviceScaleFactor ??
+      testInfo.project.use.deviceScaleFactor ??
+      1
 
-    const context = await browser.newContext({
-      viewport,
-      deviceScaleFactor: scale,
-      recordVideo: {
-        dir: testInfo.outputDir,
-        size: {
-          width: viewport.width * scale,
-          height: viewport.height * scale,
-        },
-      },
-    })
-    const page = await context.newPage()
     const recorder = await recordPage(page, {
       outputDir: testInfo.outputDir,
       scale,

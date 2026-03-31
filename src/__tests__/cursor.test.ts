@@ -15,8 +15,14 @@ import type { ZoomState } from '../types'
 function mockPage(
   elementCenter: { x: number; y: number } | null = { x: 100, y: 200 },
 ) {
+  const boundingBox = elementCenter
+    ? { x: elementCenter.x - 50, y: elementCenter.y - 20, width: 100, height: 40 }
+    : null
   return {
-    evaluate: vi.fn().mockResolvedValue(elementCenter),
+    locator: vi.fn().mockReturnValue({
+      boundingBox: vi.fn().mockResolvedValue(boundingBox),
+      evaluate: vi.fn().mockResolvedValue('default'),
+    }),
     waitForTimeout: vi.fn().mockResolvedValue(undefined),
   } as any
 }
@@ -61,27 +67,21 @@ describe('cursor event tracker', () => {
       expect(getCursorEvents()).toHaveLength(0)
     })
 
-    it('passes XPath selectors starting with // to page.evaluate', async () => {
+    it('passes XPath selectors starting with // to page.locator', async () => {
       const page = mockPage({ x: 150, y: 250 })
       await moveCursorTo(page, '//button[@type="submit"]', zoomState())
 
-      expect(page.evaluate).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.objectContaining({ sel: '//button[@type="submit"]' }),
-      )
+      expect(page.locator).toHaveBeenCalledWith('//button[@type="submit"]')
       const events = getCursorEvents()
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({ type: 'move', x: 150, y: 250 })
     })
 
-    it('passes XPath selectors starting with .. to page.evaluate', async () => {
+    it('passes XPath selectors starting with .. to page.locator', async () => {
       const page = mockPage({ x: 80, y: 90 })
       await moveCursorTo(page, '../div', zoomState())
 
-      expect(page.evaluate).toHaveBeenCalledWith(
-        expect.any(Function),
-        expect.objectContaining({ sel: '../div' }),
-      )
+      expect(page.locator).toHaveBeenCalledWith('../div')
       const events = getCursorEvents()
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({ type: 'move', x: 80, y: 90 })

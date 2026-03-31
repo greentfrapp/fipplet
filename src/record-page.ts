@@ -175,17 +175,9 @@ export async function recordPage(
       const timeout = opts?.timeout ?? DEFAULT_SELECTOR_TIMEOUT
       await awaitSelector(page, selector, timeout)
       await moveCursor(selector)
-      await page.evaluate(
-        ({ sel, text }: { sel: string; text: string }) => {
-          const el = document.querySelector(sel) as HTMLInputElement | null
-          if (!el) return
-          el.focus()
-          el.value = text
-          el.dispatchEvent(new Event('input', { bubbles: true }))
-          el.dispatchEvent(new Event('change', { bubbles: true }))
-        },
-        { sel: selector, text },
-      )
+      const locator = page.locator(selector)
+      await locator.focus()
+      await locator.fill(text)
       await page.waitForTimeout(DEFAULT_PAUSE_AFTER)
       recordTiming(start)
     },
@@ -292,34 +284,13 @@ export async function recordPage(
           tx: curTx,
           ty: curTy,
         } = zoomState
-        const center = await page.evaluate(
-          ({
-            sel,
-            s,
-            tx,
-            ty,
-          }: {
-            sel: string
-            s: number
-            tx: number
-            ty: number
-          }) => {
-            const el = document.querySelector(sel)
-            if (!el) return null
-            const rect = el.getBoundingClientRect()
-            const screenX = rect.x + rect.width / 2
-            const screenY = rect.y + rect.height / 2
-            return {
-              x: s === 1 ? screenX : screenX / s - tx,
-              y: s === 1 ? screenY : screenY / s - ty,
-            }
-          },
-          { sel: opts.selector, s: curScale, tx: curTx, ty: curTy },
-        )
-        if (!center)
+        const box = await page.locator(opts.selector).boundingBox()
+        if (!box)
           throw new Error(`zoom target '${opts.selector}' not found`)
-        targetX = center.x
-        targetY = center.y
+        const screenX = box.x + box.width / 2
+        const screenY = box.y + box.height / 2
+        targetX = curScale === 1 ? screenX : screenX / curScale - curTx
+        targetY = curScale === 1 ? screenY : screenY / curScale - curTy
       } else {
         targetX = opts.x ?? 640
         targetY = opts.y ?? 360

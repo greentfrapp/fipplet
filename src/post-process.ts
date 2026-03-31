@@ -1,7 +1,7 @@
-import { execFile } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { runFFmpeg } from './ffmpeg'
 import type { CursorEvent, CursorStyle } from './types'
 
 /** Shared VP9 encoding flags optimized for speed with screen content. */
@@ -20,39 +20,7 @@ export const VP9_FAST_FLAGS = [
   '0',
 ] as const
 
-/**
- * Resolve the path to the ffmpeg binary.
- * Uses @ffmpeg-installer/ffmpeg if available, falls back to system ffmpeg.
- */
-function getFFmpegPath(): string {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('ffmpeg-static') as string
-  } catch {
-    return 'ffmpeg'
-  }
-}
-
-export function runFFmpeg(
-  args: string[],
-  timeoutMs: number = 5 * 60 * 1000,
-): Promise<void> {
-  const ffmpeg = getFFmpegPath()
-  return new Promise((resolve, reject) => {
-    execFile(
-      ffmpeg,
-      args,
-      { maxBuffer: 50 * 1024 * 1024, timeout: timeoutMs },
-      (err, _stdout, stderr) => {
-        if (err) {
-          reject(new Error(`ffmpeg failed: ${err.message}\n${stderr}`))
-        } else {
-          resolve()
-        }
-      },
-    )
-  })
-}
+export { runFFmpeg } from './ffmpeg'
 
 /** Base size of bundled cursor PNGs (100×100 high-res source). */
 const CURSOR_BASE_SIZE = 100
