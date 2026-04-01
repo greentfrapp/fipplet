@@ -96,6 +96,7 @@ export const testreelFixtures: Parameters<
 
     const name = testreelOptions.name ?? sanitizeFilename(testInfo.title)
     const recorder = await recordPage(page, {
+      clean: true,
       outputDir: testInfo.outputDir,
       name,
       scale,

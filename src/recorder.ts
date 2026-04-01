@@ -15,7 +15,7 @@ import type {
   RecordingResult,
   StepTiming,
 } from './types'
-import { timestamp } from './utils'
+import { cleanOutputDir, timestamp } from './utils'
 import { loadDefinition } from './validation'
 import { createZoomState } from './zoom'
 
@@ -51,6 +51,10 @@ export async function record(
   const setup = options.setup ?? def.setup
 
   fs.mkdirSync(outputDir, { recursive: true })
+
+  if (options.clean) {
+    cleanOutputDir(outputDir)
+  }
 
   const viewport = def.viewport ?? { width: 1280, height: 720 }
   const scale = options.scale ?? def.scale ?? 1

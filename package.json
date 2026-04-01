@@ -44,7 +44,11 @@
     "demo",
     "screenshot",
     "automation",
-    "pr-demo"
+    "pr-demo",
+    "screen-recording",
+    "demo-video",
+    "ci-recording",
+    "visual-testing"
   ],
   "license": "MIT",
   "repository": {

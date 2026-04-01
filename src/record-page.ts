@@ -16,7 +16,7 @@ import type {
   WindowChromeOptions,
   ZoomState,
 } from './types'
-import { sanitizeFilename, timestamp } from './utils'
+import { cleanOutputDir, sanitizeFilename, timestamp } from './utils'
 import { createZoomState } from './zoom'
 
 /** A CSS/XPath selector string or a Playwright Locator object. */
@@ -30,6 +30,8 @@ export interface RecordPageOptions {
   outputDir?: string
   /** Base name for output files (e.g., 'add-product-demo'). When set, produces stable filenames that overwrite on re-run. When omitted, files are timestamped. */
   name?: string
+  /** Remove previous testreel output files from outputDir before recording. Default: false. */
+  clean?: boolean
   cursor?: boolean | CursorOptions
   chrome?: boolean | WindowChromeOptions
   background?: boolean | BackgroundOptions
@@ -123,6 +125,10 @@ export async function recordPage(
   const outputDir = options.outputDir ?? './testreel-output'
   const baseName = options.name ? sanitizeFilename(options.name) : undefined
   fs.mkdirSync(outputDir, { recursive: true })
+
+  if (options.clean) {
+    cleanOutputDir(outputDir)
+  }
 
   // Normalize cursor config
   const cursorConfig = options.cursor

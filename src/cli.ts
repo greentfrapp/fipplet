@@ -35,6 +35,7 @@ program
   )
   .option('--verbose', 'Enable detailed output (per-step timing, diagnostics)')
   .option('--quiet', 'Suppress all output except errors and final output paths')
+  .option('--clean', 'Remove previous output files before recording')
   .option('--keep-intermediates', 'Keep intermediate files (cursor JSON, etc.)')
   .action(
     async (
@@ -49,6 +50,7 @@ program
         dryRun?: boolean
         verbose?: boolean
         quiet?: boolean
+        clean?: boolean
         keepIntermediates?: boolean
       },
     ) => {
@@ -148,6 +150,7 @@ program
           outputFormat,
           speed,
           scale,
+          clean: opts.clean,
           keepIntermediates: opts.keepIntermediates,
         })
 
