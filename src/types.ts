@@ -162,9 +162,9 @@ export interface WindowChromeOptions {
 
 export interface BackgroundOptions {
   enabled?: boolean
-  /** Solid background color as hex string. Default: '#6366f1'. */
+  /** Solid background color as hex string. If neither color nor gradient is set, defaults to a gradient from '#6366f1' to '#a855f7'. */
   color?: string
-  /** Two-color diagonal gradient (overrides color). */
+  /** Two-color diagonal gradient. If neither color nor gradient is set, defaults to { from: '#6366f1', to: '#a855f7' }. */
   gradient?: { from: string; to: string }
   /** Padding around the window in pixels. Default: 60. */
   padding?: number
