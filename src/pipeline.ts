@@ -306,7 +306,9 @@ export async function runPostProcessPipeline(
       const titleBarColor = frame.chrome?.titleBarColor ?? '#e8e8e8'
       const trafficLights = frame.chrome?.trafficLights ?? true
       const bgColor = frame.background?.color
-      const bgGradient = frame.background?.gradient ?? (bgColor ? undefined : { from: '#6366f1', to: '#a855f7' })
+      const bgGradient =
+        frame.background?.gradient ??
+        (bgColor ? undefined : { from: '#6366f1', to: '#a855f7' })
       const padding = (frame.background?.padding ?? 60) * frameScale
       const borderRadius = (frame.background?.borderRadius ?? 12) * frameScale
 
