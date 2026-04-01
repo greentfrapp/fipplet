@@ -1,6 +1,10 @@
 # testreel
 
-Programmatic video recordings for web apps. Define interactions in JSON or reuse existing Playwright test suites, get polished screen recordings out.
+[![npm version](https://img.shields.io/npm/v/testreel)](https://www.npmjs.com/package/testreel)
+[![CI](https://github.com/greentfrapp/testreel/actions/workflows/ci.yml/badge.svg)](https://github.com/greentfrapp/testreel/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/testreel)](https://github.com/greentfrapp/testreel/blob/main/LICENSE)
+
+Programmatic video recordings for web apps. Define interactions in JSON, get polished screen recordings out.
 
 ## Install
 

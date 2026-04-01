@@ -203,6 +203,8 @@ export interface RecordOptions {
   /** Device scale factor override (1 = standard, 2 = Retina/HiDPI). */
   scale?: number
   outputFormat?: OutputFormat
+  /** Remove previous testreel output files from outputDir before recording. Default: false. */
+  clean?: boolean
   /** Keep intermediate files (cursor JSON, etc.) instead of cleaning up. */
   keepIntermediates?: boolean
 }
