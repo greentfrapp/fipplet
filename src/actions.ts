@@ -1,5 +1,5 @@
 import path from 'path'
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 import {
   moveCursorTo as defaultMoveCursorTo,
   triggerRipple as defaultTriggerRipple,
@@ -24,6 +24,12 @@ import type {
   ZoomStep,
 } from './types'
 import { sanitizeFilename, timestamp } from './utils'
+
+type SelectorOrLocator = string | Locator
+
+function resolveLocator(page: Page, selector: SelectorOrLocator): Locator {
+  return typeof selector === 'string' ? page.locator(selector) : selector
+}
 // zoom suspend/restore no longer needed — all actions use screen coordinates
 
 function getMoveCursorTo(ctx: ActionContext) {
@@ -55,31 +61,28 @@ const DEFAULT_SELECTOR_TIMEOUT = 5000
 /** Wait for a selector to become visible, retrying until timeout. */
 export async function awaitSelector(
   page: Page,
-  selector: string,
+  selector: SelectorOrLocator,
   timeout: number,
 ): Promise<void> {
-  await page.locator(selector).waitFor({ state: 'visible', timeout })
+  await resolveLocator(page, selector).waitFor({ state: 'visible', timeout })
 }
 
 /** Get the screen-space center of an element (includes CSS transform effects). */
 export async function getScreenCenter(
   page: Page,
-  selector: string,
+  selector: SelectorOrLocator,
 ): Promise<{ x: number; y: number } | null> {
-  return page.evaluate((sel: string) => {
-    const el = document.querySelector(sel)
-    if (!el) return null
-    const rect = el.getBoundingClientRect()
-    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
-  }, selector)
+  const box = await resolveLocator(page, selector).boundingBox()
+  if (!box) return null
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
 /** Focus an element without changing zoom. Works at any zoom level. */
-export async function focusElement(page: Page, selector: string): Promise<void> {
-  await page.evaluate((sel: string) => {
-    const el = document.querySelector(sel) as HTMLElement | null
-    el?.focus()
-  }, selector)
+export async function focusElement(
+  page: Page,
+  selector: SelectorOrLocator,
+): Promise<void> {
+  await resolveLocator(page, selector).focus()
 }
 
 async function handleWait(page: Page, step: WaitStep): Promise<void> {
@@ -184,18 +187,10 @@ async function handleFill(
       ctx.cursorOptions,
     )
   }
-  // Focus and set value via evaluate to avoid zoom suspend
-  await page.evaluate(
-    ({ sel, text }: { sel: string; text: string }) => {
-      const el = document.querySelector(sel) as HTMLInputElement | null
-      if (!el) return
-      el.focus()
-      el.value = text
-      el.dispatchEvent(new Event('input', { bubbles: true }))
-      el.dispatchEvent(new Event('change', { bubbles: true }))
-    },
-    { sel: step.selector, text: step.text },
-  )
+  // Focus and set value via locator
+  const locator = page.locator(step.selector)
+  await locator.focus()
+  await locator.fill(step.text)
 }
 
 async function handleSelect(
@@ -216,17 +211,8 @@ async function handleSelect(
       ctx.cursorOptions,
     )
   }
-  // Set select value via evaluate to avoid zoom suspend
-  await page.evaluate(
-    ({ sel, value }: { sel: string; value: string }) => {
-      const el = document.querySelector(sel) as HTMLSelectElement | null
-      if (!el) return
-      el.focus()
-      el.value = value
-      el.dispatchEvent(new Event('change', { bubbles: true }))
-    },
-    { sel: step.selector, value: step.value },
-  )
+  // Set select value via locator
+  await page.locator(step.selector).selectOption(step.value)
 }
 
 async function handleScroll(
@@ -369,24 +355,13 @@ async function handleZoom(
 
   if (step.selector) {
     const { scale: curScale, tx: curTx, ty: curTy } = ctx.zoomState
-    const center = await page.evaluate(
-      ({ sel, s, tx, ty }: { sel: string; s: number; tx: number; ty: number }) => {
-        const el = document.querySelector(sel)
-        if (!el) return null
-        const rect = el.getBoundingClientRect()
-        const screenX = rect.x + rect.width / 2
-        const screenY = rect.y + rect.height / 2
-        // Reverse CSS transform to get layout coordinates
-        return {
-          x: s === 1 ? screenX : screenX / s - tx,
-          y: s === 1 ? screenY : screenY / s - ty,
-        }
-      },
-      { sel: step.selector, s: curScale, tx: curTx, ty: curTy },
-    )
-    if (!center) throw new Error(`zoom target '${step.selector}' not found`)
-    targetX = center.x
-    targetY = center.y
+    const box = await page.locator(step.selector).boundingBox()
+    if (!box) throw new Error(`zoom target '${step.selector}' not found`)
+    const screenX = box.x + box.width / 2
+    const screenY = box.y + box.height / 2
+    // Reverse CSS transform to get layout coordinates
+    targetX = curScale === 1 ? screenX : screenX / curScale - curTx
+    targetY = curScale === 1 ? screenY : screenY / curScale - curTy
   } else {
     targetX = step.x ?? 640
     targetY = step.y ?? 360

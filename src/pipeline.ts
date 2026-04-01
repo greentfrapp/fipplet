@@ -10,6 +10,7 @@ import {
   renderWindowFrame,
 } from './chrome-renderer'
 import { CURSOR_STYLES, getCursorPng } from './cursors'
+import { getFFmpegPath } from './ffmpeg'
 import {
   type RippleConfig,
   VP9_FAST_FLAGS,
@@ -164,16 +165,10 @@ export async function runPostProcessPipeline(
   const outputPath = path.join(outputDir, `${base}-processed${ext}`)
 
   // Probe main video duration to limit output (prevents infinite streams from looped PNGs)
+  const ffmpegBin = await getFFmpegPath()
   const probeDuration = await new Promise<number | null>((resolve) => {
-    let ffmpeg: string
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      ffmpeg = require('ffmpeg-static') as string
-    } catch {
-      ffmpeg = 'ffmpeg'
-    }
     execFile(
-      ffmpeg,
+      ffmpegBin,
       ['-i', videoPath, '-f', 'null', '-'],
       { timeout: 10000 },
       (_err, _stdout, stderr) => {

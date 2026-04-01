@@ -1,4 +1,4 @@
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 import type {
   CursorEvent,
   CursorOptions,
@@ -6,9 +6,10 @@ import type {
   CursorTracker,
   ZoomState,
 } from './types'
+
+type SelectorOrLocator = string | Locator
 // suspendZoom/restoreZoom no longer needed in cursor tracking —
 // coordinates are computed mathematically from the zoom transform
-
 
 /**
  * Encapsulated cursor tracker. Each `record()` call creates its own instance,
@@ -35,72 +36,80 @@ export class CursorTrackerImpl implements CursorTracker {
    */
   async moveCursorTo(
     page: Page,
-    selector: string,
+    selector: SelectorOrLocator,
     zoomState: ZoomState,
     options: CursorOptions = {},
   ): Promise<void> {
     const transitionMs = options.transitionMs ?? 350
 
-    // Get element center and cursor style WITHOUT suspending zoom.
-    // getBoundingClientRect returns screen coordinates (affected by CSS transform).
+    // Get element bounding box via Playwright locator (supports all selector engines).
+    // boundingBox returns screen coordinates (affected by CSS transform).
     // We reverse the transform to get the true layout coordinates for the cursor overlay.
-    const result = await page.evaluate(
-      ({ sel, scale, tx, ty }: { sel: string; scale: number; tx: number; ty: number }) => {
-        const el =
-          sel.startsWith('//') || sel.startsWith('..')
-            ? (document.evaluate(
-                sel,
-                document,
-                null,
-                XPathResult.FIRST_ORDERED_NODE_TYPE,
-                null,
-              ).singleNodeValue as Element | null)
-            : document.querySelector(sel)
-        if (!el) return null
-        const rect = el.getBoundingClientRect()
+    const locator =
+      typeof selector === 'string' ? page.locator(selector) : selector
+    const box = await locator.boundingBox()
+    if (!box) return
 
-        // Screen coords (with zoom transform applied)
-        const screenX = rect.x + rect.width / 2
-        const screenY = rect.y + rect.height / 2
+    const { scale, tx, ty } = zoomState
 
-        // Reverse the CSS transform: screen = (layout + tx) * scale
-        // So: layout = screen / scale - tx
-        const layoutX = scale === 1 ? screenX : screenX / scale - tx
-        const layoutY = scale === 1 ? screenY : screenY / scale - ty
+    // Screen coords (with zoom transform applied)
+    const screenX = box.x + box.width / 2
+    const screenY = box.y + box.height / 2
 
-        // Detect cursor style from the target element
-        let cursorStyle: string = 'default'
-        const computed = window.getComputedStyle(el).cursor
-        if (computed === 'pointer' || computed === 'text') {
-          cursorStyle = computed
-        } else if (computed === 'auto' || computed === '' || computed === 'default') {
-          const tag = el.tagName.toLowerCase()
-          if (
-            tag === 'a' || tag === 'button' || tag === 'select' || tag === 'summary' ||
-            el.closest('a') || el.closest('button') ||
-            el.getAttribute('role') === 'button' ||
-            el.getAttribute('role') === 'link'
-          ) {
-            cursorStyle = 'pointer'
-          } else if (tag === 'textarea' || (el as HTMLElement).isContentEditable) {
-            cursorStyle = 'text'
-          } else if (tag === 'input') {
-            const inputType = ((el as HTMLInputElement).type || 'text').toLowerCase()
-            const textTypes = ['text', 'search', 'url', 'tel', 'email', 'password', 'number', '']
-            cursorStyle = textTypes.includes(inputType) ? 'text' : 'pointer'
-          }
+    // Reverse the CSS transform: screen = (layout + tx) * scale
+    // So: layout = screen / scale - tx
+    const layoutX = scale === 1 ? screenX : screenX / scale - tx
+    const layoutY = scale === 1 ? screenY : screenY / scale - ty
+
+    // Detect cursor style from the target element (runs on the already-located element)
+    const cursorStyle = await locator.evaluate((el) => {
+      let style: string = 'default'
+      const computed = window.getComputedStyle(el).cursor
+      if (computed === 'pointer' || computed === 'text') {
+        style = computed
+      } else if (
+        computed === 'auto' ||
+        computed === '' ||
+        computed === 'default'
+      ) {
+        const tag = el.tagName.toLowerCase()
+        if (
+          tag === 'a' ||
+          tag === 'button' ||
+          tag === 'select' ||
+          tag === 'summary' ||
+          el.closest('a') ||
+          el.closest('button') ||
+          el.getAttribute('role') === 'button' ||
+          el.getAttribute('role') === 'link'
+        ) {
+          style = 'pointer'
+        } else if (
+          tag === 'textarea' ||
+          (el as HTMLElement).isContentEditable
+        ) {
+          style = 'text'
+        } else if (tag === 'input') {
+          const inputType = (
+            (el as HTMLInputElement).type || 'text'
+          ).toLowerCase()
+          const textTypes = [
+            'text',
+            'search',
+            'url',
+            'tel',
+            'email',
+            'password',
+            'number',
+            '',
+          ]
+          style = textTypes.includes(inputType) ? 'text' : 'pointer'
         }
+      }
+      return style
+    })
 
-        return {
-          x: layoutX,
-          y: layoutY,
-          cursorStyle,
-        }
-      },
-      { sel: selector, scale: zoomState.scale, tx: zoomState.tx, ty: zoomState.ty },
-    )
-
-    if (!result) return
+    const result = { x: layoutX, y: layoutY, cursorStyle }
 
     // Scale from CSS pixels to video pixels
     const x = result.x * this.scale
@@ -229,7 +238,7 @@ export function initCursorTracker(
 
 export async function moveCursorTo(
   page: Page,
-  selector: string,
+  selector: SelectorOrLocator,
   zoomState: ZoomState,
   options: CursorOptions = {},
 ): Promise<void> {

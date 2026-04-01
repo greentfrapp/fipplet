@@ -4,7 +4,9 @@ import { recordPage } from '../record-page'
 
 // Mock heavy dependencies that are not under test
 vi.mock('../pipeline', () => ({
-  runPostProcessPipeline: vi.fn().mockResolvedValue('/tmp/test-output/processed.webm'),
+  runPostProcessPipeline: vi
+    .fn()
+    .mockResolvedValue('/tmp/test-output/processed.webm'),
 }))
 vi.mock('../post-process', () => ({
   convertToMp4: vi.fn().mockResolvedValue('/tmp/test-output/recording.mp4'),
@@ -22,14 +24,24 @@ const contextMock = {
 
 function mockPage(overrides: Record<string, any> = {}) {
   const waitForMock = vi.fn().mockResolvedValue(undefined)
+  const boundingBoxMock = vi
+    .fn()
+    .mockResolvedValue({ x: 50, y: 50, width: 100, height: 40 })
+  const focusMock = vi.fn().mockResolvedValue(undefined)
+  const fillMock = vi.fn().mockResolvedValue(undefined)
+  const locatorEvaluateMock = vi.fn().mockResolvedValue('default')
   return {
     video: vi.fn().mockReturnValue(videoMock),
     viewportSize: vi.fn().mockReturnValue({ width: 1280, height: 720 }),
     context: vi.fn().mockReturnValue(contextMock),
     locator: vi.fn().mockReturnValue({
       waitFor: waitForMock,
+      boundingBox: boundingBoxMock,
+      focus: focusMock,
+      fill: fillMock,
+      evaluate: locatorEvaluateMock,
     }),
-    evaluate: vi.fn().mockResolvedValue({ x: 100, y: 200 }),
+    evaluate: vi.fn().mockResolvedValue(undefined),
     waitForTimeout: vi.fn().mockResolvedValue(undefined),
     mouse: {
       click: vi.fn().mockResolvedValue(undefined),
@@ -128,8 +140,8 @@ describe('PageRecorder action methods', () => {
         state: 'visible',
         timeout: 5000,
       })
-      expect(page.evaluate).toHaveBeenCalled()
-      expect(page.mouse.click).toHaveBeenCalledWith(100, 200)
+      // boundingBox {x:50,y:50,w:100,h:40} → center (100, 70)
+      expect(page.mouse.click).toHaveBeenCalledWith(100, 70)
     })
 
     it('uses custom timeout', async () => {
@@ -150,7 +162,7 @@ describe('PageRecorder action methods', () => {
     it('awaits selector, clicks, and types text with default delay', async () => {
       await recorder.type('#input', 'hello')
       expect(page.locator).toHaveBeenCalledWith('#input')
-      expect(page.mouse.click).toHaveBeenCalledWith(100, 200)
+      expect(page.mouse.click).toHaveBeenCalledWith(100, 70)
       expect(page.keyboard.type).toHaveBeenCalledWith('hello', { delay: 80 })
     })
 
@@ -161,35 +173,23 @@ describe('PageRecorder action methods', () => {
 
     it('triple-clicks to clear when clear option is true', async () => {
       await recorder.type('#input', 'new text', { clear: true })
-      expect(page.mouse.click).toHaveBeenCalledWith(100, 200, {
+      expect(page.mouse.click).toHaveBeenCalledWith(100, 70, {
         clickCount: 3,
       })
     })
 
     it('single-clicks when clear option is false/absent', async () => {
       await recorder.type('#input', 'text')
-      expect(page.mouse.click).toHaveBeenCalledWith(100, 200)
+      expect(page.mouse.click).toHaveBeenCalledWith(100, 70)
     })
   })
 
   describe('fill', () => {
-    it('awaits selector and evaluates to set value', async () => {
+    it('awaits selector and fills via locator', async () => {
       await recorder.fill('#input', 'filled value')
       expect(page.locator).toHaveBeenCalledWith('#input')
-      expect(page.evaluate).toHaveBeenCalled()
-      // evaluate is called twice: once for getScreenCenter (from click path? no — fill uses evaluate directly)
-      // First call is getScreenCenter in moveCursor (cursor disabled, so skipped)
-      // Only call is the fill evaluate
-      const evalCalls = page.evaluate.mock.calls
-      const fillCall = evalCalls.find(
-        (call: any[]) =>
-          call[1] &&
-          typeof call[1] === 'object' &&
-          'sel' in call[1] &&
-          'text' in call[1],
-      )
-      expect(fillCall).toBeDefined()
-      expect(fillCall[1]).toEqual({ sel: '#input', text: 'filled value' })
+      expect(page.locator('#input').focus).toHaveBeenCalled()
+      expect(page.locator('#input').fill).toHaveBeenCalledWith('filled value')
     })
   })
 
@@ -197,7 +197,8 @@ describe('PageRecorder action methods', () => {
     it('awaits selector and moves mouse to screen center', async () => {
       await recorder.hover('.link')
       expect(page.locator).toHaveBeenCalledWith('.link')
-      expect(page.mouse.move).toHaveBeenCalledWith(100, 200)
+      // boundingBox {x:50,y:50,w:100,h:40} → center (100, 70)
+      expect(page.mouse.move).toHaveBeenCalledWith(100, 70)
     })
   })
 
@@ -273,12 +274,12 @@ describe('PageRecorder cursor tracking', () => {
       outputDir: '/tmp/test-output',
     })
 
-    // Perform a click — cursor tracker should be called (moveCursorTo uses page.evaluate)
+    // Perform a click — cursor tracker should be called (moveCursorTo uses page.locator)
     await recorder.click('#btn')
-    // page.evaluate is called for: moveCursorTo (cursor tracking) + getScreenCenter
-    // If cursor were disabled, only getScreenCenter would be called
-    const evalCalls = page.evaluate.mock.calls
-    expect(evalCalls.length).toBeGreaterThanOrEqual(2)
+    // locator is called for: awaitSelector + moveCursorTo (boundingBox + evaluate for style) + getScreenCenter
+    // With cursor enabled, locator is called more times than with cursor disabled
+    const locatorCalls = page.locator.mock.calls
+    expect(locatorCalls.length).toBeGreaterThanOrEqual(3)
   })
 
   it('disables cursor when cursor: false', async () => {
@@ -289,9 +290,9 @@ describe('PageRecorder cursor tracking', () => {
     })
 
     await recorder.click('#btn')
-    // Only getScreenCenter evaluate call, no moveCursorTo
-    const evalCalls = page.evaluate.mock.calls
-    expect(evalCalls).toHaveLength(1) // just getScreenCenter
+    // Only awaitSelector + getScreenCenter locator calls, no moveCursorTo
+    const locatorCalls = page.locator.mock.calls
+    expect(locatorCalls).toHaveLength(2) // awaitSelector + getScreenCenter
   })
 
   it('disables cursor when cursor.enabled is false', async () => {
@@ -302,8 +303,8 @@ describe('PageRecorder cursor tracking', () => {
     })
 
     await recorder.click('#btn')
-    const evalCalls = page.evaluate.mock.calls
-    expect(evalCalls).toHaveLength(1) // just getScreenCenter
+    const locatorCalls = page.locator.mock.calls
+    expect(locatorCalls).toHaveLength(2) // awaitSelector + getScreenCenter
   })
 })
 
@@ -570,7 +571,14 @@ describe('PageRecorder zoom action', () => {
   })
 
   it('throws when zoom target selector not found', async () => {
-    page = mockPage({ evaluate: vi.fn().mockResolvedValue(null) })
+    page = mockPage({
+      locator: vi.fn().mockReturnValue({
+        waitFor: vi.fn().mockResolvedValue(undefined),
+        boundingBox: vi.fn().mockResolvedValue(null),
+        focus: vi.fn().mockResolvedValue(undefined),
+        fill: vi.fn().mockResolvedValue(undefined),
+      }),
+    })
     const recorder = await recordPage(page, {
       outputDir: '/tmp/test-output',
       cursor: false,
@@ -589,8 +597,141 @@ describe('PageRecorder zoom action', () => {
     })
 
     await recorder.zoom({ selector: '#target', scale: 2 })
-    // evaluate is called: once for selector center lookup, once for applying transform
-    expect(page.evaluate).toHaveBeenCalledTimes(2)
+    // locator().boundingBox() for selector center, then evaluate for applying CSS transform
+    expect(page.locator).toHaveBeenCalledWith('#target')
+    expect(page.evaluate).toHaveBeenCalledTimes(1) // only the CSS transform apply
+  })
+})
+
+describe('PageRecorder name option', () => {
+  beforeEach(() => {
+    vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined)
+    vi.spyOn(fs, 'writeFileSync').mockReturnValue(undefined)
+    vi.spyOn(fs, 'unlinkSync').mockReturnValue(undefined)
+    vi.spyOn(fs, 'renameSync').mockReturnValue(undefined)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('uses stable filename derived from name option', async () => {
+    const page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      name: 'add-product-demo',
+      cursor: false,
+    })
+
+    const result = await recorder.stop()
+    expect(result.video).toBe('/tmp/test-output/add-product-demo.webm')
+  })
+
+  it('uses stable filename for final screenshot when name is set', async () => {
+    const page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      name: 'my-demo',
+      cursor: false,
+    })
+
+    const result = await recorder.stop()
+    expect(result.screenshots[0]).toBe('/tmp/test-output/my-demo-final.png')
+  })
+
+  it('sanitizes the name option', async () => {
+    const page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      name: 'my demo (test)',
+      cursor: false,
+    })
+
+    const result = await recorder.stop()
+    expect(result.video).toBe('/tmp/test-output/my_demo__test_.webm')
+  })
+
+  it('falls back to timestamp when name is not set', async () => {
+    const page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      cursor: false,
+    })
+
+    const result = await recorder.stop()
+    expect(result.video).toMatch(/recording-\d{4}-\d{2}-\d{2}_.*\.webm$/)
+  })
+})
+
+describe('PageRecorder with Locator objects', () => {
+  let page: any
+  let recorder: any
+
+  function mockLocator() {
+    return {
+      waitFor: vi.fn().mockResolvedValue(undefined),
+      boundingBox: vi
+        .fn()
+        .mockResolvedValue({ x: 50, y: 50, width: 100, height: 40 }),
+      focus: vi.fn().mockResolvedValue(undefined),
+      fill: vi.fn().mockResolvedValue(undefined),
+      evaluate: vi.fn().mockResolvedValue('default'),
+    }
+  }
+
+  beforeEach(async () => {
+    vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined)
+    page = mockPage()
+    recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      cursor: false,
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('click accepts a Locator object', async () => {
+    const locator = mockLocator()
+    await recorder.click(locator)
+    // Should use the locator directly, not call page.locator()
+    expect(locator.waitFor).toHaveBeenCalledWith({
+      state: 'visible',
+      timeout: 5000,
+    })
+    expect(locator.boundingBox).toHaveBeenCalled()
+    expect(page.mouse.click).toHaveBeenCalledWith(100, 70)
+  })
+
+  it('type accepts a Locator object', async () => {
+    const locator = mockLocator()
+    await recorder.type(locator, 'hello')
+    expect(locator.waitFor).toHaveBeenCalled()
+    expect(locator.boundingBox).toHaveBeenCalled()
+    expect(page.keyboard.type).toHaveBeenCalledWith('hello', { delay: 80 })
+  })
+
+  it('fill accepts a Locator object', async () => {
+    const locator = mockLocator()
+    await recorder.fill(locator, 'test value')
+    expect(locator.waitFor).toHaveBeenCalled()
+    expect(locator.focus).toHaveBeenCalled()
+    expect(locator.fill).toHaveBeenCalledWith('test value')
+  })
+
+  it('hover accepts a Locator object', async () => {
+    const locator = mockLocator()
+    await recorder.hover(locator)
+    expect(locator.waitFor).toHaveBeenCalled()
+    expect(locator.boundingBox).toHaveBeenCalled()
+    expect(page.mouse.move).toHaveBeenCalledWith(100, 70)
+  })
+
+  it('still works with string selectors (backward compat)', async () => {
+    await recorder.click('#btn')
+    expect(page.locator).toHaveBeenCalledWith('#btn')
+    expect(page.mouse.click).toHaveBeenCalledWith(100, 70)
   })
 })
 

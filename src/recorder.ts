@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-
 import { ACTIONS } from './actions'
 import { createCursorTracker } from './cursor'
 import { log, logError, logVerbose } from './logger'

@@ -35,7 +35,7 @@ Only `url` and `steps` are required:
 | `viewport` | `{ width, height }` | `1280×720` | Browser viewport dimensions in pixels. |
 | `scale` | `number` | `1` | Device scale factor. Set to `2` for Retina/HiDPI (2× resolution). |
 | `colorScheme` | `"light"` \| `"dark"` | `"light"` | Preferred color scheme. |
-| `waitForSelector` | `string` | — | CSS selector to wait for before executing steps. |
+| `waitForSelector` | `string` | — | Selector to wait for before executing steps. Accepts any [Playwright selector](https://playwright.dev/docs/selectors). |
 | `speed` | `number` | `1.0` | Global playback speed multiplier (> 0). Values > 1 speed up, < 1 slow down. |
 | `outputFormat` | `"webm"` \| `"mp4"` \| `"gif"` | `"webm"` | Video output format. MP4 and GIF require ffmpeg. |
 | `cursor` | `boolean` \| `CursorOptions` | `true` | Animated cursor overlay. See [Cursor options](#cursor-options). |

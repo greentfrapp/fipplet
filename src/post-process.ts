@@ -1,7 +1,7 @@
-import { execFile } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { runFFmpeg } from './ffmpeg'
 import type { CursorEvent, CursorStyle } from './types'
 
 /** Shared VP9 encoding flags optimized for speed with screen content. */
@@ -20,39 +20,7 @@ export const VP9_FAST_FLAGS = [
   '0',
 ] as const
 
-/**
- * Resolve the path to the ffmpeg binary.
- * Uses @ffmpeg-installer/ffmpeg if available, falls back to system ffmpeg.
- */
-function getFFmpegPath(): string {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('ffmpeg-static') as string
-  } catch {
-    return 'ffmpeg'
-  }
-}
-
-export function runFFmpeg(
-  args: string[],
-  timeoutMs: number = 5 * 60 * 1000,
-): Promise<void> {
-  const ffmpeg = getFFmpegPath()
-  return new Promise((resolve, reject) => {
-    execFile(
-      ffmpeg,
-      args,
-      { maxBuffer: 50 * 1024 * 1024, timeout: timeoutMs },
-      (err, _stdout, stderr) => {
-        if (err) {
-          reject(new Error(`ffmpeg failed: ${err.message}\n${stderr}`))
-        } else {
-          resolve()
-        }
-      },
-    )
-  })
-}
+export { runFFmpeg } from './ffmpeg'
 
 /** Base size of bundled cursor PNGs (100×100 high-res source). */
 const CURSOR_BASE_SIZE = 100
@@ -192,7 +160,9 @@ export function buildZoomSegments(
   events: CursorEvent[],
   baseCursorSize: number,
 ): ZoomSegment[] {
-  const zoomEvents = events.filter((e) => e.type === 'zoom' && e.zoomScale !== undefined)
+  const zoomEvents = events.filter(
+    (e) => e.type === 'zoom' && e.zoomScale !== undefined,
+  )
 
   // No zoom events — single segment at base size
   if (zoomEvents.length === 0) {
@@ -200,7 +170,10 @@ export function buildZoomSegments(
   }
 
   // Build time ranges with interpolated intermediate steps during transitions
-  interface TimeRange { start: number; end: number }
+  interface TimeRange {
+    start: number
+    end: number
+  }
   const sizeRanges = new Map<number, TimeRange[]>()
 
   const addRange = (size: number, start: number, end: number) => {
@@ -241,8 +214,8 @@ export function buildZoomSegments(
   // Build enable expressions per cursor size
   const segments: ZoomSegment[] = []
   for (const [cursorSize, ranges] of sizeRanges) {
-    const parts = ranges.map((r) =>
-      `between(t\\,${r.start.toFixed(4)}\\,${r.end.toFixed(4)})`,
+    const parts = ranges.map(
+      (r) => `between(t\\,${r.start.toFixed(4)}\\,${r.end.toFixed(4)})`,
     )
     const enableExpr = parts.length === 1 ? parts[0] : parts.join('+')
     segments.push({ cursorSize, enableExpr })
@@ -323,9 +296,8 @@ export function buildFilterGraph(
   const extraInputArgs: string[] = []
 
   // Determine effective zoom segments (default: single segment at base cursor size)
-  const effectiveZoom = zoomSegments && zoomSegments.length > 1
-    ? zoomSegments
-    : undefined
+  const effectiveZoom =
+    zoomSegments && zoomSegments.length > 1 ? zoomSegments : undefined
 
   if (multiCursor && multiCursor.inputs.length > 0) {
     if (effectiveZoom) {

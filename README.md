@@ -85,6 +85,8 @@ recorded('product demo', async ({ page }) => {
 })
 ```
 
+Recordings are captured regardless of test outcome — partial videos are attached to the report for debugging. See [Playwright Integration](docs/playwright.md) for composing with custom fixtures, the `PageRecorder` API, and configuration options.
+
 ### recordPage API
 
 For manual control over recording within any Playwright script:
