@@ -60,7 +60,7 @@
     "url": "https://github.com/greentfrapp/testreel/issues"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "peerDependencies": {
     "playwright-core": ">=1.51.0",
