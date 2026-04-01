@@ -43,6 +43,7 @@ export default defineConfig([
     external: ["playwright-core", "ffmpeg-static"],
     esbuildPlugins: [resolvePngAssets],
     loader: { ".svg": "text", ".html": "text" },
+    onSuccess: "mkdir -p dist/docs && cp docs/*.md dist/docs/",
   },
   {
     entry: ["src/cli.ts"],

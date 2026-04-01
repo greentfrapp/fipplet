@@ -23,7 +23,8 @@
   },
   "files": [
     "dist",
-    "recording-definition.schema.json"
+    "recording-definition.schema.json",
+    "AGENTS.md"
   ],
   "scripts": {
     "build": "tsup",
