@@ -61,53 +61,57 @@ export class CursorTrackerImpl implements CursorTracker {
     const layoutX = scale === 1 ? screenX : screenX / scale - tx
     const layoutY = scale === 1 ? screenY : screenY / scale - ty
 
-    // Detect cursor style from the target element (runs on the already-located element)
-    const cursorStyle = await locator.evaluate((el) => {
-      let style: string = 'default'
-      const computed = window.getComputedStyle(el).cursor
-      if (computed === 'pointer' || computed === 'text') {
-        style = computed
-      } else if (
-        computed === 'auto' ||
-        computed === '' ||
-        computed === 'default'
-      ) {
-        const tag = el.tagName.toLowerCase()
-        if (
-          tag === 'a' ||
-          tag === 'button' ||
-          tag === 'select' ||
-          tag === 'summary' ||
-          el.closest('a') ||
-          el.closest('button') ||
-          el.getAttribute('role') === 'button' ||
-          el.getAttribute('role') === 'link'
-        ) {
-          style = 'pointer'
-        } else if (
-          tag === 'textarea' ||
-          (el as HTMLElement).isContentEditable
-        ) {
-          style = 'text'
-        } else if (tag === 'input') {
-          const inputType = (
-            (el as HTMLInputElement).type || 'text'
-          ).toLowerCase()
-          const textTypes = [
-            'text',
-            'search',
-            'url',
-            'tel',
-            'email',
-            'password',
-            'number',
-            '',
-          ]
-          style = textTypes.includes(inputType) ? 'text' : 'pointer'
-        }
-      }
-      return style
-    })
+    // Detect cursor style from the target element (runs on the already-located element).
+    // Touch mode skips auto-detection — the touch cursor never switches styles.
+    const cursorStyle =
+      options?.style === 'touch'
+        ? 'touch'
+        : await locator.evaluate((el) => {
+            let style: string = 'default'
+            const computed = window.getComputedStyle(el).cursor
+            if (computed === 'pointer' || computed === 'text') {
+              style = computed
+            } else if (
+              computed === 'auto' ||
+              computed === '' ||
+              computed === 'default'
+            ) {
+              const tag = el.tagName.toLowerCase()
+              if (
+                tag === 'a' ||
+                tag === 'button' ||
+                tag === 'select' ||
+                tag === 'summary' ||
+                el.closest('a') ||
+                el.closest('button') ||
+                el.getAttribute('role') === 'button' ||
+                el.getAttribute('role') === 'link'
+              ) {
+                style = 'pointer'
+              } else if (
+                tag === 'textarea' ||
+                (el as HTMLElement).isContentEditable
+              ) {
+                style = 'text'
+              } else if (tag === 'input') {
+                const inputType = (
+                  (el as HTMLInputElement).type || 'text'
+                ).toLowerCase()
+                const textTypes = [
+                  'text',
+                  'search',
+                  'url',
+                  'tel',
+                  'email',
+                  'password',
+                  'number',
+                  '',
+                ]
+                style = textTypes.includes(inputType) ? 'text' : 'pointer'
+              }
+            }
+            return style
+          })
 
     const result = { x: layoutX, y: layoutY, cursorStyle }
 

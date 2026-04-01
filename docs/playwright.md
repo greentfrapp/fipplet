@@ -149,7 +149,7 @@ export default defineConfig({
         padding: 60,
         borderRadius: 12,
       },
-      cursor: { style: 'pointer' },
+      cursor: { style: 'pointer' }, // or 'touch' for mobile UI recordings
       outputFormat: 'webm',
     },
   },

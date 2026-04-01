@@ -26,6 +26,17 @@ export { runFFmpeg } from './ffmpeg'
 const CURSOR_BASE_SIZE = 100
 
 /**
+ * Cursor hotspot offset as a fraction of cursor size.
+ * (0, 0) = top-left (arrow cursors), (0.5, 0.5) = center (touch cursor).
+ */
+export const CURSOR_HOTSPOT: Record<string, { x: number; y: number }> = {
+  default: { x: 0, y: 0 },
+  pointer: { x: 0, y: 0 },
+  text: { x: 0.5, y: 0 },
+  touch: { x: 0.5, y: 0.5 },
+}
+
+/**
  * Build FFmpeg piecewise-linear expression for cursor position.
  *
  * Given keyframes [(t0,v0), (t1,v1), ...], produces an expression that:
@@ -304,6 +315,7 @@ export function buildFilterGraph(
       // Multi-cursor × multi-zoom: one overlay per (style × zoom) pair
       for (const { style, inputIdx } of multiCursor.inputs) {
         const styleExpr = multiCursor.styleExprs[style] ?? '0'
+        const hotspot = CURSOR_HOTSPOT[style] ?? { x: 0, y: 0 }
 
         for (let z = 0; z < effectiveZoom.length; z++) {
           const zoom = effectiveZoom[z]
@@ -319,12 +331,18 @@ export function buildFilterGraph(
             cursorLabel = scaledLabel
           }
 
+          // Apply hotspot offset so the cursor's logical point aligns with (x, y)
+          const xOff = Math.round(hotspot.x * zoom.cursorSize)
+          const yOff = Math.round(hotspot.y * zoom.cursorSize)
+          const adjX = xOff === 0 ? xExpr : `(${xExpr})-${xOff}`
+          const adjY = yOff === 0 ? yExpr : `(${yExpr})-${yOff}`
+
           // Enable = visibility × style × zoom
           const enableExpr = `(${visExpr})*(${styleExpr})*(${zoom.enableExpr})`
           const outLabel = `${label}_out`
 
           filters.push(
-            `[${currentInput}][${cursorLabel}]overlay=x='${xExpr}':y='${yExpr}':enable='${enableExpr}':format=auto[${outLabel}]`,
+            `[${currentInput}][${cursorLabel}]overlay=x='${adjX}':y='${adjY}':enable='${enableExpr}':format=auto[${outLabel}]`,
           )
           currentInput = outLabel
         }
@@ -334,6 +352,7 @@ export function buildFilterGraph(
       for (let i = 0; i < multiCursor.inputs.length; i++) {
         const { style, inputIdx } = multiCursor.inputs[i]
         const styleExpr = multiCursor.styleExprs[style] ?? '0'
+        const hotspot = CURSOR_HOTSPOT[style] ?? { x: 0, y: 0 }
 
         let cursorLabel = `${inputIdx}:v`
         if (cursorSize !== CURSOR_BASE_SIZE) {
@@ -344,11 +363,17 @@ export function buildFilterGraph(
           cursorLabel = scaledLabel
         }
 
+        // Apply hotspot offset so the cursor's logical point aligns with (x, y)
+        const xOff = Math.round(hotspot.x * cursorSize)
+        const yOff = Math.round(hotspot.y * cursorSize)
+        const adjX = xOff === 0 ? xExpr : `(${xExpr})-${xOff}`
+        const adjY = yOff === 0 ? yExpr : `(${yExpr})-${yOff}`
+
         const enableExpr = `(${visExpr})*(${styleExpr})`
         const outLabel = `cursor_${style}_out`
 
         filters.push(
-          `[${currentInput}][${cursorLabel}]overlay=x='${xExpr}':y='${yExpr}':enable='${enableExpr}':format=auto[${outLabel}]`,
+          `[${currentInput}][${cursorLabel}]overlay=x='${adjX}':y='${adjY}':enable='${enableExpr}':format=auto[${outLabel}]`,
         )
         currentInput = outLabel
       }
