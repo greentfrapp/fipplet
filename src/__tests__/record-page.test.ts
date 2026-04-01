@@ -2,6 +2,9 @@ import fs from 'fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { recordPage } from '../record-page'
 
+/** Normalize path separators to forward slashes for cross-platform assertions. */
+const norm = (p: string) => p.replace(/\\/g, '/')
+
 // Mock heavy dependencies that are not under test
 vi.mock('../pipeline', () => ({
   runPostProcessPipeline: vi
@@ -248,7 +251,7 @@ describe('PageRecorder action methods', () => {
       const filepath = await recorder.screenshot('my-shot')
       expect(page.screenshot).toHaveBeenCalled()
       const callArgs = page.screenshot.mock.calls[0][0]
-      expect(callArgs.path).toMatch(/my-shot\.png$/)
+      expect(norm(callArgs.path)).toMatch(/my-shot\.png$/)
       expect(filepath).toBe(callArgs.path)
     })
   })
@@ -335,7 +338,7 @@ describe('PageRecorder.stop()', () => {
     expect(contextMock.close).toHaveBeenCalled()
     expect(videoMock.saveAs).toHaveBeenCalled()
     expect(videoMock.delete).toHaveBeenCalled()
-    expect(result.video).toMatch(/recording-.*\.webm$/)
+    expect(norm(result.video)).toMatch(/recording-.*\.webm$/)
     expect(result.screenshots).toHaveLength(1) // final screenshot
   })
 
@@ -514,7 +517,7 @@ describe('PageRecorder.stop() format conversion', () => {
     const result = await recorder.stop()
     expect(convertToMp4).not.toHaveBeenCalled()
     expect(convertToGif).not.toHaveBeenCalled()
-    expect(result.video).toMatch(/\.webm$/)
+    expect(norm(result.video!)).toMatch(/\.webm$/)
   })
 
   it('converts to mp4 when outputFormat is mp4', async () => {
@@ -528,7 +531,7 @@ describe('PageRecorder.stop() format conversion', () => {
 
     const result = await recorder.stop()
     expect(convertToMp4).toHaveBeenCalled()
-    expect(result.video).toMatch(/\.mp4$/)
+    expect(norm(result.video!)).toMatch(/\.mp4$/)
   })
 
   it('converts to gif when outputFormat is gif', async () => {
@@ -542,7 +545,7 @@ describe('PageRecorder.stop() format conversion', () => {
 
     const result = await recorder.stop()
     expect(convertToGif).toHaveBeenCalled()
-    expect(result.video).toMatch(/\.gif$/)
+    expect(norm(result.video!)).toMatch(/\.gif$/)
   })
 })
 
@@ -624,7 +627,7 @@ describe('PageRecorder name option', () => {
     })
 
     const result = await recorder.stop()
-    expect(result.video).toBe('/tmp/test-output/add-product-demo.webm')
+    expect(norm(result.video!)).toBe('/tmp/test-output/add-product-demo.webm')
   })
 
   it('uses stable filename for final screenshot when name is set', async () => {
@@ -636,7 +639,9 @@ describe('PageRecorder name option', () => {
     })
 
     const result = await recorder.stop()
-    expect(result.screenshots[0]).toBe('/tmp/test-output/my-demo-final.png')
+    expect(norm(result.screenshots[0])).toBe(
+      '/tmp/test-output/my-demo-final.png',
+    )
   })
 
   it('sanitizes the name option', async () => {
@@ -648,7 +653,7 @@ describe('PageRecorder name option', () => {
     })
 
     const result = await recorder.stop()
-    expect(result.video).toBe('/tmp/test-output/my_demo__test_.webm')
+    expect(norm(result.video!)).toBe('/tmp/test-output/my_demo__test_.webm')
   })
 
   it('falls back to timestamp when name is not set', async () => {
@@ -659,7 +664,7 @@ describe('PageRecorder name option', () => {
     })
 
     const result = await recorder.stop()
-    expect(result.video).toMatch(/recording-\d{4}-\d{2}-\d{2}_.*\.webm$/)
+    expect(norm(result.video!)).toMatch(/recording-\d{4}-\d{2}-\d{2}_.*\.webm$/)
   })
 })
 
