@@ -10,8 +10,6 @@ export interface FrameFilterInput {
   inputIndexStart: number
   chrome?: WindowChromeOptions
   background?: BackgroundOptions
-  videoWidth: number
-  videoHeight: number
   framePngPath?: string
   bgPngPath?: string
   maskPngPath?: string
@@ -38,8 +36,6 @@ export function buildFrameFilters(input: FrameFilterInput): FrameFilterOutput {
     inputIndexStart,
     chrome,
     background,
-    videoWidth,
-    videoHeight,
     framePngPath,
     bgPngPath,
     maskPngPath,
