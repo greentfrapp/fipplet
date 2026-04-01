@@ -377,8 +377,6 @@ export async function runPostProcessPipeline(
         inputIndexStart: inputCount,
         chrome: frame.chrome,
         background: frame.background,
-        videoWidth: frame.videoWidth,
-        videoHeight: frame.videoHeight,
         framePngPath,
         bgPngPath,
         maskPngPath,
