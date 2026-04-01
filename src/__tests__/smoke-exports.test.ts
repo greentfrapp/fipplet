@@ -36,7 +36,7 @@ describe('package distribution', () => {
     expect(pkg.repository).toBeDefined()
     expect(pkg.description).toBeTruthy()
     expect(pkg.keywords.length).toBeGreaterThan(0)
-    expect(pkg.engines.node).toBe('>=18')
+    expect(pkg.engines.node).toBe('>=20')
   })
 
   it('package.json files field restricts published contents', () => {
