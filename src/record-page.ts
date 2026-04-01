@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import type { Locator, Page } from 'playwright-core'
-import { awaitSelector, focusElement, getScreenCenter } from './actions'
+import { awaitSelector, getScreenCenter } from './actions'
 import { createCursorTracker } from './cursor'
 import { log, logError, logVerbose } from './logger'
 import { runPostProcessPipeline } from './pipeline'
@@ -14,7 +14,6 @@ import type {
   RecordingResult,
   StepTiming,
   WindowChromeOptions,
-  ZoomState,
 } from './types'
 import { cleanOutputDir, sanitizeFilename, timestamp } from './utils'
 import { createZoomState } from './zoom'

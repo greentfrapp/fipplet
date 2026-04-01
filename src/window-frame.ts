@@ -38,8 +38,6 @@ export function buildFrameFilters(input: FrameFilterInput): FrameFilterOutput {
     inputIndexStart,
     chrome,
     background,
-    videoWidth,
-    videoHeight,
     framePngPath,
     bgPngPath,
     maskPngPath,
