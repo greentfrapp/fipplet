@@ -160,7 +160,9 @@ export function buildZoomSegments(
   events: CursorEvent[],
   baseCursorSize: number,
 ): ZoomSegment[] {
-  const zoomEvents = events.filter((e) => e.type === 'zoom' && e.zoomScale !== undefined)
+  const zoomEvents = events.filter(
+    (e) => e.type === 'zoom' && e.zoomScale !== undefined,
+  )
 
   // No zoom events — single segment at base size
   if (zoomEvents.length === 0) {
@@ -168,7 +170,10 @@ export function buildZoomSegments(
   }
 
   // Build time ranges with interpolated intermediate steps during transitions
-  interface TimeRange { start: number; end: number }
+  interface TimeRange {
+    start: number
+    end: number
+  }
   const sizeRanges = new Map<number, TimeRange[]>()
 
   const addRange = (size: number, start: number, end: number) => {
@@ -209,8 +214,8 @@ export function buildZoomSegments(
   // Build enable expressions per cursor size
   const segments: ZoomSegment[] = []
   for (const [cursorSize, ranges] of sizeRanges) {
-    const parts = ranges.map((r) =>
-      `between(t\\,${r.start.toFixed(4)}\\,${r.end.toFixed(4)})`,
+    const parts = ranges.map(
+      (r) => `between(t\\,${r.start.toFixed(4)}\\,${r.end.toFixed(4)})`,
     )
     const enableExpr = parts.length === 1 ? parts[0] : parts.join('+')
     segments.push({ cursorSize, enableExpr })
@@ -291,9 +296,8 @@ export function buildFilterGraph(
   const extraInputArgs: string[] = []
 
   // Determine effective zoom segments (default: single segment at base cursor size)
-  const effectiveZoom = zoomSegments && zoomSegments.length > 1
-    ? zoomSegments
-    : undefined
+  const effectiveZoom =
+    zoomSegments && zoomSegments.length > 1 ? zoomSegments : undefined
 
   if (multiCursor && multiCursor.inputs.length > 0) {
     if (effectiveZoom) {

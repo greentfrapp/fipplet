@@ -2,10 +2,24 @@ import { test as base } from '@playwright/test'
 import type { Page } from 'playwright-core'
 import { recordPage } from './record-page.js'
 import type { PageRecorder, RecordPageOptions } from './record-page.js'
+import { sanitizeFilename } from './utils.js'
 
 export type TestreelFixtures = {
+  /**
+   * Standard Playwright Page with video recording enabled.
+   * Use for setup steps, assertions, and any interaction that does **not**
+   * need a cursor animation in the final recording.
+   */
   page: Page
+  /**
+   * Testreel page recorder. Actions performed through this object are
+   * captured with animated cursor movement, click ripples, and
+   * post-processing (window chrome, background, speed changes).
+   * Use for the visible demo steps you want in the final video.
+   * Access the underlying page via `testreelPage.page` when needed.
+   */
   testreelPage: PageRecorder
+  /** Configuration for the testreel recording. Set via `test.use({ testreelOptions: { ... } })`. */
   testreelOptions: RecordPageOptions & {
     viewport?: { width: number; height: number }
     deviceScaleFactor?: number
@@ -28,8 +42,8 @@ export const testreelFixtures: Parameters<
 
   page: async ({ browser, testreelOptions }, use, testInfo) => {
     const projectUse = testInfo.project.use
-    const viewport =
-      testreelOptions.viewport ?? projectUse.viewport ?? { width: 1280, height: 720 }
+    const viewport = testreelOptions.viewport ??
+      projectUse.viewport ?? { width: 1280, height: 720 }
     const scale =
       testreelOptions.deviceScaleFactor ?? projectUse.deviceScaleFactor ?? 1
 
@@ -80,8 +94,10 @@ export const testreelFixtures: Parameters<
       testInfo.project.use.deviceScaleFactor ??
       1
 
+    const name = testreelOptions.name ?? sanitizeFilename(testInfo.title)
     const recorder = await recordPage(page, {
       outputDir: testInfo.outputDir,
+      name,
       scale,
       ...testreelOptions,
     })
@@ -113,4 +129,8 @@ export const testreelFixtures: Parameters<
 export const test = base.extend<TestreelFixtures>(testreelFixtures)
 
 export { expect } from '@playwright/test'
-export type { PageRecorder, RecordPageOptions } from './record-page.js'
+export type {
+  PageRecorder,
+  RecordPageOptions,
+  SelectorOrLocator,
+} from './record-page.js'

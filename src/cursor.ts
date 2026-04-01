@@ -1,4 +1,4 @@
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 import type {
   CursorEvent,
   CursorOptions,
@@ -6,9 +6,10 @@ import type {
   CursorTracker,
   ZoomState,
 } from './types'
+
+type SelectorOrLocator = string | Locator
 // suspendZoom/restoreZoom no longer needed in cursor tracking —
 // coordinates are computed mathematically from the zoom transform
-
 
 /**
  * Encapsulated cursor tracker. Each `record()` call creates its own instance,
@@ -35,7 +36,7 @@ export class CursorTrackerImpl implements CursorTracker {
    */
   async moveCursorTo(
     page: Page,
-    selector: string,
+    selector: SelectorOrLocator,
     zoomState: ZoomState,
     options: CursorOptions = {},
   ): Promise<void> {
@@ -44,7 +45,8 @@ export class CursorTrackerImpl implements CursorTracker {
     // Get element bounding box via Playwright locator (supports all selector engines).
     // boundingBox returns screen coordinates (affected by CSS transform).
     // We reverse the transform to get the true layout coordinates for the cursor overlay.
-    const locator = page.locator(selector)
+    const locator =
+      typeof selector === 'string' ? page.locator(selector) : selector
     const box = await locator.boundingBox()
     if (!box) return
 
@@ -65,20 +67,42 @@ export class CursorTrackerImpl implements CursorTracker {
       const computed = window.getComputedStyle(el).cursor
       if (computed === 'pointer' || computed === 'text') {
         style = computed
-      } else if (computed === 'auto' || computed === '' || computed === 'default') {
+      } else if (
+        computed === 'auto' ||
+        computed === '' ||
+        computed === 'default'
+      ) {
         const tag = el.tagName.toLowerCase()
         if (
-          tag === 'a' || tag === 'button' || tag === 'select' || tag === 'summary' ||
-          el.closest('a') || el.closest('button') ||
+          tag === 'a' ||
+          tag === 'button' ||
+          tag === 'select' ||
+          tag === 'summary' ||
+          el.closest('a') ||
+          el.closest('button') ||
           el.getAttribute('role') === 'button' ||
           el.getAttribute('role') === 'link'
         ) {
           style = 'pointer'
-        } else if (tag === 'textarea' || (el as HTMLElement).isContentEditable) {
+        } else if (
+          tag === 'textarea' ||
+          (el as HTMLElement).isContentEditable
+        ) {
           style = 'text'
         } else if (tag === 'input') {
-          const inputType = ((el as HTMLInputElement).type || 'text').toLowerCase()
-          const textTypes = ['text', 'search', 'url', 'tel', 'email', 'password', 'number', '']
+          const inputType = (
+            (el as HTMLInputElement).type || 'text'
+          ).toLowerCase()
+          const textTypes = [
+            'text',
+            'search',
+            'url',
+            'tel',
+            'email',
+            'password',
+            'number',
+            '',
+          ]
           style = textTypes.includes(inputType) ? 'text' : 'pointer'
         }
       }
@@ -214,7 +238,7 @@ export function initCursorTracker(
 
 export async function moveCursorTo(
   page: Page,
-  selector: string,
+  selector: SelectorOrLocator,
   zoomState: ZoomState,
   options: CursorOptions = {},
 ): Promise<void> {

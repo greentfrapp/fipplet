@@ -16,7 +16,12 @@ function mockPage(
   elementCenter: { x: number; y: number } | null = { x: 100, y: 200 },
 ) {
   const boundingBox = elementCenter
-    ? { x: elementCenter.x - 50, y: elementCenter.y - 20, width: 100, height: 40 }
+    ? {
+        x: elementCenter.x - 50,
+        y: elementCenter.y - 20,
+        width: 100,
+        height: 40,
+      }
     : null
   return {
     locator: vi.fn().mockReturnValue({
@@ -92,6 +97,28 @@ describe('cursor event tracker', () => {
       await moveCursorTo(page, '#el', zoomState(), { transitionMs: 400 })
 
       expect(page.waitForTimeout).toHaveBeenCalledWith(450)
+    })
+
+    it('accepts a Locator object instead of a string selector', async () => {
+      const page = mockPage({ x: 300, y: 150 })
+      const locator = {
+        boundingBox: vi
+          .fn()
+          .mockResolvedValue({ x: 250, y: 130, width: 100, height: 40 }),
+        evaluate: vi.fn().mockResolvedValue('pointer'),
+      }
+
+      await moveCursorTo(page, locator as any, zoomState(), {
+        transitionMs: 200,
+      })
+
+      // Should use the locator directly, not call page.locator()
+      expect(locator.boundingBox).toHaveBeenCalled()
+      expect(page.locator).not.toHaveBeenCalled()
+
+      const events = getCursorEvents()
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({ type: 'move', x: 300, y: 150 })
     })
   })
 

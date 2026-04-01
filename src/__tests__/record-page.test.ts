@@ -4,7 +4,9 @@ import { recordPage } from '../record-page'
 
 // Mock heavy dependencies that are not under test
 vi.mock('../pipeline', () => ({
-  runPostProcessPipeline: vi.fn().mockResolvedValue('/tmp/test-output/processed.webm'),
+  runPostProcessPipeline: vi
+    .fn()
+    .mockResolvedValue('/tmp/test-output/processed.webm'),
 }))
 vi.mock('../post-process', () => ({
   convertToMp4: vi.fn().mockResolvedValue('/tmp/test-output/recording.mp4'),
@@ -598,6 +600,138 @@ describe('PageRecorder zoom action', () => {
     // locator().boundingBox() for selector center, then evaluate for applying CSS transform
     expect(page.locator).toHaveBeenCalledWith('#target')
     expect(page.evaluate).toHaveBeenCalledTimes(1) // only the CSS transform apply
+  })
+})
+
+describe('PageRecorder name option', () => {
+  beforeEach(() => {
+    vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined)
+    vi.spyOn(fs, 'writeFileSync').mockReturnValue(undefined)
+    vi.spyOn(fs, 'unlinkSync').mockReturnValue(undefined)
+    vi.spyOn(fs, 'renameSync').mockReturnValue(undefined)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('uses stable filename derived from name option', async () => {
+    const page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      name: 'add-product-demo',
+      cursor: false,
+    })
+
+    const result = await recorder.stop()
+    expect(result.video).toBe('/tmp/test-output/add-product-demo.webm')
+  })
+
+  it('uses stable filename for final screenshot when name is set', async () => {
+    const page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      name: 'my-demo',
+      cursor: false,
+    })
+
+    const result = await recorder.stop()
+    expect(result.screenshots[0]).toBe('/tmp/test-output/my-demo-final.png')
+  })
+
+  it('sanitizes the name option', async () => {
+    const page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      name: 'my demo (test)',
+      cursor: false,
+    })
+
+    const result = await recorder.stop()
+    expect(result.video).toBe('/tmp/test-output/my_demo__test_.webm')
+  })
+
+  it('falls back to timestamp when name is not set', async () => {
+    const page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      cursor: false,
+    })
+
+    const result = await recorder.stop()
+    expect(result.video).toMatch(/recording-\d{4}-\d{2}-\d{2}_.*\.webm$/)
+  })
+})
+
+describe('PageRecorder with Locator objects', () => {
+  let page: any
+  let recorder: any
+
+  function mockLocator() {
+    return {
+      waitFor: vi.fn().mockResolvedValue(undefined),
+      boundingBox: vi
+        .fn()
+        .mockResolvedValue({ x: 50, y: 50, width: 100, height: 40 }),
+      focus: vi.fn().mockResolvedValue(undefined),
+      fill: vi.fn().mockResolvedValue(undefined),
+      evaluate: vi.fn().mockResolvedValue('default'),
+    }
+  }
+
+  beforeEach(async () => {
+    vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined)
+    page = mockPage()
+    recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      cursor: false,
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('click accepts a Locator object', async () => {
+    const locator = mockLocator()
+    await recorder.click(locator)
+    // Should use the locator directly, not call page.locator()
+    expect(locator.waitFor).toHaveBeenCalledWith({
+      state: 'visible',
+      timeout: 5000,
+    })
+    expect(locator.boundingBox).toHaveBeenCalled()
+    expect(page.mouse.click).toHaveBeenCalledWith(100, 70)
+  })
+
+  it('type accepts a Locator object', async () => {
+    const locator = mockLocator()
+    await recorder.type(locator, 'hello')
+    expect(locator.waitFor).toHaveBeenCalled()
+    expect(locator.boundingBox).toHaveBeenCalled()
+    expect(page.keyboard.type).toHaveBeenCalledWith('hello', { delay: 80 })
+  })
+
+  it('fill accepts a Locator object', async () => {
+    const locator = mockLocator()
+    await recorder.fill(locator, 'test value')
+    expect(locator.waitFor).toHaveBeenCalled()
+    expect(locator.focus).toHaveBeenCalled()
+    expect(locator.fill).toHaveBeenCalledWith('test value')
+  })
+
+  it('hover accepts a Locator object', async () => {
+    const locator = mockLocator()
+    await recorder.hover(locator)
+    expect(locator.waitFor).toHaveBeenCalled()
+    expect(locator.boundingBox).toHaveBeenCalled()
+    expect(page.mouse.move).toHaveBeenCalledWith(100, 70)
+  })
+
+  it('still works with string selectors (backward compat)', async () => {
+    await recorder.click('#btn')
+    expect(page.locator).toHaveBeenCalledWith('#btn')
+    expect(page.mouse.click).toHaveBeenCalledWith(100, 70)
   })
 })
 

@@ -1,5 +1,5 @@
 import path from 'path'
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 import {
   moveCursorTo as defaultMoveCursorTo,
   triggerRipple as defaultTriggerRipple,
@@ -24,6 +24,12 @@ import type {
   ZoomStep,
 } from './types'
 import { sanitizeFilename, timestamp } from './utils'
+
+type SelectorOrLocator = string | Locator
+
+function resolveLocator(page: Page, selector: SelectorOrLocator): Locator {
+  return typeof selector === 'string' ? page.locator(selector) : selector
+}
 // zoom suspend/restore no longer needed — all actions use screen coordinates
 
 function getMoveCursorTo(ctx: ActionContext) {
@@ -55,25 +61,28 @@ const DEFAULT_SELECTOR_TIMEOUT = 5000
 /** Wait for a selector to become visible, retrying until timeout. */
 export async function awaitSelector(
   page: Page,
-  selector: string,
+  selector: SelectorOrLocator,
   timeout: number,
 ): Promise<void> {
-  await page.locator(selector).waitFor({ state: 'visible', timeout })
+  await resolveLocator(page, selector).waitFor({ state: 'visible', timeout })
 }
 
 /** Get the screen-space center of an element (includes CSS transform effects). */
 export async function getScreenCenter(
   page: Page,
-  selector: string,
+  selector: SelectorOrLocator,
 ): Promise<{ x: number; y: number } | null> {
-  const box = await page.locator(selector).boundingBox()
+  const box = await resolveLocator(page, selector).boundingBox()
   if (!box) return null
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
 /** Focus an element without changing zoom. Works at any zoom level. */
-export async function focusElement(page: Page, selector: string): Promise<void> {
-  await page.locator(selector).focus()
+export async function focusElement(
+  page: Page,
+  selector: SelectorOrLocator,
+): Promise<void> {
+  await resolveLocator(page, selector).focus()
 }
 
 async function handleWait(page: Page, step: WaitStep): Promise<void> {

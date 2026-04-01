@@ -212,7 +212,9 @@ describe('XPath selector support', () => {
       baseCtx(),
     )
     expect(page.locator).toHaveBeenCalledWith('//input[@name="email"]')
-    expect(page.locator('//input[@name="email"]').fill).toHaveBeenCalledWith('test')
+    expect(page.locator('//input[@name="email"]').fill).toHaveBeenCalledWith(
+      'test',
+    )
   })
 
   it('hover works with XPath selectors', async () => {

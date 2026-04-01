@@ -1,27 +1,55 @@
 import { execFile } from 'child_process'
 
+let cachedPath: string | undefined
+
 /**
  * Resolve the path to the ffmpeg binary.
- * Uses ffmpeg-static if available, falls back to system ffmpeg.
+ * Checks (in order): FFMPEG_PATH env var, require('ffmpeg-static'),
+ * dynamic import('ffmpeg-static'), then falls back to system 'ffmpeg'.
  */
-export function getFFmpegPath(): string {
+export async function getFFmpegPath(): Promise<string> {
+  if (cachedPath) return cachedPath
+
+  // 1. Explicit env var (escape hatch)
+  if (process.env.FFMPEG_PATH) {
+    cachedPath = process.env.FFMPEG_PATH
+    return cachedPath
+  }
+
+  // 2. Try require() — works in CJS and with tsup's createRequire shim
   try {
-    // ffmpeg-static is externalized in tsup config, so require() resolves
-    // at runtime from node_modules regardless of ESM/CJS output format.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const ffmpegPath = require('ffmpeg-static') as string | null
-    if (ffmpegPath) return ffmpegPath
+    if (ffmpegPath) {
+      cachedPath = ffmpegPath
+      return cachedPath
+    }
+  } catch {
+    // require not available or ffmpeg-static not installed
+  }
+
+  // 3. Try dynamic import — works in native ESM contexts
+  try {
+    const mod = await import('ffmpeg-static')
+    const ffmpegPath = (mod.default ?? mod) as string | null
+    if (ffmpegPath) {
+      cachedPath = ffmpegPath
+      return cachedPath
+    }
   } catch {
     // ffmpeg-static not installed
   }
-  return 'ffmpeg'
+
+  // 4. Fall back to system ffmpeg
+  cachedPath = 'ffmpeg'
+  return cachedPath
 }
 
-export function runFFmpeg(
+export async function runFFmpeg(
   args: string[],
   timeoutMs: number = 5 * 60 * 1000,
 ): Promise<void> {
-  const ffmpeg = getFFmpegPath()
+  const ffmpeg = await getFFmpegPath()
   return new Promise((resolve, reject) => {
     execFile(
       ffmpeg,
@@ -29,7 +57,14 @@ export function runFFmpeg(
       { maxBuffer: 50 * 1024 * 1024, timeout: timeoutMs },
       (err, _stdout, stderr) => {
         if (err) {
-          reject(new Error(`ffmpeg failed: ${err.message}\n${stderr}`))
+          const isNotFound = (err as NodeJS.ErrnoException).code === 'ENOENT'
+          const hint = isNotFound
+            ? '\n\nffmpeg binary not found. Either:\n' +
+              '  - Install ffmpeg-static: npm install ffmpeg-static\n' +
+              '  - Ensure ffmpeg is available in your PATH\n' +
+              '  - Set the FFMPEG_PATH environment variable to the ffmpeg binary'
+            : ''
+          reject(new Error(`ffmpeg failed: ${err.message}${hint}\n${stderr}`))
         } else {
           resolve()
         }

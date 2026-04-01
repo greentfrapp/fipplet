@@ -254,7 +254,7 @@ export interface CursorEvent {
 export interface CursorTracker {
   moveCursorTo(
     page: import('playwright-core').Page,
-    selector: string,
+    selector: string | import('playwright-core').Locator,
     zoomState: ZoomState,
     options?: CursorOptions,
   ): Promise<void>

@@ -1,7 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import type { Page } from 'playwright-core'
-
+import type { Locator, Page } from 'playwright-core'
 import { awaitSelector, focusElement, getScreenCenter } from './actions'
 import { createCursorTracker } from './cursor'
 import { log, logError, logVerbose } from './logger'
@@ -20,8 +19,17 @@ import type {
 import { sanitizeFilename, timestamp } from './utils'
 import { createZoomState } from './zoom'
 
+/** A CSS/XPath selector string or a Playwright Locator object. */
+export type SelectorOrLocator = string | Locator
+
+function resolveLocator(page: Page, selector: SelectorOrLocator): Locator {
+  return typeof selector === 'string' ? page.locator(selector) : selector
+}
+
 export interface RecordPageOptions {
   outputDir?: string
+  /** Base name for output files (e.g., 'add-product-demo'). When set, produces stable filenames that overwrite on re-run. When omitted, files are timestamped. */
+  name?: string
   cursor?: boolean | CursorOptions
   chrome?: boolean | WindowChromeOptions
   background?: boolean | BackgroundOptions
@@ -35,33 +43,57 @@ export interface PageRecorder {
   /** The underlying Playwright Page. Unusable after stop(). */
   readonly page: Page
 
-  click(selector: string, options?: { timeout?: number }): Promise<void>
+  /** Click an element. Moves the cursor, triggers a click ripple, then clicks at the element center. */
+  click(
+    selector: SelectorOrLocator,
+    options?: { timeout?: number },
+  ): Promise<void>
+  /**
+   * Type text character-by-character with animated keystrokes.
+   * Produces a realistic typing animation in the recording.
+   * @param options.delay — ms between keystrokes (default 80)
+   * @param options.clear — select-all before typing (triple-click)
+   */
   type(
-    selector: string,
+    selector: SelectorOrLocator,
     text: string,
     options?: { delay?: number; clear?: boolean; timeout?: number },
   ): Promise<void>
+  /**
+   * Set an input's value instantly (no typing animation).
+   * Use when you don't need a visible keystroke-by-keystroke effect.
+   */
   fill(
-    selector: string,
+    selector: SelectorOrLocator,
     text: string,
     options?: { timeout?: number },
   ): Promise<void>
-  hover(selector: string, options?: { timeout?: number }): Promise<void>
+  /** Move the cursor to an element without clicking. */
+  hover(
+    selector: SelectorOrLocator,
+    options?: { timeout?: number },
+  ): Promise<void>
+  /** Smooth-scroll the page by the given pixel offsets. */
   scroll(options?: {
     x?: number
     y?: number
     scrollSpeed?: number
   }): Promise<void>
+  /** Zoom into (or out of) an element or coordinate with a CSS transform animation. */
   zoom(options: {
-    selector?: string
+    selector?: SelectorOrLocator
     scale?: number
     x?: number
     y?: number
     duration?: number
   }): Promise<void>
+  /** Capture a PNG screenshot. Returns the file path. */
   screenshot(name?: string): Promise<string>
+  /** Press a keyboard key (e.g., 'Enter', 'Tab', 'Escape'). */
   keyboard(key: string): Promise<void>
+  /** Navigate to a URL. */
   navigate(url: string): Promise<void>
+  /** Pause recording for the given duration (default 1000ms). */
   wait(ms?: number): Promise<void>
 
   /** Stop recording and run post-processing. Closes the browser context — page is unusable after. */
@@ -89,6 +121,7 @@ export async function recordPage(
 
   const scale = options.scale ?? 1
   const outputDir = options.outputDir ?? './testreel-output'
+  const baseName = options.name ? sanitizeFilename(options.name) : undefined
   fs.mkdirSync(outputDir, { recursive: true })
 
   // Normalize cursor config
@@ -112,7 +145,7 @@ export async function recordPage(
   let stopped = false
 
   // Helpers for cursor
-  async function moveCursor(selector: string): Promise<void> {
+  async function moveCursor(selector: SelectorOrLocator): Promise<void> {
     if (cursorEnabled && cursorTracker) {
       await cursorTracker.moveCursorTo(page, selector, zoomState, cursorOptions)
     }
@@ -175,9 +208,9 @@ export async function recordPage(
       const timeout = opts?.timeout ?? DEFAULT_SELECTOR_TIMEOUT
       await awaitSelector(page, selector, timeout)
       await moveCursor(selector)
-      const locator = page.locator(selector)
-      await locator.focus()
-      await locator.fill(text)
+      const loc = resolveLocator(page, selector)
+      await loc.focus()
+      await loc.fill(text)
       await page.waitForTimeout(DEFAULT_PAUSE_AFTER)
       recordTiming(start)
     },
@@ -219,9 +252,7 @@ export async function recordPage(
             const start = performance.now()
 
             function ease(t: number): number {
-              return t < 0.5
-                ? 4 * t * t * t
-                : 1 - Math.pow(-2 * t + 2, 3) / 2
+              return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
             }
 
             function tick(now: number) {
@@ -279,14 +310,9 @@ export async function recordPage(
       let targetY: number
 
       if (opts.selector) {
-        const {
-          scale: curScale,
-          tx: curTx,
-          ty: curTy,
-        } = zoomState
-        const box = await page.locator(opts.selector).boundingBox()
-        if (!box)
-          throw new Error(`zoom target '${opts.selector}' not found`)
+        const { scale: curScale, tx: curTx, ty: curTy } = zoomState
+        const box = await resolveLocator(page, opts.selector).boundingBox()
+        if (!box) throw new Error(`zoom target '${opts.selector}' not found`)
         const screenX = box.x + box.width / 2
         const screenY = box.y + box.height / 2
         targetX = curScale === 1 ? screenX : screenX / curScale - curTx
@@ -383,7 +409,10 @@ export async function recordPage(
       stopped = true
 
       // Final screenshot
-      const finalPath = path.join(outputDir, `final-${timestamp()}.png`)
+      const finalPath = path.join(
+        outputDir,
+        baseName ? `${baseName}-final.png` : `final-${timestamp()}.png`,
+      )
       await page.screenshot({ path: finalPath })
       screenshots.push(finalPath)
 
@@ -395,15 +424,16 @@ export async function recordPage(
       await page.context().close()
 
       if (video) {
-        videoPath = path.join(outputDir, `recording-${timestamp()}.webm`)
+        videoPath = path.join(
+          outputDir,
+          baseName ? `${baseName}.webm` : `recording-${timestamp()}.webm`,
+        )
         await video.saveAs(videoPath)
         await video.delete()
       }
 
       // Write cursor events
-      let cursorEventsForPipeline:
-        | import('./types').CursorEvent[]
-        | undefined
+      let cursorEventsForPipeline: import('./types').CursorEvent[] | undefined
       if (cursorTracker && videoPath) {
         const cursorEvents = cursorTracker.getEvents()
         cursorEventsPath = path.join(outputDir, 'cursor-events.json')
@@ -487,8 +517,7 @@ export async function recordPage(
       if (outputFormat !== 'webm' && videoPath) {
         log(`  converting to ${outputFormat}...`)
         try {
-          const converter =
-            outputFormat === 'mp4' ? convertToMp4 : convertToGif
+          const converter = outputFormat === 'mp4' ? convertToMp4 : convertToGif
           const convertedPath = await converter(videoPath)
           fs.unlinkSync(videoPath)
           videoPath = convertedPath

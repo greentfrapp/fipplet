@@ -165,9 +165,10 @@ export async function runPostProcessPipeline(
   const outputPath = path.join(outputDir, `${base}-processed${ext}`)
 
   // Probe main video duration to limit output (prevents infinite streams from looped PNGs)
+  const ffmpegBin = await getFFmpegPath()
   const probeDuration = await new Promise<number | null>((resolve) => {
     execFile(
-      getFFmpegPath(),
+      ffmpegBin,
       ['-i', videoPath, '-f', 'null', '-'],
       { timeout: 10000 },
       (_err, _stdout, stderr) => {
