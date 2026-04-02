@@ -67,20 +67,6 @@ npx testreel recording.json --dry-run
 npx testreel validate recording.json
 ```
 
-## Using the API
-
-Testreel can also be used as a library:
-
-```js
-import { record, loadDefinition } from 'testreel'
-
-const def = loadDefinition('recording.json')
-const result = await record(def, { outputDir: './output' })
-
-console.log(result.video)       // path to .webm file
-console.log(result.screenshots) // array of .png paths
-```
-
 ## Recording from Playwright tests
 
 If you already have a Playwright test suite, you can add video recording with minimal changes — just compose testreel's fixtures and swap `test` for `recorded`:
@@ -101,7 +87,25 @@ recorded('onboarding flow', async ({ page }) => {
 })
 ```
 
-For manual control without the fixture, use `recordPage()` directly:
+See the [Playwright Integration](playwright.md) guide for full details.
+
+## Using the API
+
+### From a definition
+
+```js
+import { record, loadDefinition } from 'testreel'
+
+const def = loadDefinition('recording.json')
+const result = await record(def, { outputDir: './output' })
+
+console.log(result.video)       // path to .webm file
+console.log(result.screenshots) // array of .png paths
+```
+
+### Recording a page directly
+
+For manual control over an existing Playwright page, use `recordPage()`:
 
 ```js
 import { recordPage } from 'testreel'
@@ -112,8 +116,6 @@ await recorder.click('.button')
 const result = await recorder.stop()
 console.log(result.video)
 ```
-
-See the [Playwright Integration](playwright.md) guide for full details.
 
 ## Next steps
 
