@@ -57,7 +57,6 @@ export async function record(
   }
 
   const viewport = def.viewport ?? { width: 1280, height: 720 }
-  const scale = options.scale ?? def.scale ?? 1
   const zoomState = createZoomState()
   const screenshots: string[] = []
 
@@ -79,7 +78,6 @@ export async function record(
 
     const setupContextOptions: Record<string, unknown> = {
       viewport,
-      deviceScaleFactor: scale,
       colorScheme: def.colorScheme ?? 'light',
     }
 
@@ -129,7 +127,6 @@ export async function record(
       outputDir,
       zoomState: createZoomState(),
       cursorEnabled: false,
-      scale,
     }
     for (const [i, step] of setup.steps.entries()) {
       const label =
@@ -163,7 +160,6 @@ export async function record(
   // --- Recording phase (with video) ---
   const contextOptions: Record<string, unknown> = {
     viewport,
-    deviceScaleFactor: scale,
     colorScheme: def.colorScheme ?? 'light',
     recordVideo: {
       dir: outputDir,
@@ -292,7 +288,6 @@ export async function record(
     cursorEnabled,
     cursorOptions,
     cursorTracker,
-    scale,
   }
   const globalSpeed = options.speed ?? def.speed ?? 1.0
   const stepTimings: StepTiming[] = []
@@ -437,7 +432,6 @@ export async function record(
                 videoWidth: viewport.width,
                 videoHeight: viewport.height,
                 screenshots,
-                scale,
               }
             : undefined,
         speed: needsSpeed ? { stepTimings, globalSpeed } : undefined,

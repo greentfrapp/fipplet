@@ -22,7 +22,6 @@ export type TestreelFixtures = {
   /** Configuration for the testreel recording. Set via `test.use({ testreelOptions: { ... } })`. */
   testreelOptions: RecordPageOptions & {
     viewport?: { width: number; height: number }
-    deviceScaleFactor?: number
   }
 }
 
@@ -44,12 +43,6 @@ export const testreelFixtures: Parameters<
     const projectUse = testInfo.project.use
     const viewport = testreelOptions.viewport ??
       projectUse.viewport ?? { width: 1280, height: 720 }
-    const scale =
-      testreelOptions.scale ??
-      testreelOptions.deviceScaleFactor ??
-      projectUse.deviceScaleFactor ??
-      1
-
     const context = await browser.newContext({
       ...projectUse.contextOptions,
       storageState: projectUse.storageState,
@@ -58,7 +51,6 @@ export const testreelFixtures: Parameters<
       geolocation: projectUse.geolocation,
       permissions: projectUse.permissions,
       viewport,
-      deviceScaleFactor: scale,
       recordVideo: {
         dir: testInfo.outputDir,
         size: {
@@ -91,18 +83,11 @@ export const testreelFixtures: Parameters<
   },
 
   testreelPage: async ({ page, testreelOptions }, use, testInfo) => {
-    const scale =
-      testreelOptions.scale ??
-      testreelOptions.deviceScaleFactor ??
-      testInfo.project.use.deviceScaleFactor ??
-      1
-
     const name = testreelOptions.name ?? sanitizeFilename(testInfo.title)
     const recorder = await recordPage(page, {
       clean: true,
       outputDir: testInfo.outputDir,
       name,
-      scale,
       ...testreelOptions,
     })
 

@@ -143,7 +143,6 @@ export default defineConfig({
   use: {
     testreelOptions: {
       viewport: { width: 1280, height: 720 },
-      scale: 2,
       chrome: { url: true },
       background: {
         gradient: { from: '#667eea', to: '#764ba2' },
@@ -199,10 +198,9 @@ import { recordPage } from 'testreel'
 const browser = await chromium.launch()
 const context = await browser.newContext({
   viewport: { width: 1280, height: 720 },
-  deviceScaleFactor: 2,
   recordVideo: {
     dir: './output',
-    size: { width: 2560, height: 1440 }, // viewport × scale
+    size: { width: 1280, height: 720 },
   },
 })
 const page = await context.newPage()
@@ -210,7 +208,6 @@ await page.goto('https://myapp.com')
 
 const recorder = await recordPage(page, {
   outputDir: './output',
-  scale: 2,
   chrome: { url: 'https://myapp.com' },
   background: { color: '#6366f1', padding: 60 },
 })
@@ -242,7 +239,6 @@ Calling `stop()` twice throws an error.
 | `background` | `boolean \| BackgroundOptions` | `false` | Background padding and styling |
 | `speed` | `number` | `1.0` | Playback speed multiplier |
 | `outputFormat` | `'webm' \| 'mp4' \| 'gif'` | `'webm'` | Video output format |
-| `scale` | `number` | `1` | Device scale factor (must match context's `deviceScaleFactor`) |
 | `keepIntermediates` | `boolean` | `false` | Keep cursor JSON and intermediate files |
 
 See [Recording Definitions](recording-definitions.md) for details on cursor, chrome, and background options.

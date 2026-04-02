@@ -36,7 +36,6 @@ export interface RecordPageOptions {
   background?: boolean | BackgroundOptions
   speed?: number
   outputFormat?: OutputFormat
-  scale?: number
   keepIntermediates?: boolean
 }
 
@@ -120,7 +119,6 @@ export async function recordPage(
     throw new Error('recordPage requires a page with a viewport set.')
   }
 
-  const scale = options.scale ?? 1
   const outputDir = options.outputDir ?? './testreel-output'
   const baseName = options.name ? sanitizeFilename(options.name) : undefined
   fs.mkdirSync(outputDir, { recursive: true })
@@ -501,7 +499,6 @@ export async function recordPage(
                     videoWidth: vp.width,
                     videoHeight: vp.height,
                     screenshots,
-                    scale,
                   }
                 : undefined,
             speed: needsSpeed ? { stepTimings, globalSpeed } : undefined,

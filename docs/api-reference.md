@@ -25,7 +25,6 @@ const result = await record({ url: 'https://example.com', steps: [...] })
 | `options.headless` | `boolean` | Run browser headlessly. Default: `true` |
 | `options.setup` | `SetupBlock` | Override the definition's setup block |
 | `options.speed` | `number` | Override playback speed multiplier |
-| `options.scale` | `number` | Device scale factor (1 = standard, 2 = Retina) |
 | `options.outputFormat` | `'webm' \| 'mp4' \| 'gif'` | Override output format |
 | `options.keepIntermediates` | `boolean` | Keep cursor JSON and intermediate files |
 
@@ -73,7 +72,6 @@ const result = await recorder.stop()
 | `background` | `boolean \| BackgroundOptions` | `false` | Background padding and styling |
 | `speed` | `number` | `1.0` | Playback speed multiplier |
 | `outputFormat` | `'webm' \| 'mp4' \| 'gif'` | `'webm'` | Output video format |
-| `scale` | `number` | `1` | Device scale factor |
 | `keepIntermediates` | `boolean` | `false` | Keep intermediate files |
 
 **Returns:** `Promise<PageRecorder>`
@@ -187,7 +185,7 @@ import { createCursorTracker, moveCursorToPoint, hideCursor, showCursor } from '
 
 | Function | Description |
 |----------|-------------|
-| `createCursorTracker(scale?)` | Create a cursor event tracker for manual recording |
+| `createCursorTracker()` | Create a cursor event tracker for manual recording |
 | `moveCursorToPoint(page, x, y, options?)` | Move the cursor overlay to absolute coordinates |
 | `hideCursor(page)` | Hide the cursor overlay |
 | `showCursor(page)` | Show the cursor overlay |
@@ -247,7 +245,6 @@ test('demo', async ({ testreelPage }) => {
 test.use({
   testreelOptions: {
     viewport: { width: 1280, height: 720 },
-    deviceScaleFactor: 2,
     name: 'my-demo',
     cursor: { style: 'pointer' },
     chrome: { url: true },
@@ -287,7 +284,6 @@ See [recording-definitions.md](recording-definitions.md) for the full schema.
 | `url` | `string` | **required** | Target URL (supports `${ENV_VAR}`) |
 | `steps` | `Step[]` | **required** | Non-empty array of actions |
 | `viewport` | `{ width, height }` | `1280x720` | Browser viewport |
-| `scale` | `number` | `1` | Device scale factor |
 | `colorScheme` | `'light' \| 'dark'` | `'light'` | Preferred color scheme |
 | `waitForSelector` | `string` | — | Wait before starting steps |
 | `speed` | `number` | `1.0` | Global playback speed |

@@ -47,7 +47,6 @@ export interface PipelineConfig {
     videoWidth: number
     videoHeight: number
     screenshots?: string[]
-    scale?: number
   }
   speed?: {
     stepTimings: StepTiming[]
@@ -311,8 +310,6 @@ export async function runPostProcessPipeline(
       const padding = frame.background?.padding ?? 60
       const borderRadius = frame.background?.borderRadius ?? 12
 
-      // All dimensions are logical (unscaled). deviceScaleFactor on the
-      // Playwright render calls produces PNGs at the correct physical size.
       const framedW = frame.videoWidth
       const framedH = frame.videoHeight + (hasChrome ? titleBarHeight : 0)
       const finalW = hasBackground ? framedW + padding * 2 : framedW
