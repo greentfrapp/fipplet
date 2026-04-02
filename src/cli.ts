@@ -27,7 +27,6 @@ program
   )
   .option('--format <fmt>', 'Output format: webm, mp4, gif')
   .option('--speed <n>', 'Playback speed multiplier')
-  .option('--scale <n>', 'Device scale factor (1 = standard, 2 = Retina/HiDPI)')
   .option('--headed', 'Run browser in headed mode')
   .option(
     '--dry-run',
@@ -45,7 +44,6 @@ program
         setup?: string
         format?: string
         speed?: string
-        scale?: string
         headed?: boolean
         dryRun?: boolean
         verbose?: boolean
@@ -97,16 +95,6 @@ program
         }
       }
 
-      // Validate --scale
-      let scale: number | undefined
-      if (opts.scale) {
-        scale = parseFloat(opts.scale)
-        if (isNaN(scale) || scale <= 0) {
-          console.error('Error: --scale must be a positive number')
-          process.exit(1)
-        }
-      }
-
       // Load and validate definition
       let def
       try {
@@ -149,7 +137,6 @@ program
           setup,
           outputFormat,
           speed,
-          scale,
           clean: opts.clean,
           keepIntermediates: opts.keepIntermediates,
         })

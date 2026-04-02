@@ -175,8 +175,10 @@ export interface BackgroundOptions {
 export interface RecordingDefinition {
   url: string
   viewport?: Viewport
-  /** Device scale factor (1 = standard, 2 = Retina/HiDPI). Default: 1. */
-  scale?: number
+  /** Desired final video dimensions. When set, the browser viewport is computed
+   *  by subtracting chrome title bar height and background padding so the output
+   *  video matches this size exactly. Takes precedence over `viewport`. */
+  outputSize?: Viewport
   colorScheme?: 'light' | 'dark'
   waitForSelector?: string
   storageState?: string
@@ -200,8 +202,6 @@ export interface RecordOptions {
   headless?: boolean
   setup?: SetupBlock
   speed?: number
-  /** Device scale factor override (1 = standard, 2 = Retina/HiDPI). */
-  scale?: number
   outputFormat?: OutputFormat
   /** Remove previous testreel output files from outputDir before recording. Default: false. */
   clean?: boolean
@@ -282,6 +282,4 @@ export interface ActionContext {
   cursorEnabled: boolean
   cursorOptions?: CursorOptions
   cursorTracker?: CursorTracker
-  /** Device scale factor. Default: 1. */
-  scale: number
 }

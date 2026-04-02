@@ -19,11 +19,8 @@ export class CursorTrackerImpl implements CursorTracker {
   private events: CursorEvent[] = []
   private startTime = 0
   private cursorPos = { x: 0, y: 0 }
-  private scale: number
-
-  constructor(scale: number = 1) {
+  constructor() {
     this.startTime = Date.now()
-    this.scale = scale
   }
 
   private elapsed(): number {
@@ -115,9 +112,8 @@ export class CursorTrackerImpl implements CursorTracker {
 
     const result = { x: layoutX, y: layoutY, cursorStyle }
 
-    // Scale from CSS pixels to video pixels
-    const x = result.x * this.scale
-    const y = result.y * this.scale
+    const x = result.x
+    const y = result.y
 
     this.cursorPos = { x, y }
 
@@ -145,17 +141,13 @@ export class CursorTrackerImpl implements CursorTracker {
   ): Promise<void> {
     const transitionMs = options.transitionMs ?? 350
 
-    // Scale from CSS pixels to video pixels
-    const sx = x * this.scale
-    const sy = y * this.scale
-
-    this.cursorPos = { x: sx, y: sy }
+    this.cursorPos = { x, y }
 
     this.events.push({
       time: this.elapsed(),
       type: 'move',
-      x: sx,
-      y: sy,
+      x,
+      y,
       transitionMs,
     })
 
@@ -171,7 +163,7 @@ export class CursorTrackerImpl implements CursorTracker {
       type: 'ripple',
       x: this.cursorPos.x,
       y: this.cursorPos.y,
-      rippleSize: (options.rippleSize ?? 40) * this.scale,
+      rippleSize: options.rippleSize ?? 40,
       rippleColor: options.rippleColor ?? 'rgba(59, 130, 246, 0.4)',
     })
   }
@@ -223,8 +215,8 @@ export class CursorTrackerImpl implements CursorTracker {
 }
 
 /** Create a new cursor tracker instance. */
-export function createCursorTracker(scale: number = 1): CursorTrackerImpl {
-  return new CursorTrackerImpl(scale)
+export function createCursorTracker(): CursorTrackerImpl {
+  return new CursorTrackerImpl()
 }
 
 // ---------------------------------------------------------------------------

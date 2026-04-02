@@ -74,6 +74,10 @@
       "exclusiveMinimum": 0,
       "description": "Global playback speed multiplier. Default: 1.0."
     },
+    "outputSize": {
+      "$ref": "#/$defs/Viewport",
+      "description": "Desired final video dimensions. When set, padding is adjusted (and the window scaled down if needed) so the output matches this size. Takes precedence over viewport for determining output dimensions."
+    },
     "outputFormat": {
       "type": "string",
       "enum": ["webm", "mp4", "gif"],
@@ -167,7 +171,7 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean", "description": "Enable background. Default: true when specified." },
-        "color": { "type": "string", "description": "Solid background color as hex string. Default: '#6366f1'." },
+        "color": { "type": "string", "description": "Solid background color as hex string. If neither color nor gradient is set, defaults to a gradient from '#6366f1' to '#a855f7'." },
         "gradient": {
           "type": "object",
           "required": ["from", "to"],

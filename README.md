@@ -99,7 +99,7 @@ For manual control over recording within any Playwright script:
 import { recordPage } from 'testreel'
 
 // page must belong to a context created with recordVideo
-const recorder = await recordPage(page, { scale: 2, chrome: true })
+const recorder = await recordPage(page, { chrome: true })
 await recorder.click('.button')
 await recorder.type('#search', 'hello')
 const result = await recorder.stop() // finalizes video + post-processing
@@ -113,7 +113,6 @@ console.log(result.video)
 - **Window chrome** — macOS-style title bar with traffic lights
 - **Background styling** — padding, rounded corners, solid or gradient backgrounds
 - **Multiple auth methods** — setup blocks, localStorage/cookies injection, storage state files, interactive login, Supabase provider
-- **Retina/HiDPI** — `scale` option for 2× resolution recording
 - **Playwright integration** — test fixture and `recordPage()` API for existing test suites
 - **Output formats** — WebM (default), MP4, GIF
 - **Speed control** — global and per-step playback speed

@@ -47,12 +47,15 @@ export interface PipelineConfig {
     videoWidth: number
     videoHeight: number
     screenshots?: string[]
-    scale?: number
+    /** Scale factor to apply to the window (viewport + chrome) before compositing. Used by outputSize. */
+    windowScale?: number
   }
   speed?: {
     stepTimings: StepTiming[]
     globalSpeed: number
   }
+  /** When set, the final output is padded/cropped to exactly this size. */
+  outputSize?: { width: number; height: number }
 }
 
 // ---------------------------------------------------------------------------
@@ -300,23 +303,44 @@ export async function runPostProcessPipeline(
     if (frame) {
       const hasChrome = !!frame.chrome
       const hasBackground = !!frame.background
-      const frameScale = frame.scale ?? 1
 
-      const titleBarHeight = (frame.chrome?.titleBarHeight ?? 38) * frameScale
+      const ws = frame.windowScale ?? 1
+      const titleBarHeight = Math.round(
+        (frame.chrome?.titleBarHeight ?? 38) * ws,
+      )
       const titleBarColor = frame.chrome?.titleBarColor ?? '#e8e8e8'
       const trafficLights = frame.chrome?.trafficLights ?? true
       const bgColor = frame.background?.color
       const bgGradient =
         frame.background?.gradient ??
         (bgColor ? undefined : { from: '#6366f1', to: '#a855f7' })
-      const padding = (frame.background?.padding ?? 60) * frameScale
-      const borderRadius = (frame.background?.borderRadius ?? 12) * frameScale
+      const padding = frame.background?.padding ?? 60
+      const borderRadius = Math.round(
+        (frame.background?.borderRadius ?? 12) * ws,
+      )
 
-      const framedW = frame.videoWidth
-      const framedH = frame.videoHeight + (hasChrome ? titleBarHeight : 0)
-      const finalW = hasBackground ? framedW + padding * 2 : framedW
-      const finalH = hasBackground ? framedH + padding * 2 : framedH
+      const scaledVideoW = Math.round(frame.videoWidth * ws)
+      const scaledVideoH = Math.round(frame.videoHeight * ws)
+      const framedW = scaledVideoW
+      const framedH = scaledVideoH + (hasChrome ? titleBarHeight : 0)
+      // Use outputSize for background dimensions if specified, otherwise
+      // compute from window + padding as before.
+      const outputSize = config.outputSize
+      const finalW =
+        outputSize?.width ?? (hasBackground ? framedW + padding * 2 : framedW)
+      const finalH =
+        outputSize?.height ?? (hasBackground ? framedH + padding * 2 : framedH)
+      // Compute centering offsets for the overlay
+      const overlayX = Math.round((finalW - framedW) / 2)
+      const overlayY = Math.round((finalH - framedH) / 2)
 
+      // Scale the video down if windowScale < 1
+      if (ws < 1) {
+        filterSegments.push(
+          `[${currentLabel}]scale=${scaledVideoW}:${scaledVideoH}:flags=lanczos[scaled_vid]`,
+        )
+        currentLabel = 'scaled_vid'
+      }
       // Launch browser to render frame PNGs
       const { chromium } = await import('playwright-core')
       browser = await chromium.launch({ headless: true })
@@ -333,7 +357,6 @@ export async function runPostProcessPipeline(
             trafficLights,
             borderRadius: hasBackground ? borderRadius : 0,
             urlText,
-            deviceScaleFactor: frameScale,
           },
           browser,
         )
@@ -352,7 +375,6 @@ export async function runPostProcessPipeline(
             background: bgGradient
               ? { type: 'gradient', from: bgGradient.from, to: bgGradient.to }
               : { type: 'solid', color: bgColor ?? '#6366f1' },
-            deviceScaleFactor: frameScale,
           },
           browser,
         )
@@ -364,7 +386,6 @@ export async function runPostProcessPipeline(
               width: framedW,
               height: framedH,
               borderRadius,
-              deviceScaleFactor: frameScale,
             },
             browser,
           )
@@ -377,11 +398,17 @@ export async function runPostProcessPipeline(
       const { filters, extraInputArgs, nextInputIndex } = buildFrameFilters({
         inputLabel: currentLabel,
         inputIndexStart: inputCount,
-        chrome: frame.chrome,
-        background: frame.background,
+        chrome: hasChrome
+          ? { ...frame.chrome, titleBarHeight, titleBarColor }
+          : undefined,
+        background: hasBackground
+          ? { ...frame.background, padding, borderRadius }
+          : undefined,
         framePngPath,
         bgPngPath,
         maskPngPath,
+        overlayX,
+        overlayY,
         outputLabel: frameOutputLabel,
       })
 
@@ -406,7 +433,7 @@ export async function runPostProcessPipeline(
               bgPngPath,
               totalWidth: finalW,
               totalHeight: finalH,
-              padding,
+              padding: overlayX,
               titleBarHeight,
               borderRadius,
             },

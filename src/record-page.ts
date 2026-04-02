@@ -36,7 +36,6 @@ export interface RecordPageOptions {
   background?: boolean | BackgroundOptions
   speed?: number
   outputFormat?: OutputFormat
-  scale?: number
   keepIntermediates?: boolean
 }
 
@@ -120,7 +119,6 @@ export async function recordPage(
     throw new Error('recordPage requires a page with a viewport set.')
   }
 
-  const scale = options.scale ?? 1
   const outputDir = options.outputDir ?? './testreel-output'
   const baseName = options.name ? sanitizeFilename(options.name) : undefined
   fs.mkdirSync(outputDir, { recursive: true })
@@ -141,7 +139,7 @@ export async function recordPage(
       : {}
     : undefined
 
-  const cursorTracker = cursorEnabled ? createCursorTracker(scale) : undefined
+  const cursorTracker = cursorEnabled ? createCursorTracker() : undefined
   const zoomState = createZoomState()
   const screenshots: string[] = []
   const globalSpeed = options.speed ?? 1.0
@@ -490,7 +488,7 @@ export async function recordPage(
                   events: cursorEventsForPipeline,
                   defaultStyle:
                     (cursorOptions?.style as CursorStyle) ?? 'default',
-                  size: (cursorOptions?.size ?? 24) * scale,
+                  size: cursorOptions?.size ?? 24,
                 }
               : undefined,
             frame:
@@ -498,10 +496,9 @@ export async function recordPage(
                 ? {
                     chrome: chromeOpts,
                     background: bgOpts,
-                    videoWidth: vp.width * scale,
-                    videoHeight: vp.height * scale,
+                    videoWidth: vp.width,
+                    videoHeight: vp.height,
                     screenshots,
-                    scale,
                   }
                 : undefined,
             speed: needsSpeed ? { stepTimings, globalSpeed } : undefined,
