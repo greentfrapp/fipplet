@@ -5,9 +5,10 @@ Thanks for your interest in contributing! This guide will get you up and running
 ## Development setup
 
 ```bash
-git clone https://github.com/greentfrapp/testreel.git
+# Fork the repo on GitHub first, then:
+git clone https://github.com/<your-username>/testreel.git
 cd testreel
-npm install
+pnpm install
 npx playwright install chromium
 ```
 
@@ -15,13 +16,13 @@ npx playwright install chromium
 
 | Command | Description |
 |---------|-------------|
-| `npm run build` | Build with tsup (outputs to `dist/`) |
-| `npm run dev` | Build in watch mode |
-| `npm test` | Run unit tests (vitest) |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:examples` | Run integration tests (requires build first) |
-| `npm run format` | Format code with Prettier |
-| `npm run format:check` | Check formatting |
+| `pnpm build` | Build with tsup (outputs to `dist/`) |
+| `pnpm dev` | Build in watch mode |
+| `pnpm test` | Run unit tests (vitest) |
+| `pnpm test:watch` | Run tests in watch mode |
+| `pnpm test:examples` | Run integration tests (requires build first) |
+| `pnpm format` | Format code with Prettier |
+| `pnpm format:check` | Check formatting |
 
 ## Project structure
 
@@ -42,11 +43,12 @@ src/
 
 ## Making changes
 
-1. Create a branch from `main`
-2. Make your changes
-3. Run `npm run format` to format code
-4. Run `npm test` to verify tests pass
-5. Open a pull request
+1. Fork the repo and clone your fork
+2. Create a branch from `dev`
+3. Make your changes
+4. Run `pnpm format` to format code
+5. Run `pnpm test` to verify tests pass
+6. Open a pull request against `dev`
 
 ## Code style
 
@@ -58,7 +60,7 @@ src/
 
 - Unit tests go in `src/__tests__/` and use vitest
 - Integration tests go in `examples/` and use Playwright
-- Run `npm run build && npm run test:examples` for integration tests
+- Run `pnpm build && pnpm test:examples` for integration tests
 
 ## Reporting bugs
 

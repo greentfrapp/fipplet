@@ -6,14 +6,16 @@ Testreel is a programmatic video recording library for web applications. It take
 
 ## Commands
 
-- **Build:** `npm run build` (tsup, outputs to `dist/`)
-- **Dev:** `npm run dev` (tsup watch mode)
-- **Test:** `npm test` (vitest)
+This repo uses pnpm (see `packageManager` in package.json). Use `pnpm` for all development commands. Quick Reference examples below use `npm`/`npx` as they target consumers who may use any package manager.
+
+- **Build:** `pnpm build` (tsup, outputs to `dist/`)
+- **Dev:** `pnpm dev` (tsup watch mode)
+- **Test:** `pnpm test` (vitest)
 - **Single test:** `npx vitest run src/__tests__/cursor.test.ts`
-- **Test watch:** `npm run test:watch`
-- **Integration tests:** `npm run test:examples` (Playwright-based, requires build first)
-- **Format:** `npm run format` (Prettier)
-- **Format check:** `npm run format:check`
+- **Test watch:** `pnpm test:watch`
+- **Integration tests:** `pnpm test:examples` (Playwright-based, requires build first)
+- **Format:** `pnpm format` (Prettier)
+- **Format check:** `pnpm format:check`
 
 ## Architecture
 
@@ -81,9 +83,14 @@ const result = await record('definition.yaml', { outputDir: './output' })
 
 **2. Playwright test fixture:**
 ```ts
-import { test, expect } from 'testreel/playwright'
+import { test, expect } from '@playwright/test'
+import { testreelFixtures, type TestreelFixtures } from 'testreel/playwright'
 
-test('demo', async ({ testreelPage }) => {
+const recorded = test.extend<TestreelFixtures>({
+  ...testreelFixtures,
+})
+
+recorded('demo', async ({ testreelPage }) => {
   await testreelPage.navigate('https://example.com')
   await testreelPage.click('.button')
   await testreelPage.type('input[name="search"]', 'Hello')
