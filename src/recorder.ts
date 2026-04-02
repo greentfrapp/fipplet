@@ -15,7 +15,7 @@ import type {
   RecordingResult,
   StepTiming,
 } from './types'
-import { cleanOutputDir, timestamp } from './utils'
+import { cleanOutputDir, computeOutputSizeLayout, timestamp } from './utils'
 import { loadDefinition } from './validation'
 import { createZoomState } from './zoom'
 
@@ -57,6 +57,14 @@ export async function record(
   }
 
   const viewport = def.viewport ?? { width: 1280, height: 720 }
+  const outputSizeLayout = def.outputSize
+    ? computeOutputSizeLayout(
+        def.outputSize,
+        viewport,
+        def.chrome,
+        def.background,
+      )
+    : undefined
   const zoomState = createZoomState()
   const screenshots: string[] = []
 
@@ -398,19 +406,33 @@ export async function record(
       ? { ...chromeConfig }
       : {}
     : undefined
-  const bgOpts = hasBackground
+  let bgOpts: import('./types').BackgroundOptions | undefined = hasBackground
     ? typeof bgConfig === 'object'
-      ? bgConfig
+      ? { ...bgConfig }
       : {}
     : undefined
   if (chromeOpts && chromeOpts.url === true) {
     chromeOpts = { ...chromeOpts, url: def.url }
   }
 
+  // Apply outputSize layout: override padding and enable background if needed
+  let windowScale: number | undefined
+  if (outputSizeLayout) {
+    if (!bgOpts) {
+      bgOpts = {}
+    }
+    bgOpts = { ...bgOpts, padding: outputSizeLayout.padding }
+    if (outputSizeLayout.windowScale < 1) {
+      windowScale = outputSizeLayout.windowScale
+    }
+  }
+
+  const hasFrame = !!(chromeOpts || bgOpts)
+
   const needsSpeed =
     globalSpeed !== 1.0 || stepTimings.some((t) => t.speed !== 1.0)
   const needsPipeline =
-    cursorEventsForPipeline || hasChrome || hasBackground || needsSpeed
+    cursorEventsForPipeline || hasFrame || needsSpeed
 
   if (needsPipeline && videoPath) {
     log('  post-processing...')
@@ -424,16 +446,16 @@ export async function record(
               size: cursorOptions?.size ?? 24,
             }
           : undefined,
-        frame:
-          hasChrome || hasBackground
-            ? {
-                chrome: chromeOpts,
-                background: bgOpts,
-                videoWidth: viewport.width,
-                videoHeight: viewport.height,
-                screenshots,
-              }
-            : undefined,
+        frame: hasFrame
+          ? {
+              chrome: chromeOpts,
+              background: bgOpts,
+              videoWidth: viewport.width,
+              videoHeight: viewport.height,
+              screenshots,
+              windowScale,
+            }
+          : undefined,
         speed: needsSpeed ? { stepTimings, globalSpeed } : undefined,
       })
       if (processedPath !== videoPath) {

@@ -175,6 +175,10 @@ export interface BackgroundOptions {
 export interface RecordingDefinition {
   url: string
   viewport?: Viewport
+  /** Desired final video dimensions. When set, the browser viewport is computed
+   *  by subtracting chrome title bar height and background padding so the output
+   *  video matches this size exactly. Takes precedence over `viewport`. */
+  outputSize?: Viewport
   colorScheme?: 'light' | 'dark'
   waitForSelector?: string
   storageState?: string

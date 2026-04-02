@@ -47,6 +47,8 @@ export interface PipelineConfig {
     videoWidth: number
     videoHeight: number
     screenshots?: string[]
+    /** Scale factor to apply to the window (viewport + chrome) before compositing. Used by outputSize. */
+    windowScale?: number
   }
   speed?: {
     stepTimings: StepTiming[]
@@ -300,7 +302,10 @@ export async function runPostProcessPipeline(
       const hasChrome = !!frame.chrome
       const hasBackground = !!frame.background
 
-      const titleBarHeight = frame.chrome?.titleBarHeight ?? 38
+      const ws = frame.windowScale ?? 1
+      const titleBarHeight = Math.round(
+        (frame.chrome?.titleBarHeight ?? 38) * ws,
+      )
       const titleBarColor = frame.chrome?.titleBarColor ?? '#e8e8e8'
       const trafficLights = frame.chrome?.trafficLights ?? true
       const bgColor = frame.background?.color
@@ -308,10 +313,22 @@ export async function runPostProcessPipeline(
         frame.background?.gradient ??
         (bgColor ? undefined : { from: '#6366f1', to: '#a855f7' })
       const padding = frame.background?.padding ?? 60
-      const borderRadius = frame.background?.borderRadius ?? 12
+      const borderRadius = Math.round(
+        (frame.background?.borderRadius ?? 12) * ws,
+      )
 
-      const framedW = frame.videoWidth
-      const framedH = frame.videoHeight + (hasChrome ? titleBarHeight : 0)
+      const scaledVideoW = Math.round(frame.videoWidth * ws)
+      const scaledVideoH = Math.round(frame.videoHeight * ws)
+      const framedW = scaledVideoW
+      const framedH = scaledVideoH + (hasChrome ? titleBarHeight : 0)
+
+      // Scale the video down if windowScale < 1
+      if (ws < 1) {
+        filterSegments.push(
+          `[${currentLabel}]scale=${scaledVideoW}:${scaledVideoH}:flags=lanczos[scaled_vid]`,
+        )
+        currentLabel = 'scaled_vid'
+      }
       const finalW = hasBackground ? framedW + padding * 2 : framedW
       const finalH = hasBackground ? framedH + padding * 2 : framedH
 

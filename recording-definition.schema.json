@@ -74,6 +74,10 @@
       "exclusiveMinimum": 0,
       "description": "Global playback speed multiplier. Default: 1.0."
     },
+    "outputSize": {
+      "$ref": "#/$defs/Viewport",
+      "description": "Desired final video dimensions. When set, padding is adjusted (and the window scaled down if needed) so the output matches this size. Takes precedence over viewport for determining output dimensions."
+    },
     "outputFormat": {
       "type": "string",
       "enum": ["webm", "mp4", "gif"],
