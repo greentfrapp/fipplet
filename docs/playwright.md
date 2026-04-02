@@ -161,7 +161,6 @@ Or override per-test:
 ```js
 recorded.use({
   testreelOptions: {
-    scale: 1,
     chrome: false,
     background: false,
   },

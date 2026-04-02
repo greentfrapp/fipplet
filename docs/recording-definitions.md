@@ -33,6 +33,7 @@ Only `url` and `steps` are required:
 | `url` | `string` | **required** | Target page URL. Supports `${VAR}` substitution. |
 | `steps` | `Step[]` | **required** | Non-empty array of actions to execute. |
 | `viewport` | `{ width, height }` | `1280×720` | Browser viewport dimensions in pixels. |
+| `outputSize` | `{ width, height }` | — | Desired final video dimensions. Padding is adjusted (and the window scaled down if needed) so the output matches this size. User-specified `padding` acts as a minimum. |
 | `colorScheme` | `"light"` \| `"dark"` | `"light"` | Preferred color scheme. |
 | `waitForSelector` | `string` | — | Selector to wait for before executing steps. Accepts any [Playwright selector](https://playwright.dev/docs/selectors). |
 | `speed` | `number` | `1.0` | Global playback speed multiplier (> 0). Values > 1 speed up, < 1 slow down. |

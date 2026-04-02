@@ -284,6 +284,7 @@ See [recording-definitions.md](recording-definitions.md) for the full schema.
 | `url` | `string` | **required** | Target URL (supports `${ENV_VAR}`) |
 | `steps` | `Step[]` | **required** | Non-empty array of actions |
 | `viewport` | `{ width, height }` | `1280x720` | Browser viewport |
+| `outputSize` | `{ width, height }` | — | Desired final video dimensions. Padding is adjusted so the output matches this size |
 | `colorScheme` | `'light' \| 'dark'` | `'light'` | Preferred color scheme |
 | `waitForSelector` | `string` | — | Wait before starting steps |
 | `speed` | `number` | `1.0` | Global playback speed |

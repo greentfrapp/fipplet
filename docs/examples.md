@@ -106,6 +106,30 @@ Add macOS-style chrome and a gradient background for marketing/docs:
 }
 ```
 
+## Fixed output size
+
+Target a specific video resolution (e.g., 1920×1080). Padding is computed automatically to fill the gap between the viewport and the desired size:
+
+```json
+{
+  "url": "https://app.example.com",
+  "viewport": { "width": 1280, "height": 720 },
+  "outputSize": { "width": 1920, "height": 1080 },
+  "chrome": { "url": true },
+  "background": {
+    "gradient": { "from": "#667eea", "to": "#764ba2" },
+    "borderRadius": 12
+  },
+  "steps": [
+    { "action": "wait", "ms": 1000 },
+    { "action": "click", "selector": ".demo-button" },
+    { "action": "wait", "ms": 2000 }
+  ]
+}
+```
+
+The `padding` in `background` acts as a minimum — if the viewport is small enough, padding increases to fill the target size. If the viewport is too large, the window is scaled down to fit while preserving aspect ratio.
+
 ## Authenticated app recording
 
 Record a dashboard that requires login, using a setup block:
