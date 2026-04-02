@@ -4,20 +4,21 @@ Common recording patterns to get you started.
 
 ## Simple page walkthrough
 
-Scroll through a page and capture key sections:
+Add some todos and check one off:
 
 ```json
 {
-  "url": "https://en.wikipedia.org/wiki/Main_Page",
+  "url": "https://demo.playwright.dev/todomvc",
   "viewport": { "width": 1280, "height": 720 },
   "steps": [
     { "action": "wait", "ms": 1000 },
-    { "action": "screenshot", "name": "above-fold" },
-    { "action": "scroll", "y": 400 },
-    { "action": "wait", "ms": 1000 },
-    { "action": "click", "selector": "#mp-tfa a:first-of-type" },
-    { "action": "wait", "ms": 2000 },
-    { "action": "screenshot", "name": "article" }
+    { "action": "type", "selector": ".new-todo", "text": "Buy groceries" },
+    { "action": "keyboard", "key": "Enter" },
+    { "action": "type", "selector": ".new-todo", "text": "Walk the dog" },
+    { "action": "keyboard", "key": "Enter" },
+    { "action": "screenshot", "name": "todos-added" },
+    { "action": "click", "selector": ".todo-list li:first-child .toggle" },
+    { "action": "screenshot", "name": "first-completed" }
   ]
 }
 ```

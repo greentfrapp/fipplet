@@ -136,7 +136,7 @@ A JSON Schema is published with the package at `recording-definition.schema.json
 
 ```json
 {
-  "url": "https://en.wikipedia.org/wiki/Main_Page",
+  "url": "https://demo.playwright.dev/todomvc",
   "viewport": { "width": 1280, "height": 720 },
 
   "cursor": { "style": "pointer" },
@@ -152,11 +152,13 @@ A JSON Schema is published with the package at `recording-definition.schema.json
 
   "steps": [
     { "action": "wait", "ms": 1000 },
-    { "action": "scroll", "y": 300 },
-    { "action": "click", "selector": "#mp-tfa a:first-of-type" },
-    { "action": "wait", "ms": 2000 },
-    { "action": "screenshot", "name": "article" },
-    { "action": "zoom", "selector": "#firstHeading", "scale": 2, "duration": 800 },
+    { "action": "type", "selector": ".new-todo", "text": "Buy groceries" },
+    { "action": "keyboard", "key": "Enter" },
+    { "action": "type", "selector": ".new-todo", "text": "Walk the dog" },
+    { "action": "keyboard", "key": "Enter" },
+    { "action": "click", "selector": ".todo-list li:first-child .toggle" },
+    { "action": "screenshot", "name": "completed-todo" },
+    { "action": "zoom", "selector": ".todo-list", "scale": 2, "duration": 800 },
     { "action": "wait", "ms": 1500 },
     { "action": "zoom", "scale": 1 }
   ]

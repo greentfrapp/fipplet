@@ -18,14 +18,17 @@ Create a file called `recording.json`:
 
 ```json
 {
-  "url": "https://en.wikipedia.org/wiki/Main_Page",
+  "url": "https://demo.playwright.dev/todomvc",
   "viewport": { "width": 1280, "height": 720 },
   "steps": [
     { "action": "wait", "ms": 1000 },
-    { "action": "screenshot", "name": "homepage" },
-    { "action": "scroll", "y": 400 },
-    { "action": "wait", "ms": 1000 },
-    { "action": "screenshot", "name": "scrolled" }
+    { "action": "type", "selector": ".new-todo", "text": "Buy groceries" },
+    { "action": "keyboard", "key": "Enter" },
+    { "action": "type", "selector": ".new-todo", "text": "Walk the dog" },
+    { "action": "keyboard", "key": "Enter" },
+    { "action": "screenshot", "name": "todos-added" },
+    { "action": "click", "selector": ".todo-list li:first-child .toggle" },
+    { "action": "screenshot", "name": "first-completed" }
   ]
 }
 ```

@@ -57,13 +57,13 @@ test('PageRecorder — cursor animation and zoom', async ({
   expect(greeting).toBe('Hello from a custom fixture!')
 
   // PageRecorder provides recording-specific methods with cursor tracking
-  await testreelPage.navigate('https://en.wikipedia.org/wiki/Main_Page')
+  await testreelPage.navigate('https://demo.playwright.dev/todomvc')
   await testreelPage.wait(1000)
-  await testreelPage.screenshot('composable-homepage')
+  await testreelPage.screenshot('composable-empty')
 
-  // Zoom into the main heading with animated transition
+  // Zoom into the heading with animated transition
   await testreelPage.zoom({
-    selector: '#mp-welcome',
+    selector: 'h1',
     scale: 2.5,
     duration: 800,
   })
@@ -74,8 +74,13 @@ test('PageRecorder — cursor animation and zoom', async ({
   await testreelPage.zoom({ scale: 1, duration: 600 })
   await testreelPage.wait(500)
 
-  // Smooth scroll with easing
-  await testreelPage.scroll({ y: 400 })
+  // Add a todo with animated typing
+  await testreelPage.type('.new-todo', 'Buy groceries')
+  await testreelPage.keyboard('Enter')
   await testreelPage.wait(500)
-  await testreelPage.screenshot('composable-scrolled')
+
+  // Smooth scroll with easing
+  await testreelPage.scroll({ y: 200 })
+  await testreelPage.wait(500)
+  await testreelPage.screenshot('composable-with-todo')
 })
