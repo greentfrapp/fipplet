@@ -55,7 +55,7 @@ When `cursor` is `true` or omitted, a default cursor is rendered. Pass an object
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | `boolean` | `true` | Enable/disable the cursor. |
-| `style` | `"default"` \| `"pointer"` \| `"crosshair"` | `"default"` | Cursor image style. |
+| `style` | `"default"` \| `"pointer"` \| `"text"` \| `"touch"` | `"default"` | Cursor image style. `"touch"` shows a centered circle for mobile UIs. |
 | `size` | `number` | `24` | Cursor size in pixels. |
 | `color` | `string` | — | Cursor color. |
 | `rippleColor` | `string` | — | Click ripple effect color. |

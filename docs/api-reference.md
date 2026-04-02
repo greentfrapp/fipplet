@@ -376,7 +376,7 @@ Wait for a network response. Requires `urlPattern` (URL substring to match).
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `enabled` | `boolean` | `true` | Enable cursor overlay |
-| `style` | `'default' \| 'pointer' \| 'text'` | auto-detected | Cursor image style |
+| `style` | `'default' \| 'pointer' \| 'text' \| 'touch'` | auto-detected | Cursor image style. `'touch'` shows a centered circle cursor for mobile UIs and disables auto-detection |
 | `size` | `number` | `24` | Cursor size in pixels |
 | `color` | `string` | — | Cursor color (hex) |
 | `rippleColor` | `string` | — | Click ripple color |

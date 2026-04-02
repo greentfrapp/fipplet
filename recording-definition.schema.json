@@ -137,7 +137,7 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean", "description": "Enable cursor overlay. Default: true." },
-        "style": { "type": "string", "enum": ["default", "pointer", "crosshair"], "description": "Cursor image style. Default: 'default'." },
+        "style": { "type": "string", "enum": ["default", "pointer", "text", "touch"], "description": "Cursor image style. 'touch' shows a centered circle cursor for mobile UIs. Default: 'default'." },
         "size": { "type": "number", "minimum": 1, "description": "Cursor size in pixels." },
         "color": { "type": "string", "description": "Cursor color." },
         "rippleColor": { "type": "string", "description": "Click ripple color." },

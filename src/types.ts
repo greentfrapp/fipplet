@@ -135,7 +135,7 @@ export interface SetupBlock {
   steps: Step[]
 }
 
-export type CursorStyle = 'default' | 'pointer' | 'text'
+export type CursorStyle = 'default' | 'pointer' | 'text' | 'touch'
 
 export interface CursorOptions {
   enabled?: boolean
