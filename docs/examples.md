@@ -90,10 +90,10 @@ Add macOS-style chrome and a gradient background for marketing/docs:
 {
   "url": "https://app.example.com",
   "viewport": { "width": 1280, "height": 720 },
+  "outputSize": { "width": 1920, "height": 1080 },
   "chrome": { "url": true },
   "background": {
     "gradient": { "from": "#667eea", "to": "#764ba2" },
-    "padding": 60,
     "borderRadius": 12
   },
   "outputFormat": "mp4",

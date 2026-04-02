@@ -138,12 +138,12 @@ A JSON Schema is published with the package at `recording-definition.schema.json
 {
   "url": "https://demo.playwright.dev/todomvc",
   "viewport": { "width": 1280, "height": 720 },
+  "outputSize": { "width": 1920, "height": 1080 },
 
   "cursor": { "style": "pointer" },
   "chrome": { "url": true },
   "background": {
     "gradient": { "from": "#667eea", "to": "#764ba2" },
-    "padding": 60,
     "borderRadius": 12
   },
 
