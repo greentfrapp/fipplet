@@ -81,8 +81,8 @@ Adds padding, rounded corners, and a colored or gradient background around the w
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | `boolean` | `true` | Enable/disable background. |
-| `color` | `string` | `"#6366f1"` | Solid background color (hex). |
-| `gradient` | `{ from, to }` | — | Two-color diagonal gradient. Overrides `color`. |
+| `color` | `string` | — | Solid background color (hex). |
+| `gradient` | `{ from, to }` | `{ from: '#6366f1', to: '#a855f7' }` | Two-color diagonal gradient. Overrides `color`. This is the default when neither `color` nor `gradient` is set. |
 | `padding` | `number` | `60` | Padding around the window in pixels. |
 | `borderRadius` | `number` | `12` | Corner radius in pixels. |
 

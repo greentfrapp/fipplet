@@ -74,6 +74,11 @@
       "exclusiveMinimum": 0,
       "description": "Global playback speed multiplier. Default: 1.0."
     },
+    "scale": {
+      "type": "number",
+      "minimum": 1,
+      "description": "Device scale factor (1 = standard, 2 = Retina/HiDPI). Default: 1."
+    },
     "outputFormat": {
       "type": "string",
       "enum": ["webm", "mp4", "gif"],
@@ -167,7 +172,7 @@
       "type": "object",
       "properties": {
         "enabled": { "type": "boolean", "description": "Enable background. Default: true when specified." },
-        "color": { "type": "string", "description": "Solid background color as hex string. Default: '#6366f1'." },
+        "color": { "type": "string", "description": "Solid background color as hex string. If neither color nor gradient is set, defaults to a gradient from '#6366f1' to '#a855f7'." },
         "gradient": {
           "type": "object",
           "required": ["from", "to"],

@@ -376,7 +376,7 @@ Wait for a network response. Requires `urlPattern` (URL substring to match).
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `enabled` | `boolean` | `true` | Enable cursor overlay |
-| `style` | `'default' \| 'pointer' \| 'text' \| 'touch'` | auto-detected | Cursor image style. `'touch'` shows a centered circle cursor for mobile UIs and disables auto-detection |
+| `style` | `'default' \| 'pointer' \| 'text' \| 'touch'` | `'default'` | Cursor image style. `'touch'` shows a centered circle cursor for mobile UIs |
 | `size` | `number` | `24` | Cursor size in pixels |
 | `color` | `string` | — | Cursor color (hex) |
 | `rippleColor` | `string` | — | Click ripple color |
@@ -398,8 +398,8 @@ Wait for a network response. Requires `urlPattern` (URL substring to match).
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `enabled` | `boolean` | `true` | Enable background |
-| `color` | `string` | `'#6366f1'` | Solid background color |
-| `gradient` | `{ from, to }` | — | Diagonal gradient (overrides color) |
+| `color` | `string` | — | Solid background color |
+| `gradient` | `{ from, to }` | `{ from: '#6366f1', to: '#a855f7' }` | Diagonal gradient (overrides color). This is the default when neither `color` nor `gradient` is set |
 | `padding` | `number` | `60` | Padding around window (px) |
 | `borderRadius` | `number` | `12` | Corner radius (px) |
 

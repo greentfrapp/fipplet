@@ -27,6 +27,7 @@ Run a recording from a definition file.
 | `--dry-run` | Validate definition and print summary without recording |
 | `--verbose` | Detailed output (per-step timing, diagnostics) |
 | `--quiet` | Suppress all output except errors and final paths |
+| `--clean` | Remove previous output files before recording |
 | `--keep-intermediates` | Keep intermediate files (cursor JSON, etc.) |
 | `-v, --version` | Show version |
 | `-h, --help` | Show help |

@@ -16,10 +16,11 @@ Install testreel alongside your existing Playwright setup:
 npm install testreel
 ```
 
-The `testreel/playwright` entry point exports two things you'll use together:
+The `testreel/playwright` entry point exports:
 
 - **`testreelFixtures`** (lowercase) — the fixtures object to spread into `test.extend()`
 - **`TestreelFixtures`** (PascalCase) — the TypeScript type for the generic parameter
+- **`test`** — a pre-composed test function with testreel fixtures already applied (simpler alternative if you don't need custom fixtures)
 
 ### Basic usage
 
