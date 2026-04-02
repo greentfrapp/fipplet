@@ -431,8 +431,7 @@ export async function record(
 
   const needsSpeed =
     globalSpeed !== 1.0 || stepTimings.some((t) => t.speed !== 1.0)
-  const needsPipeline =
-    cursorEventsForPipeline || hasFrame || needsSpeed
+  const needsPipeline = cursorEventsForPipeline || hasFrame || needsSpeed
 
   if (needsPipeline && videoPath) {
     log('  post-processing...')

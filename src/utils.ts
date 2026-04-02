@@ -1,10 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import type {
-  BackgroundOptions,
-  Viewport,
-  WindowChromeOptions,
-} from './types'
+import type { BackgroundOptions, Viewport, WindowChromeOptions } from './types'
 
 const TESTREEL_OUTPUT_EXTENSIONS = new Set([
   '.webm',
@@ -68,15 +64,14 @@ export function computeOutputSizeLayout(
   background?: boolean | BackgroundOptions,
 ): OutputSizeResult {
   const hasChrome =
-    chrome === true ||
-    (typeof chrome === 'object' && chrome.enabled !== false)
+    chrome === true || (typeof chrome === 'object' && chrome.enabled !== false)
 
   const titleBarHeight = hasChrome
-    ? (typeof chrome === 'object' ? chrome.titleBarHeight : undefined) ?? 38
+    ? ((typeof chrome === 'object' ? chrome.titleBarHeight : undefined) ?? 38)
     : 0
 
   const minPadding =
-    typeof background === 'object' ? background.padding ?? 60 : 60
+    typeof background === 'object' ? (background.padding ?? 60) : 60
 
   // Window = viewport + chrome title bar
   const windowW = viewport.width

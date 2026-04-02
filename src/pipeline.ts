@@ -326,8 +326,10 @@ export async function runPostProcessPipeline(
       // Use outputSize for background dimensions if specified, otherwise
       // compute from window + padding as before.
       const outputSize = config.outputSize
-      const finalW = outputSize?.width ?? (hasBackground ? framedW + padding * 2 : framedW)
-      const finalH = outputSize?.height ?? (hasBackground ? framedH + padding * 2 : framedH)
+      const finalW =
+        outputSize?.width ?? (hasBackground ? framedW + padding * 2 : framedW)
+      const finalH =
+        outputSize?.height ?? (hasBackground ? framedH + padding * 2 : framedH)
       // Compute centering offsets for the overlay
       const overlayX = Math.round((finalW - framedW) / 2)
       const overlayY = Math.round((finalH - framedH) / 2)
