@@ -18,6 +18,7 @@ import {
   buildPositionExpr,
   buildStyleExpr,
   buildVisibilityExpr,
+  buildZoomFilter,
   buildZoomSegments,
   runFFmpeg,
 } from './post-process'
@@ -271,8 +272,15 @@ export async function runPostProcessPipeline(
         )
       }
 
-      // Build discrete zoom segments for cursor scaling
-      const zoomSegments = buildZoomSegments(cursor.events, cursor.size)
+      // Build discrete zoom segments for cursor scaling.
+      // When FFmpeg zoom is active (frame compositing + zoom events with tx/ty),
+      // skip cursor zoom scaling — the FFmpeg crop+scale will scale everything.
+      const hasFFmpegZoom =
+        frame &&
+        cursor.events.some((e) => e.type === 'zoom' && e.zoomTx !== undefined)
+      const zoomSegments = hasFFmpegZoom
+        ? [{ cursorSize: cursor.size, enableExpr: '1' }]
+        : buildZoomSegments(cursor.events, cursor.size)
 
       const cursorOutputLabel = frame || speed ? 'cur_out' : 'pipeline_out'
 
@@ -300,14 +308,26 @@ export async function runPostProcessPipeline(
     // -----------------------------------------------------------------
     // Stage 2: Window chrome / background
     // -----------------------------------------------------------------
+    // Frame geometry — hoisted so Stage 2.5 (zoom) can access them
+    let frameFinalW = 0
+    let frameFinalH = 0
+    let frameOverlayX = 0
+    let frameOverlayY = 0
+    let frameTitleBarHeight = 0
+    let frameHasChrome = false
+    let frameScaledVideoW = 0
+    let frameScaledVideoH = 0
+
     if (frame) {
       const hasChrome = !!frame.chrome
       const hasBackground = !!frame.background
+      frameHasChrome = hasChrome
 
       const ws = frame.windowScale ?? 1
       const titleBarHeight = Math.round(
         (frame.chrome?.titleBarHeight ?? 38) * ws,
       )
+      frameTitleBarHeight = titleBarHeight
       const titleBarColor = frame.chrome?.titleBarColor ?? '#e8e8e8'
       const trafficLights = frame.chrome?.trafficLights ?? true
       const bgColor = frame.background?.color
@@ -321,6 +341,8 @@ export async function runPostProcessPipeline(
 
       const scaledVideoW = Math.round(frame.videoWidth * ws)
       const scaledVideoH = Math.round(frame.videoHeight * ws)
+      frameScaledVideoW = scaledVideoW
+      frameScaledVideoH = scaledVideoH
       const framedW = scaledVideoW
       const framedH = scaledVideoH + (hasChrome ? titleBarHeight : 0)
       // Use outputSize for background dimensions if specified, otherwise
@@ -330,9 +352,13 @@ export async function runPostProcessPipeline(
         outputSize?.width ?? (hasBackground ? framedW + padding * 2 : framedW)
       const finalH =
         outputSize?.height ?? (hasBackground ? framedH + padding * 2 : framedH)
+      frameFinalW = finalW
+      frameFinalH = finalH
       // Compute centering offsets for the overlay
       const overlayX = Math.round((finalW - framedW) / 2)
       const overlayY = Math.round((finalH - framedH) / 2)
+      frameOverlayX = overlayX
+      frameOverlayY = overlayY
 
       // Scale the video down if windowScale < 1
       if (ws < 1) {
@@ -393,7 +419,12 @@ export async function runPostProcessPipeline(
         }
       }
 
-      const frameOutputLabel = speed ? 'frm_out' : 'pipeline_out'
+      // Check if FFmpeg zoom stage will follow
+      const hasZoomEvents =
+        cursor &&
+        cursor.events.some((e) => e.type === 'zoom' && e.zoomTx !== undefined)
+      const frameOutputLabel =
+        speed || hasZoomEvents ? 'frm_out' : 'pipeline_out'
 
       const { filters, extraInputArgs, nextInputIndex } = buildFrameFilters({
         inputLabel: currentLabel,
@@ -444,6 +475,37 @@ export async function runPostProcessPipeline(
     }
 
     // -----------------------------------------------------------------
+    // Stage 2.5: Full-frame zoom (crop + scale on composited frame)
+    // -----------------------------------------------------------------
+    if (frame && cursor) {
+      const zoomInput = {
+        events: cursor.events,
+        frameWidth: frameFinalW,
+        frameHeight: frameFinalH,
+        pageOffsetX: frameOverlayX,
+        pageOffsetY:
+          frameOverlayY + (frameHasChrome ? frameTitleBarHeight : 0),
+        pageWidth: frameScaledVideoW,
+        pageHeight: frameScaledVideoH,
+      }
+      console.error(
+        `  zoom filter input: ${frameFinalW}x${frameFinalH}, pageOffset=(${frameOverlayX},${zoomInput.pageOffsetY}), page=${frameScaledVideoW}x${frameScaledVideoH}`,
+      )
+      const zoomResult = buildZoomFilter(
+        zoomInput,
+        currentLabel,
+        speed ? 'zoom_out' : 'pipeline_out',
+      )
+      console.error(
+        `  zoom filter result: ${zoomResult ? 'generated (' + zoomResult.filter.length + ' chars)' : 'null'}`,
+      )
+      if (zoomResult) {
+        filterSegments.push(zoomResult.filter)
+        currentLabel = zoomResult.outputLabel
+      }
+    }
+
+    // -----------------------------------------------------------------
     // Stage 3: Speed adjustment
     // -----------------------------------------------------------------
     if (speed) {
@@ -461,6 +523,10 @@ export async function runPostProcessPipeline(
     // Run single FFmpeg invocation
     // -----------------------------------------------------------------
     const filterGraph = filterSegments.join(';')
+    // Debug: save filter graph for inspection
+    const debugFilterPath = path.join(outputDir, 'debug-filter.txt')
+    fs.writeFileSync(debugFilterPath, filterGraph)
+    console.error('  filter graph saved to:', debugFilterPath)
     const filterScriptPath = path.join(
       os.tmpdir(),
       `testreel-pipeline-${Date.now()}.txt`,

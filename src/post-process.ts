@@ -235,6 +235,140 @@ export function buildZoomSegments(
   return segments
 }
 
+// ---------------------------------------------------------------------------
+// Full-frame zoom filter (scale + crop on composited frame)
+// ---------------------------------------------------------------------------
+
+export interface ZoomFilterInput {
+  events: CursorEvent[]
+  /** Composited frame dimensions (after window/background compositing) */
+  frameWidth: number
+  frameHeight: number
+  /** Offset of the page video within the composited frame */
+  pageOffsetX: number
+  pageOffsetY: number
+  /** Page viewport dimensions */
+  pageWidth: number
+  pageHeight: number
+}
+
+/**
+ * Build a time-varying FFmpeg scale+crop filter that zooms the entire
+ * composited frame (page + window chrome + background) based on zoom events.
+ *
+ * Uses scale with eval=frame to dynamically resize the frame per-frame,
+ * then crop with fixed output dimensions and per-frame x/y to select
+ * the visible region. FFmpeg's crop filter only evaluates w/h once at
+ * init, so time-varying dimensions are not possible — the scale filter
+ * handles the zoom factor instead.
+ *
+ * Returns null when no zoom events carry translation data (zoomTx/zoomTy),
+ * meaning FFmpeg zoom is not needed.
+ */
+export function buildZoomFilter(
+  input: ZoomFilterInput,
+  inputLabel: string,
+  outputLabel: string,
+): { filter: string; outputLabel: string } | null {
+  const {
+    events,
+    frameWidth: fw,
+    frameHeight: fh,
+    pageOffsetX,
+    pageOffsetY,
+    pageWidth: pw,
+    pageHeight: ph,
+  } = input
+
+  const zoomEvents = events.filter(
+    (e) =>
+      e.type === 'zoom' &&
+      e.zoomScale !== undefined &&
+      e.zoomTx !== undefined &&
+      e.zoomTy !== undefined,
+  )
+
+  if (zoomEvents.length === 0) return null
+
+  // Build keyframes for zoom factor and pan position.
+  // Each zoom event defines a target state; we interpolate over zoomDurationMs.
+  interface ZoomKeyframe {
+    time: number // arrival time (end of transition)
+    transitionMs: number
+    zoom: number // scale factor (1 = no zoom, 2 = 2x zoom)
+    panX: number // crop x position in the scaled-up frame
+    panY: number // crop y position in the scaled-up frame
+  }
+
+  const keyframes: ZoomKeyframe[] = []
+  for (const ev of zoomEvents) {
+    const scale = ev.zoomScale!
+    const tx = ev.zoomTx!
+    const ty = ev.zoomTy!
+    const durationMs = ev.zoomDurationMs ?? 600
+
+    // Compute zoom center in composited frame coordinates
+    const cfCenterX = pageOffsetX + (-tx + pw / (2 * scale))
+    const cfCenterY = pageOffsetY + (-ty + ph / (2 * scale))
+
+    // Pan position: center the crop on the zoom target in the scaled frame.
+    // After scaling by z, the target is at (cfCenterX * z, cfCenterY * z).
+    // Crop origin = target - halfOutput, clamped to valid range.
+    const panX = Math.round(
+      Math.max(0, Math.min(fw * scale - fw, cfCenterX * scale - fw / 2)),
+    )
+    const panY = Math.round(
+      Math.max(0, Math.min(fh * scale - fh, cfCenterY * scale - fh / 2)),
+    )
+
+    keyframes.push({
+      time: ev.time + durationMs / 1000,
+      transitionMs: durationMs,
+      zoom: scale,
+      panX,
+      panY,
+    })
+  }
+
+  // Build piecewise linear expression (same approach as buildPositionExpr)
+  function buildExpr(
+    kfs: ZoomKeyframe[],
+    field: 'zoom' | 'panX' | 'panY',
+    defaultVal: number,
+  ): string {
+    if (kfs.length === 0) return String(defaultVal)
+
+    let expr = String(kfs[kfs.length - 1][field])
+
+    for (let i = kfs.length - 1; i >= 0; i--) {
+      const curr = kfs[i]
+      const prev = i > 0 ? kfs[i - 1] : null
+      const prevVal = prev ? prev[field] : defaultVal
+      const durSec = curr.transitionMs / 1000
+      const arrivalTime = curr.time
+      const moveStart = Math.max(0, arrivalTime - durSec)
+
+      const lerp = `${prevVal}+(${curr[field]}-${prevVal})*(t-${moveStart.toFixed(4)})/${durSec.toFixed(4)}`
+      expr = `if(lt(t,${moveStart.toFixed(4)}),${prevVal},if(lt(t,${arrivalTime.toFixed(4)}),${lerp},${expr}))`
+    }
+
+    return expr
+  }
+
+  const zoomExpr = buildExpr(keyframes, 'zoom', 1)
+  const panXExpr = buildExpr(keyframes, 'panX', 0)
+  const panYExpr = buildExpr(keyframes, 'panY', 0)
+
+  // Scale up by zoom factor (eval=frame for per-frame dimensions),
+  // then crop to original frame size with per-frame pan position.
+  // trunc(val/2)*2 ensures even dimensions required by most codecs.
+  const filter =
+    `[${inputLabel}]scale=w='trunc(iw*(${zoomExpr})/2)*2':h='trunc(ih*(${zoomExpr})/2)*2':eval=frame:flags=lanczos` +
+    `,crop=w=${fw}:h=${fh}:x='${panXExpr}':y='${panYExpr}'[${outputLabel}]`
+
+  return { filter, outputLabel }
+}
+
 export interface RippleConfig {
   size: number
   r: number

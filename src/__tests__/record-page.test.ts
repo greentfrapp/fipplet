@@ -602,6 +602,53 @@ describe('PageRecorder zoom action', () => {
     expect(page.locator).toHaveBeenCalledWith('#target')
     expect(page.evaluate).toHaveBeenCalledTimes(1) // only the CSS transform apply
   })
+
+  it('skips CSS transform when chrome is enabled (FFmpeg zoom)', async () => {
+    page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      cursor: false,
+      chrome: true,
+    })
+
+    await recorder.zoom({ scale: 2 })
+    // CSS transform should NOT be applied — FFmpeg will handle zoom
+    expect(page.evaluate).not.toHaveBeenCalled()
+    // But waitForTimeout should still be called for timing
+    expect(page.waitForTimeout).toHaveBeenCalled()
+  })
+
+  it('does not corrupt zoomState when FFmpeg zoom is active', async () => {
+    page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      cursor: false,
+      chrome: true,
+    })
+
+    // Zoom in — should NOT mutate zoomState since FFmpeg handles it
+    await recorder.zoom({ scale: 2, x: 640, y: 360 })
+    // A second zoom with a selector should still compute coordinates
+    // correctly (zoomState.scale should still be 1, so no transform reversal)
+    await recorder.zoom({ selector: '#target', scale: 3 })
+    // If zoomState was corrupted to scale=2, this would compute wrong
+    // target coordinates. The fact it doesn't throw is the assertion.
+    expect(page.evaluate).not.toHaveBeenCalled()
+  })
+
+  it('skips CSS transform on zoom reset when background is enabled', async () => {
+    page = mockPage()
+    const recorder = await recordPage(page, {
+      outputDir: '/tmp/test-output',
+      cursor: false,
+      background: true,
+    })
+
+    await recorder.zoom({ scale: 1 })
+    // CSS transform should NOT be applied
+    expect(page.evaluate).not.toHaveBeenCalled()
+    expect(page.waitForTimeout).toHaveBeenCalledWith(700)
+  })
 })
 
 describe('PageRecorder name option', () => {

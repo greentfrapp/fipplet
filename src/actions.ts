@@ -335,16 +335,18 @@ async function handleZoom(
   }
 
   if (scale === 1 && !step.selector) {
-    ctx.zoomState.scale = 1
-    ctx.zoomState.tx = 0
-    ctx.zoomState.ty = 0
-    if (ctx.cursorTracker) ctx.cursorTracker.setZoom(1, duration)
-    await page.evaluate((ms: number) => {
-      const html = document.documentElement
-      html.style.transition = `transform ${ms}ms ease-in-out`
-      html.style.transformOrigin = 'top left'
-      html.style.transform = 'scale(1) translate(0px, 0px)'
-    }, duration)
+    if (ctx.cursorTracker) ctx.cursorTracker.setZoom(1, duration, 0, 0)
+    if (!ctx.useFFmpegZoom) {
+      ctx.zoomState.scale = 1
+      ctx.zoomState.tx = 0
+      ctx.zoomState.ty = 0
+      await page.evaluate((ms: number) => {
+        const html = document.documentElement
+        html.style.transition = `transform ${ms}ms ease-in-out`
+        html.style.transformOrigin = 'top left'
+        html.style.transform = 'scale(1) translate(0px, 0px)'
+      }, duration)
+    }
     await page.waitForTimeout(duration + 100)
     return
   }
@@ -378,30 +380,37 @@ async function handleZoom(
   const clampedTx = Math.min(0, Math.max(vw / scale - vw, tx))
   const clampedTy = Math.min(0, Math.max(vh / scale - vh, ty))
 
-  ctx.zoomState.scale = scale
-  ctx.zoomState.tx = clampedTx
-  ctx.zoomState.ty = clampedTy
-  if (ctx.cursorTracker) ctx.cursorTracker.setZoom(scale, duration)
+  if (ctx.cursorTracker)
+    ctx.cursorTracker.setZoom(scale, duration, clampedTx, clampedTy)
 
-  await page.evaluate(
-    ({
-      scale,
-      tx,
-      ty,
-      ms,
-    }: {
-      scale: number
-      tx: number
-      ty: number
-      ms: number
-    }) => {
-      const html = document.documentElement
-      html.style.transition = `transform ${ms}ms ease-in-out`
-      html.style.transformOrigin = 'top left'
-      html.style.transform = `scale(${scale}) translate(${tx}px, ${ty}px)`
-    },
-    { scale, tx: clampedTx, ty: clampedTy, ms: duration },
-  )
+  if (!ctx.useFFmpegZoom) {
+    // Only update zoomState when CSS transform is actually applied.
+    // When FFmpeg handles zoom, zoomState must stay at scale=1 so that
+    // subsequent actions compute coordinates correctly (no CSS transform
+    // to reverse).
+    ctx.zoomState.scale = scale
+    ctx.zoomState.tx = clampedTx
+    ctx.zoomState.ty = clampedTy
+    await page.evaluate(
+      ({
+        scale,
+        tx,
+        ty,
+        ms,
+      }: {
+        scale: number
+        tx: number
+        ty: number
+        ms: number
+      }) => {
+        const html = document.documentElement
+        html.style.transition = `transform ${ms}ms ease-in-out`
+        html.style.transformOrigin = 'top left'
+        html.style.transform = `scale(${scale}) translate(${tx}px, ${ty}px)`
+      },
+      { scale, tx: clampedTx, ty: clampedTy, ms: duration },
+    )
+  }
 
   await page.waitForTimeout(duration + 100)
 }

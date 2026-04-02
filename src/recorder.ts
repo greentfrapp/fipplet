@@ -289,6 +289,9 @@ export async function record(
 
   const cursorTracker = cursorEnabled ? createCursorTracker() : undefined
 
+  // Determine if frame compositing will be active (for FFmpeg zoom)
+  const hasFrameForZoom = !!(def.chrome || def.background)
+
   // Execute steps
   const ctx: ActionContext = {
     outputDir,
@@ -296,6 +299,7 @@ export async function record(
     cursorEnabled,
     cursorOptions,
     cursorTracker,
+    useFFmpegZoom: hasFrameForZoom,
   }
   const globalSpeed = options.speed ?? def.speed ?? 1.0
   const stepTimings: StepTiming[] = []
