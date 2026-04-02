@@ -54,6 +54,8 @@ export interface PipelineConfig {
     stepTimings: StepTiming[]
     globalSpeed: number
   }
+  /** When set, the final output is padded/cropped to exactly this size. */
+  outputSize?: { width: number; height: number }
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +323,14 @@ export async function runPostProcessPipeline(
       const scaledVideoH = Math.round(frame.videoHeight * ws)
       const framedW = scaledVideoW
       const framedH = scaledVideoH + (hasChrome ? titleBarHeight : 0)
+      // Use outputSize for background dimensions if specified, otherwise
+      // compute from window + padding as before.
+      const outputSize = config.outputSize
+      const finalW = outputSize?.width ?? (hasBackground ? framedW + padding * 2 : framedW)
+      const finalH = outputSize?.height ?? (hasBackground ? framedH + padding * 2 : framedH)
+      // Compute centering offsets for the overlay
+      const overlayX = Math.round((finalW - framedW) / 2)
+      const overlayY = Math.round((finalH - framedH) / 2)
 
       // Scale the video down if windowScale < 1
       if (ws < 1) {
@@ -329,9 +339,6 @@ export async function runPostProcessPipeline(
         )
         currentLabel = 'scaled_vid'
       }
-      const finalW = hasBackground ? framedW + padding * 2 : framedW
-      const finalH = hasBackground ? framedH + padding * 2 : framedH
-
       // Launch browser to render frame PNGs
       const { chromium } = await import('playwright-core')
       browser = await chromium.launch({ headless: true })
@@ -398,6 +405,8 @@ export async function runPostProcessPipeline(
         framePngPath,
         bgPngPath,
         maskPngPath,
+        overlayX,
+        overlayY,
         outputLabel: frameOutputLabel,
       })
 
@@ -422,7 +431,7 @@ export async function runPostProcessPipeline(
               bgPngPath,
               totalWidth: finalW,
               totalHeight: finalH,
-              padding,
+              padding: overlayX,
               titleBarHeight,
               borderRadius,
             },

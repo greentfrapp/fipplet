@@ -13,6 +13,10 @@ export interface FrameFilterInput {
   framePngPath?: string
   bgPngPath?: string
   maskPngPath?: string
+  /** X offset for centering the window on the background. Defaults to padding. */
+  overlayX?: number
+  /** Y offset for centering the window on the background. Defaults to padding. */
+  overlayY?: number
   outputLabel?: string
 }
 
@@ -96,8 +100,10 @@ export function buildFrameFilters(input: FrameFilterInput): FrameFilterOutput {
       currentLabel = 'rounded'
     }
 
+    const ox = input.overlayX ?? padding
+    const oy = input.overlayY ?? padding
     filters.push(
-      `[${bgInputIdx}:v][${currentLabel}]overlay=${padding}:${padding}:shortest=1:format=auto[${outputLabel}]`,
+      `[${bgInputIdx}:v][${currentLabel}]overlay=${ox}:${oy}:shortest=1:format=auto[${outputLabel}]`,
     )
     currentLabel = outputLabel
   } else {

@@ -457,6 +457,7 @@ export async function record(
             }
           : undefined,
         speed: needsSpeed ? { stepTimings, globalSpeed } : undefined,
+        outputSize: def.outputSize,
       })
       if (processedPath !== videoPath) {
         fs.unlinkSync(videoPath)
