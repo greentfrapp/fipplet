@@ -84,3 +84,28 @@ test('PageRecorder — cursor animation and zoom', async ({
   await testreelPage.wait(500)
   await testreelPage.screenshot('composable-with-todo')
 })
+
+// ── Regression: scale 2 + chrome + background must not fail ─────────────
+
+test.describe('HiDPI recording', () => {
+  test.use({
+    testreelOptions: {
+      viewport: { width: 1280, height: 720 },
+      scale: 2,
+      chrome: { url: true },
+      background: {
+        gradient: { from: '#667eea', to: '#764ba2' },
+        padding: 60,
+        borderRadius: 12,
+      },
+    },
+  })
+
+  test('scale 2 with chrome and background', async ({ testreelPage }) => {
+    await testreelPage.navigate('https://demo.playwright.dev/todomvc')
+    await testreelPage.wait(500)
+    await testreelPage.type('.new-todo', 'HiDPI test')
+    await testreelPage.keyboard('Enter')
+    await testreelPage.screenshot('hidpi-todo')
+  })
+})

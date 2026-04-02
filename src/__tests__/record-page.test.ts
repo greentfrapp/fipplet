@@ -448,7 +448,7 @@ describe('PageRecorder.stop() post-processing', () => {
     )
   })
 
-  it('passes scaled video dimensions when scale > 1', async () => {
+  it('passes viewport dimensions (not scaled) when scale > 1', async () => {
     const { runPostProcessPipeline } = await import('../pipeline')
     page = mockPage()
     const recorder = await recordPage(page, {
@@ -462,8 +462,8 @@ describe('PageRecorder.stop() post-processing', () => {
     expect(runPostProcessPipeline).toHaveBeenCalledWith(
       expect.objectContaining({
         frame: expect.objectContaining({
-          videoWidth: 2560,
-          videoHeight: 1440,
+          videoWidth: 1280,
+          videoHeight: 720,
           scale: 2,
         }),
       }),

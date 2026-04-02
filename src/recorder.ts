@@ -167,7 +167,7 @@ export async function record(
     colorScheme: def.colorScheme ?? 'light',
     recordVideo: {
       dir: outputDir,
-      size: { width: viewport.width * scale, height: viewport.height * scale },
+      size: { width: viewport.width, height: viewport.height },
     },
   }
 
@@ -283,7 +283,7 @@ export async function record(
       : {}
     : undefined
 
-  const cursorTracker = cursorEnabled ? createCursorTracker(scale) : undefined
+  const cursorTracker = cursorEnabled ? createCursorTracker() : undefined
 
   // Execute steps
   const ctx: ActionContext = {
@@ -426,7 +426,7 @@ export async function record(
           ? {
               events: cursorEventsForPipeline,
               defaultStyle: cursorOptions?.style ?? 'default',
-              size: (cursorOptions?.size ?? 24) * scale,
+              size: cursorOptions?.size ?? 24,
             }
           : undefined,
         frame:
@@ -434,8 +434,8 @@ export async function record(
             ? {
                 chrome: chromeOpts,
                 background: bgOpts,
-                videoWidth: viewport.width * scale,
-                videoHeight: viewport.height * scale,
+                videoWidth: viewport.width,
+                videoHeight: viewport.height,
                 screenshots,
                 scale,
               }

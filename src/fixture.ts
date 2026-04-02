@@ -45,7 +45,10 @@ export const testreelFixtures: Parameters<
     const viewport = testreelOptions.viewport ??
       projectUse.viewport ?? { width: 1280, height: 720 }
     const scale =
-      testreelOptions.deviceScaleFactor ?? projectUse.deviceScaleFactor ?? 1
+      testreelOptions.scale ??
+      testreelOptions.deviceScaleFactor ??
+      projectUse.deviceScaleFactor ??
+      1
 
     const context = await browser.newContext({
       ...projectUse.contextOptions,
@@ -59,8 +62,8 @@ export const testreelFixtures: Parameters<
       recordVideo: {
         dir: testInfo.outputDir,
         size: {
-          width: viewport.width * scale,
-          height: viewport.height * scale,
+          width: viewport.width,
+          height: viewport.height,
         },
       },
     })

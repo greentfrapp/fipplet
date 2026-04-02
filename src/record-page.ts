@@ -141,7 +141,7 @@ export async function recordPage(
       : {}
     : undefined
 
-  const cursorTracker = cursorEnabled ? createCursorTracker(scale) : undefined
+  const cursorTracker = cursorEnabled ? createCursorTracker() : undefined
   const zoomState = createZoomState()
   const screenshots: string[] = []
   const globalSpeed = options.speed ?? 1.0
@@ -490,7 +490,7 @@ export async function recordPage(
                   events: cursorEventsForPipeline,
                   defaultStyle:
                     (cursorOptions?.style as CursorStyle) ?? 'default',
-                  size: (cursorOptions?.size ?? 24) * scale,
+                  size: cursorOptions?.size ?? 24,
                 }
               : undefined,
             frame:
@@ -498,8 +498,8 @@ export async function recordPage(
                 ? {
                     chrome: chromeOpts,
                     background: bgOpts,
-                    videoWidth: vp.width * scale,
-                    videoHeight: vp.height * scale,
+                    videoWidth: vp.width,
+                    videoHeight: vp.height,
                     screenshots,
                     scale,
                   }

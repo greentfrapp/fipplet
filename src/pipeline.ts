@@ -300,18 +300,19 @@ export async function runPostProcessPipeline(
     if (frame) {
       const hasChrome = !!frame.chrome
       const hasBackground = !!frame.background
-      const frameScale = frame.scale ?? 1
 
-      const titleBarHeight = (frame.chrome?.titleBarHeight ?? 38) * frameScale
+      const titleBarHeight = frame.chrome?.titleBarHeight ?? 38
       const titleBarColor = frame.chrome?.titleBarColor ?? '#e8e8e8'
       const trafficLights = frame.chrome?.trafficLights ?? true
       const bgColor = frame.background?.color
       const bgGradient =
         frame.background?.gradient ??
         (bgColor ? undefined : { from: '#6366f1', to: '#a855f7' })
-      const padding = (frame.background?.padding ?? 60) * frameScale
-      const borderRadius = (frame.background?.borderRadius ?? 12) * frameScale
+      const padding = frame.background?.padding ?? 60
+      const borderRadius = frame.background?.borderRadius ?? 12
 
+      // All dimensions are logical (unscaled). deviceScaleFactor on the
+      // Playwright render calls produces PNGs at the correct physical size.
       const framedW = frame.videoWidth
       const framedH = frame.videoHeight + (hasChrome ? titleBarHeight : 0)
       const finalW = hasBackground ? framedW + padding * 2 : framedW
@@ -333,7 +334,6 @@ export async function runPostProcessPipeline(
             trafficLights,
             borderRadius: hasBackground ? borderRadius : 0,
             urlText,
-            deviceScaleFactor: frameScale,
           },
           browser,
         )
@@ -352,7 +352,6 @@ export async function runPostProcessPipeline(
             background: bgGradient
               ? { type: 'gradient', from: bgGradient.from, to: bgGradient.to }
               : { type: 'solid', color: bgColor ?? '#6366f1' },
-            deviceScaleFactor: frameScale,
           },
           browser,
         )
@@ -364,7 +363,6 @@ export async function runPostProcessPipeline(
               width: framedW,
               height: framedH,
               borderRadius,
-              deviceScaleFactor: frameScale,
             },
             browser,
           )
@@ -377,8 +375,12 @@ export async function runPostProcessPipeline(
       const { filters, extraInputArgs, nextInputIndex } = buildFrameFilters({
         inputLabel: currentLabel,
         inputIndexStart: inputCount,
-        chrome: frame.chrome,
-        background: frame.background,
+        chrome: hasChrome
+          ? { ...frame.chrome, titleBarHeight, titleBarColor }
+          : undefined,
+        background: hasBackground
+          ? { ...frame.background, padding, borderRadius }
+          : undefined,
         framePngPath,
         bgPngPath,
         maskPngPath,
