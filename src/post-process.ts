@@ -31,8 +31,8 @@ const CURSOR_BASE_SIZE = 100
  */
 export const CURSOR_HOTSPOT: Record<string, { x: number; y: number }> = {
   default: { x: 0, y: 0 },
-  pointer: { x: 0, y: 0 },
-  text: { x: 0.5, y: 0 },
+  pointer: { x: 0.38, y: 0.2 },
+  text: { x: 0.5, y: 0.5 },
   touch: { x: 0.5, y: 0.5 },
 }
 
