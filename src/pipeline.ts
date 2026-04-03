@@ -483,8 +483,7 @@ export async function runPostProcessPipeline(
         frameWidth: frameFinalW,
         frameHeight: frameFinalH,
         pageOffsetX: frameOverlayX,
-        pageOffsetY:
-          frameOverlayY + (frameHasChrome ? frameTitleBarHeight : 0),
+        pageOffsetY: frameOverlayY + (frameHasChrome ? frameTitleBarHeight : 0),
         pageWidth: frameScaledVideoW,
         pageHeight: frameScaledVideoH,
       }
