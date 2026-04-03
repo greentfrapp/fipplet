@@ -251,6 +251,8 @@ export interface CursorEvent {
   cursorStyle?: CursorStyle // for 'move' events — auto-detected from target element
   zoomScale?: number // for 'zoom' events — page zoom level
   zoomDurationMs?: number // for 'zoom' events — transition duration
+  zoomTx?: number // for 'zoom' events — clamped X translation
+  zoomTy?: number // for 'zoom' events — clamped Y translation
 }
 
 export interface CursorTracker {
@@ -272,7 +274,7 @@ export interface CursorTracker {
   ): Promise<void>
   hideCursor(page: import('playwright-core').Page): Promise<void>
   showCursor(page: import('playwright-core').Page): Promise<void>
-  setZoom(scale: number, durationMs: number): void
+  setZoom(scale: number, durationMs: number, tx?: number, ty?: number): void
   getEvents(): CursorEvent[]
 }
 
@@ -282,4 +284,5 @@ export interface ActionContext {
   cursorEnabled: boolean
   cursorOptions?: CursorOptions
   cursorTracker?: CursorTracker
+  useFFmpegZoom?: boolean
 }

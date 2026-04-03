@@ -228,6 +228,29 @@ describe('cursor event tracker', () => {
       expect(zoomEvent.x).toBe(300)
       expect(zoomEvent.y).toBe(400)
     })
+
+    it('stores zoomTx and zoomTy when provided', () => {
+      const tracker = createCursorTracker()
+      tracker.setZoom(2, 600, -100, -50)
+
+      const events = tracker.getEvents()
+      expect(events[0]).toMatchObject({
+        type: 'zoom',
+        zoomScale: 2,
+        zoomDurationMs: 600,
+        zoomTx: -100,
+        zoomTy: -50,
+      })
+    })
+
+    it('leaves zoomTx/zoomTy undefined when not provided', () => {
+      const tracker = createCursorTracker()
+      tracker.setZoom(2, 600)
+
+      const events = tracker.getEvents()
+      expect(events[0].zoomTx).toBeUndefined()
+      expect(events[0].zoomTy).toBeUndefined()
+    })
   })
 
   describe('initCursorTracker resets state', () => {

@@ -195,7 +195,7 @@ export class CursorTrackerImpl implements CursorTracker {
   /**
    * Log a zoom level change so the cursor scales proportionally.
    */
-  setZoom(scale: number, durationMs: number): void {
+  setZoom(scale: number, durationMs: number, tx?: number, ty?: number): void {
     this.events.push({
       time: this.elapsed(),
       type: 'zoom',
@@ -203,6 +203,8 @@ export class CursorTrackerImpl implements CursorTracker {
       y: this.cursorPos.y,
       zoomScale: scale,
       zoomDurationMs: durationMs,
+      zoomTx: tx,
+      zoomTy: ty,
     })
   }
 
