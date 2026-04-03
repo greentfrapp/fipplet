@@ -135,7 +135,7 @@ export interface SetupBlock {
   steps: Step[]
 }
 
-export type CursorStyle = 'default' | 'pointer' | 'text'
+export type CursorStyle = 'default' | 'pointer' | 'text' | 'touch'
 
 export interface CursorOptions {
   enabled?: boolean
@@ -162,9 +162,9 @@ export interface WindowChromeOptions {
 
 export interface BackgroundOptions {
   enabled?: boolean
-  /** Solid background color as hex string. Default: '#6366f1'. */
+  /** Solid background color as hex string. If neither color nor gradient is set, defaults to a gradient from '#6366f1' to '#a855f7'. */
   color?: string
-  /** Two-color diagonal gradient (overrides color). */
+  /** Two-color diagonal gradient. If neither color nor gradient is set, defaults to { from: '#6366f1', to: '#a855f7' }. */
   gradient?: { from: string; to: string }
   /** Padding around the window in pixels. Default: 60. */
   padding?: number
@@ -175,8 +175,10 @@ export interface BackgroundOptions {
 export interface RecordingDefinition {
   url: string
   viewport?: Viewport
-  /** Device scale factor (1 = standard, 2 = Retina/HiDPI). Default: 1. */
-  scale?: number
+  /** Desired final video dimensions. When set, the browser viewport is computed
+   *  by subtracting chrome title bar height and background padding so the output
+   *  video matches this size exactly. Takes precedence over `viewport`. */
+  outputSize?: Viewport
   colorScheme?: 'light' | 'dark'
   waitForSelector?: string
   storageState?: string
@@ -200,9 +202,9 @@ export interface RecordOptions {
   headless?: boolean
   setup?: SetupBlock
   speed?: number
-  /** Device scale factor override (1 = standard, 2 = Retina/HiDPI). */
-  scale?: number
   outputFormat?: OutputFormat
+  /** Remove previous testreel output files from outputDir before recording. Default: false. */
+  clean?: boolean
   /** Keep intermediate files (cursor JSON, etc.) instead of cleaning up. */
   keepIntermediates?: boolean
 }
@@ -249,12 +251,14 @@ export interface CursorEvent {
   cursorStyle?: CursorStyle // for 'move' events — auto-detected from target element
   zoomScale?: number // for 'zoom' events — page zoom level
   zoomDurationMs?: number // for 'zoom' events — transition duration
+  zoomTx?: number // for 'zoom' events — clamped X translation
+  zoomTy?: number // for 'zoom' events — clamped Y translation
 }
 
 export interface CursorTracker {
   moveCursorTo(
     page: import('playwright-core').Page,
-    selector: string,
+    selector: string | import('playwright-core').Locator,
     zoomState: ZoomState,
     options?: CursorOptions,
   ): Promise<void>
@@ -270,7 +274,7 @@ export interface CursorTracker {
   ): Promise<void>
   hideCursor(page: import('playwright-core').Page): Promise<void>
   showCursor(page: import('playwright-core').Page): Promise<void>
-  setZoom(scale: number, durationMs: number): void
+  setZoom(scale: number, durationMs: number, tx?: number, ty?: number): void
   getEvents(): CursorEvent[]
 }
 
@@ -280,6 +284,5 @@ export interface ActionContext {
   cursorEnabled: boolean
   cursorOptions?: CursorOptions
   cursorTracker?: CursorTracker
-  /** Device scale factor. Default: 1. */
-  scale: number
+  useFFmpegZoom?: boolean
 }

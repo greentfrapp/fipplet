@@ -34,34 +34,41 @@ recorded.use({
 
 // ── Tests ──────────────────────────────────────────────────────────────
 
-recorded('Wikipedia — browse and read an article', async ({ page }) => {
-  // Navigate to Wikipedia
-  await page.goto('https://en.wikipedia.org/wiki/Main_Page')
+recorded('TodoMVC — add and complete todos', async ({ page }) => {
+  await page.goto('https://demo.playwright.dev/todomvc')
   await page.waitForTimeout(1000)
 
-  // Scroll down to the "From today's featured article" section
-  await page.evaluate(() => window.scrollBy(0, 400))
+  // Add a few todos
+  await page.fill('.new-todo', 'Buy groceries')
+  await page.keyboard.press('Enter')
+  await page.fill('.new-todo', 'Walk the dog')
+  await page.keyboard.press('Enter')
+  await page.fill('.new-todo', 'Read a book')
+  await page.keyboard.press('Enter')
   await page.waitForTimeout(500)
 
-  // Click the first link in the featured article
-  await page.click('#mp-tfa-img a')
-  await page.waitForTimeout(2000)
-
-  // Scroll through the article
-  await page.evaluate(() => window.scrollBy(0, 500))
+  // Complete the first todo
+  await page.click('.todo-list li:first-child .toggle')
   await page.waitForTimeout(1000)
 })
 
-recorded('Wikipedia — search for a topic', async ({ page }) => {
-  await page.goto('https://en.wikipedia.org/wiki/Main_Page')
+recorded('TodoMVC — filter todos', async ({ page }) => {
+  await page.goto('https://demo.playwright.dev/todomvc')
   await page.waitForTimeout(1000)
 
-  // Click the search input and type a query
-  await page.click('#searchInput')
-  await page.fill('#searchform input[name="search"]', 'Playwright browser automation')
-  await page.waitForTimeout(1000)
-
-  // Submit the search
+  // Add todos and complete one
+  await page.fill('.new-todo', 'Buy groceries')
   await page.keyboard.press('Enter')
-  await page.waitForTimeout(2000)
+  await page.fill('.new-todo', 'Walk the dog')
+  await page.keyboard.press('Enter')
+  await page.click('.todo-list li:first-child .toggle')
+  await page.waitForTimeout(500)
+
+  // Filter to active todos
+  await page.click('a[href="#/active"]')
+  await page.waitForTimeout(1000)
+
+  // Filter to completed todos
+  await page.click('a[href="#/completed"]')
+  await page.waitForTimeout(1000)
 })

@@ -1,7 +1,7 @@
-import { execFile } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import { runFFmpeg } from './ffmpeg'
 import type { CursorEvent, CursorStyle } from './types'
 
 /** Shared VP9 encoding flags optimized for speed with screen content. */
@@ -20,42 +20,21 @@ export const VP9_FAST_FLAGS = [
   '0',
 ] as const
 
-/**
- * Resolve the path to the ffmpeg binary.
- * Uses @ffmpeg-installer/ffmpeg if available, falls back to system ffmpeg.
- */
-function getFFmpegPath(): string {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('ffmpeg-static') as string
-  } catch {
-    return 'ffmpeg'
-  }
-}
-
-export function runFFmpeg(
-  args: string[],
-  timeoutMs: number = 5 * 60 * 1000,
-): Promise<void> {
-  const ffmpeg = getFFmpegPath()
-  return new Promise((resolve, reject) => {
-    execFile(
-      ffmpeg,
-      args,
-      { maxBuffer: 50 * 1024 * 1024, timeout: timeoutMs },
-      (err, _stdout, stderr) => {
-        if (err) {
-          reject(new Error(`ffmpeg failed: ${err.message}\n${stderr}`))
-        } else {
-          resolve()
-        }
-      },
-    )
-  })
-}
+export { runFFmpeg } from './ffmpeg'
 
 /** Base size of bundled cursor PNGs (100×100 high-res source). */
 const CURSOR_BASE_SIZE = 100
+
+/**
+ * Cursor hotspot offset as a fraction of cursor size.
+ * (0, 0) = top-left (arrow cursors), (0.5, 0.5) = center (touch cursor).
+ */
+export const CURSOR_HOTSPOT: Record<string, { x: number; y: number }> = {
+  default: { x: 0, y: 0 },
+  pointer: { x: 0.38, y: 0.2 },
+  text: { x: 0.5, y: 0.5 },
+  touch: { x: 0.5, y: 0.5 },
+}
 
 /**
  * Build FFmpeg piecewise-linear expression for cursor position.
@@ -192,7 +171,9 @@ export function buildZoomSegments(
   events: CursorEvent[],
   baseCursorSize: number,
 ): ZoomSegment[] {
-  const zoomEvents = events.filter((e) => e.type === 'zoom' && e.zoomScale !== undefined)
+  const zoomEvents = events.filter(
+    (e) => e.type === 'zoom' && e.zoomScale !== undefined,
+  )
 
   // No zoom events — single segment at base size
   if (zoomEvents.length === 0) {
@@ -200,7 +181,10 @@ export function buildZoomSegments(
   }
 
   // Build time ranges with interpolated intermediate steps during transitions
-  interface TimeRange { start: number; end: number }
+  interface TimeRange {
+    start: number
+    end: number
+  }
   const sizeRanges = new Map<number, TimeRange[]>()
 
   const addRange = (size: number, start: number, end: number) => {
@@ -241,14 +225,148 @@ export function buildZoomSegments(
   // Build enable expressions per cursor size
   const segments: ZoomSegment[] = []
   for (const [cursorSize, ranges] of sizeRanges) {
-    const parts = ranges.map((r) =>
-      `between(t\\,${r.start.toFixed(4)}\\,${r.end.toFixed(4)})`,
+    const parts = ranges.map(
+      (r) => `between(t\\,${r.start.toFixed(4)}\\,${r.end.toFixed(4)})`,
     )
     const enableExpr = parts.length === 1 ? parts[0] : parts.join('+')
     segments.push({ cursorSize, enableExpr })
   }
 
   return segments
+}
+
+// ---------------------------------------------------------------------------
+// Full-frame zoom filter (scale + crop on composited frame)
+// ---------------------------------------------------------------------------
+
+export interface ZoomFilterInput {
+  events: CursorEvent[]
+  /** Composited frame dimensions (after window/background compositing) */
+  frameWidth: number
+  frameHeight: number
+  /** Offset of the page video within the composited frame */
+  pageOffsetX: number
+  pageOffsetY: number
+  /** Page viewport dimensions */
+  pageWidth: number
+  pageHeight: number
+}
+
+/**
+ * Build a time-varying FFmpeg scale+crop filter that zooms the entire
+ * composited frame (page + window chrome + background) based on zoom events.
+ *
+ * Uses scale with eval=frame to dynamically resize the frame per-frame,
+ * then crop with fixed output dimensions and per-frame x/y to select
+ * the visible region. FFmpeg's crop filter only evaluates w/h once at
+ * init, so time-varying dimensions are not possible — the scale filter
+ * handles the zoom factor instead.
+ *
+ * Returns null when no zoom events carry translation data (zoomTx/zoomTy),
+ * meaning FFmpeg zoom is not needed.
+ */
+export function buildZoomFilter(
+  input: ZoomFilterInput,
+  inputLabel: string,
+  outputLabel: string,
+): { filter: string; outputLabel: string } | null {
+  const {
+    events,
+    frameWidth: fw,
+    frameHeight: fh,
+    pageOffsetX,
+    pageOffsetY,
+    pageWidth: pw,
+    pageHeight: ph,
+  } = input
+
+  const zoomEvents = events.filter(
+    (e) =>
+      e.type === 'zoom' &&
+      e.zoomScale !== undefined &&
+      e.zoomTx !== undefined &&
+      e.zoomTy !== undefined,
+  )
+
+  if (zoomEvents.length === 0) return null
+
+  // Build keyframes for zoom factor and pan position.
+  // Each zoom event defines a target state; we interpolate over zoomDurationMs.
+  interface ZoomKeyframe {
+    time: number // arrival time (end of transition)
+    transitionMs: number
+    zoom: number // scale factor (1 = no zoom, 2 = 2x zoom)
+    panX: number // crop x position in the scaled-up frame
+    panY: number // crop y position in the scaled-up frame
+  }
+
+  const keyframes: ZoomKeyframe[] = []
+  for (const ev of zoomEvents) {
+    const scale = ev.zoomScale!
+    const tx = ev.zoomTx!
+    const ty = ev.zoomTy!
+    const durationMs = ev.zoomDurationMs ?? 600
+
+    // Compute zoom center in composited frame coordinates
+    const cfCenterX = pageOffsetX + (-tx + pw / (2 * scale))
+    const cfCenterY = pageOffsetY + (-ty + ph / (2 * scale))
+
+    // Pan position: center the crop on the zoom target in the scaled frame.
+    // After scaling by z, the target is at (cfCenterX * z, cfCenterY * z).
+    // Crop origin = target - halfOutput, clamped to valid range.
+    const panX = Math.round(
+      Math.max(0, Math.min(fw * scale - fw, cfCenterX * scale - fw / 2)),
+    )
+    const panY = Math.round(
+      Math.max(0, Math.min(fh * scale - fh, cfCenterY * scale - fh / 2)),
+    )
+
+    keyframes.push({
+      time: ev.time + durationMs / 1000,
+      transitionMs: durationMs,
+      zoom: scale,
+      panX,
+      panY,
+    })
+  }
+
+  // Build piecewise linear expression (same approach as buildPositionExpr)
+  function buildExpr(
+    kfs: ZoomKeyframe[],
+    field: 'zoom' | 'panX' | 'panY',
+    defaultVal: number,
+  ): string {
+    if (kfs.length === 0) return String(defaultVal)
+
+    let expr = String(kfs[kfs.length - 1][field])
+
+    for (let i = kfs.length - 1; i >= 0; i--) {
+      const curr = kfs[i]
+      const prev = i > 0 ? kfs[i - 1] : null
+      const prevVal = prev ? prev[field] : defaultVal
+      const durSec = curr.transitionMs / 1000
+      const arrivalTime = curr.time
+      const moveStart = Math.max(0, arrivalTime - durSec)
+
+      const lerp = `${prevVal}+(${curr[field]}-${prevVal})*(t-${moveStart.toFixed(4)})/${durSec.toFixed(4)}`
+      expr = `if(lt(t,${moveStart.toFixed(4)}),${prevVal},if(lt(t,${arrivalTime.toFixed(4)}),${lerp},${expr}))`
+    }
+
+    return expr
+  }
+
+  const zoomExpr = buildExpr(keyframes, 'zoom', 1)
+  const panXExpr = buildExpr(keyframes, 'panX', 0)
+  const panYExpr = buildExpr(keyframes, 'panY', 0)
+
+  // Scale up by zoom factor (eval=frame for per-frame dimensions),
+  // then crop to original frame size with per-frame pan position.
+  // trunc(val/2)*2 ensures even dimensions required by most codecs.
+  const filter =
+    `[${inputLabel}]scale=w='trunc(iw*(${zoomExpr})/2)*2':h='trunc(ih*(${zoomExpr})/2)*2':eval=frame:flags=lanczos` +
+    `,crop=w=${fw}:h=${fh}:x='${panXExpr}':y='${panYExpr}'[${outputLabel}]`
+
+  return { filter, outputLabel }
 }
 
 export interface RippleConfig {
@@ -323,15 +441,15 @@ export function buildFilterGraph(
   const extraInputArgs: string[] = []
 
   // Determine effective zoom segments (default: single segment at base cursor size)
-  const effectiveZoom = zoomSegments && zoomSegments.length > 1
-    ? zoomSegments
-    : undefined
+  const effectiveZoom =
+    zoomSegments && zoomSegments.length > 1 ? zoomSegments : undefined
 
   if (multiCursor && multiCursor.inputs.length > 0) {
     if (effectiveZoom) {
       // Multi-cursor × multi-zoom: one overlay per (style × zoom) pair
       for (const { style, inputIdx } of multiCursor.inputs) {
         const styleExpr = multiCursor.styleExprs[style] ?? '0'
+        const hotspot = CURSOR_HOTSPOT[style] ?? { x: 0, y: 0 }
 
         for (let z = 0; z < effectiveZoom.length; z++) {
           const zoom = effectiveZoom[z]
@@ -347,12 +465,18 @@ export function buildFilterGraph(
             cursorLabel = scaledLabel
           }
 
+          // Apply hotspot offset so the cursor's logical point aligns with (x, y)
+          const xOff = Math.round(hotspot.x * zoom.cursorSize)
+          const yOff = Math.round(hotspot.y * zoom.cursorSize)
+          const adjX = xOff === 0 ? xExpr : `(${xExpr})-${xOff}`
+          const adjY = yOff === 0 ? yExpr : `(${yExpr})-${yOff}`
+
           // Enable = visibility × style × zoom
           const enableExpr = `(${visExpr})*(${styleExpr})*(${zoom.enableExpr})`
           const outLabel = `${label}_out`
 
           filters.push(
-            `[${currentInput}][${cursorLabel}]overlay=x='${xExpr}':y='${yExpr}':enable='${enableExpr}':format=auto[${outLabel}]`,
+            `[${currentInput}][${cursorLabel}]overlay=x='${adjX}':y='${adjY}':enable='${enableExpr}':format=auto[${outLabel}]`,
           )
           currentInput = outLabel
         }
@@ -362,6 +486,7 @@ export function buildFilterGraph(
       for (let i = 0; i < multiCursor.inputs.length; i++) {
         const { style, inputIdx } = multiCursor.inputs[i]
         const styleExpr = multiCursor.styleExprs[style] ?? '0'
+        const hotspot = CURSOR_HOTSPOT[style] ?? { x: 0, y: 0 }
 
         let cursorLabel = `${inputIdx}:v`
         if (cursorSize !== CURSOR_BASE_SIZE) {
@@ -372,11 +497,17 @@ export function buildFilterGraph(
           cursorLabel = scaledLabel
         }
 
+        // Apply hotspot offset so the cursor's logical point aligns with (x, y)
+        const xOff = Math.round(hotspot.x * cursorSize)
+        const yOff = Math.round(hotspot.y * cursorSize)
+        const adjX = xOff === 0 ? xExpr : `(${xExpr})-${xOff}`
+        const adjY = yOff === 0 ? yExpr : `(${yExpr})-${yOff}`
+
         const enableExpr = `(${visExpr})*(${styleExpr})`
         const outLabel = `cursor_${style}_out`
 
         filters.push(
-          `[${currentInput}][${cursorLabel}]overlay=x='${xExpr}':y='${yExpr}':enable='${enableExpr}':format=auto[${outLabel}]`,
+          `[${currentInput}][${cursorLabel}]overlay=x='${adjX}':y='${adjY}':enable='${enableExpr}':format=auto[${outLabel}]`,
         )
         currentInput = outLabel
       }
